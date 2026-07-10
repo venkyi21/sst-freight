@@ -27,6 +27,8 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [shipments, setShipments] = useState<Shipment[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingDefaultMode, setBookingDefaultMode] = useState<ShipmentMode>('ocean')
 
@@ -36,6 +38,8 @@ export default function DashboardPage() {
     if (!orgId) return
     let cancelled = false
     setLoading(true)
+    setLoadError(null)
+    setShipments([])
     supabase
       .from('shipments')
       .select('*')
@@ -43,13 +47,17 @@ export default function DashboardPage() {
       .order('created_at', { ascending: false })
       .then(({ data, error }) => {
         if (cancelled) return
-        if (!error && data) setShipments(data as Shipment[])
+        if (error) {
+          setLoadError(error.message)
+        } else if (data) {
+          setShipments(data as Shipment[])
+        }
         setLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [orgId])
+  }, [orgId, reloadToken])
 
   const modeCounts = useMemo(
     () => ({
@@ -176,7 +184,39 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-            <ShipmentsTable shipments={filtered} loading={loading} />
+            {loadError ? (
+              <div
+                style={{
+                  background: 'rgba(244,63,94,0.08)',
+                  border: '1px solid rgba(244,63,94,0.3)',
+                  borderRadius: 12,
+                  padding: 24,
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ color: '#fb7185', fontSize: 13.5, marginBottom: 12 }}>
+                  Couldn't load shipments: {loadError}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReloadToken((t) => t + 1)}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    border: '1px solid #1e293b',
+                    background: 'transparent',
+                    color: '#e2e8f0',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <ShipmentsTable shipments={filtered} loading={loading} />
+            )}
           </div>
         )}
 

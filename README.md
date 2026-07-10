@@ -116,6 +116,13 @@ git push -u origin dev
   enforcement in the UI (roles are stored — `owner`/`admin`/`member` — but every member
   currently has full read/write on their org's shipments; tighten this in `schema.sql`
   before you need real access tiers).
+- 🚧 A user who belongs to two organizations could, via a direct API call (not reachable
+  through the current UI, which has no shipment-editing feature), reassign a shipment's
+  `org_id` between the two orgs they belong to — Postgres RLS can't compare old vs. new
+  row values without a trigger. Not exploitable by anyone outside those two orgs.
+- 🚧 `join_organization`'s invite codes (8 random hex chars) aren't rate-limited at the
+  database level — fine for now, but add a rate limit before invite-code brute-forcing
+  becomes a real concern at scale.
 
 ## Project structure
 

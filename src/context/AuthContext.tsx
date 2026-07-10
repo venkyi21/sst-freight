@@ -17,6 +17,7 @@ interface AuthContextValue {
   authLoading: boolean
   organizations: OrganizationWithRole[]
   orgsLoading: boolean
+  orgsError: string | null
   currentOrg: OrganizationWithRole | null
   signUp: (email: string, password: string) => Promise<SignUpResult>
   signIn: (email: string, password: string) => Promise<ActionResult>
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authLoading, setAuthLoading] = useState(true)
   const [organizations, setOrganizations] = useState<OrganizationWithRole[]>([])
   const [orgsLoading, setOrgsLoading] = useState(false)
+  const [orgsError, setOrgsError] = useState<string | null>(null)
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
 
   const user = session?.user ?? null
@@ -62,15 +64,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function refreshOrganizations(): Promise<void> {
     if (!user) {
       setOrganizations([])
+      setOrgsError(null)
       return
     }
     setOrgsLoading(true)
+    setOrgsError(null)
 
     const { data: memberships, error: membershipError } = await supabase
       .from('memberships')
       .select('org_id, role')
 
-    if (membershipError || !memberships || memberships.length === 0) {
+    if (membershipError) {
+      setOrganizations([])
+      setOrgsError(membershipError.message)
+      setOrgsLoading(false)
+      return
+    }
+
+    if (!memberships || memberships.length === 0) {
       setOrganizations([])
       setOrgsLoading(false)
       return
@@ -79,10 +90,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const typedMemberships = memberships as Pick<Membership, 'org_id' | 'role'>[]
     const orgIds = typedMemberships.map((m) => m.org_id)
 
-    const { data: orgs, error: orgsError } = await supabase.from('organizations').select('*').in('id', orgIds)
+    const { data: orgs, error: orgsFetchError } = await supabase.from('organizations').select('*').in('id', orgIds)
 
-    if (orgsError || !orgs) {
+    if (orgsFetchError || !orgs) {
       setOrganizations([])
+      setOrgsError(orgsFetchError?.message ?? 'Could not load your organizations')
       setOrgsLoading(false)
       return
     }
@@ -162,6 +174,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authLoading,
     organizations,
     orgsLoading,
+    orgsError,
     currentOrg,
     signUp,
     signIn,

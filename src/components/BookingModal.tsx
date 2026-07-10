@@ -61,10 +61,10 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const lengthN = parseFloat(lengthCm) || 0
-  const widthN = parseFloat(widthCm) || 0
-  const heightN = parseFloat(heightCm) || 0
-  const grossN = parseFloat(grossWeight) || 0
+  const lengthN = Math.max(0, parseFloat(lengthCm) || 0)
+  const widthN = Math.max(0, parseFloat(widthCm) || 0)
+  const heightN = Math.max(0, parseFloat(heightCm) || 0)
+  const grossN = Math.max(0, parseFloat(grossWeight) || 0)
   const volumetric = volumetricWeightKg(lengthN, widthN, heightN)
   const chargeable = chargeableWeightKg(grossN, volumetric)
 
@@ -122,7 +122,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
 
   return (
     <div
-      onClick={onClose}
+      onClick={busy ? undefined : onClose}
       style={{
         position: 'fixed',
         inset: 0,
@@ -153,7 +153,15 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+            disabled={busy}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#64748b',
+              fontSize: 20,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              lineHeight: 1,
+            }}
           >
             ×
           </button>
@@ -174,7 +182,10 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             <button
               key={m}
               type="button"
-              onClick={() => setMode(m)}
+              onClick={() => {
+                setMode(m)
+                setError(null)
+              }}
               style={{
                 flex: 1,
                 padding: 8,
@@ -274,20 +285,20 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
                 <div>
                   <label style={labelStyle}>Length (cm)</label>
-                  <input type="number" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} style={inputStyle} />
+                  <input type="number" min="0" step="any" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Width (cm)</label>
-                  <input type="number" value={widthCm} onChange={(e) => setWidthCm(e.target.value)} style={inputStyle} />
+                  <input type="number" min="0" step="any" value={widthCm} onChange={(e) => setWidthCm(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Height (cm)</label>
-                  <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={inputStyle} />
+                  <input type="number" min="0" step="any" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={inputStyle} />
                 </div>
               </div>
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Gross Weight (kg)</label>
-                <input type="number" value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} style={inputStyle} />
+                <input type="number" min="0" step="any" value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} style={inputStyle} />
               </div>
               <div style={{ display: 'flex', gap: 10, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 8, padding: '11px 14px' }}>
                 <div style={{ flex: 1 }}>
@@ -351,6 +362,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             <button
               type="button"
               onClick={onClose}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
@@ -360,7 +372,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 color: '#94a3b8',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: 'pointer',
+                cursor: busy ? 'not-allowed' : 'pointer',
               }}
             >
               Cancel
