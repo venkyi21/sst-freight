@@ -1,21 +1,25 @@
-name: Deploy to GitHub Pages
+name: Deploy
+
+# main  -> production, published at the site root
+# dev   -> staging,    published at /preview/ on the SAME Pages site
+#
+# Both branches publish to the gh-pages branch with keep_files: true, so a
+# deploy from one branch never wipes out the other's directory.
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: gh-pages-deploy
+  cancel-in-progress: false
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -30,28 +34,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Configure production environment (main)
+        if: github.ref_name == 'main'
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.VITE_SUPABASE_URL }}" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.VITE_SUPABASE_ANON_KEY }}" >> "$GITHUB_ENV"
+          echo "VITE_BASE_PATH=/${{ github.event.repository.name }}/" >> "$GITHUB_ENV"
+          echo "DEPLOY_DEST=" >> "$GITHUB_ENV"
+
+      - name: Configure staging environment (dev)
+        if: github.ref_name == 'dev'
+        run: |
+          echo "VITE_SUPABASE_URL=${{ secrets.DEV_SUPABASE_URL }}" >> "$GITHUB_ENV"
+          echo "VITE_SUPABASE_ANON_KEY=${{ secrets.DEV_SUPABASE_ANON_KEY }}" >> "$GITHUB_ENV"
+          echo "VITE_BASE_PATH=/${{ github.event.repository.name }}/preview/" >> "$GITHUB_ENV"
+          echo "DEPLOY_DEST=preview" >> "$GITHUB_ENV"
+
       - name: Build
-        env:
-          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
-          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
-          # Project-site base path (username.github.io/<repo>/). Override to
-          # "/" via a repo variable named VITE_BASE_PATH if you're deploying
-          # to a custom domain or a <user>.github.io root page instead.
-          VITE_BASE_PATH: ${{ vars.VITE_BASE_PATH || format('/{0}/', github.event.repository.name) }}
         run: npm run build
 
-      - name: Upload build artifact
-        uses: actions/upload-pages-artifact@v3
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
         with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          destination_dir: ${{ env.DEPLOY_DEST }}
+          keep_files: true

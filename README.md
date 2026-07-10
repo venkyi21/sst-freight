@@ -47,33 +47,61 @@ npm run dev
 Open the printed localhost URL. Create an account, create an organization, and try creating
 a booking — you're now looking at real rows in your Supabase `shipments` table.
 
-## 3. Deploy to GitHub Pages
+## 3. Two environments: `main` (production) and `dev` (staging)
 
-1. Create a new GitHub repository and push this project to it (see commands below — nothing
-   is pushed automatically, you control this step).
-2. In the repo: **Settings → Pages → Build and deployment → Source: GitHub Actions**. (One-time,
-   the workflow below handles every deploy after this.)
-3. **Settings → Secrets and variables → Actions → New repository secret**, add:
-   - `VITE_SUPABASE_URL`
-   - `VITE_SUPABASE_ANON_KEY`
-4. Push to `main` (or run the workflow manually from the **Actions** tab). The included
-   [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) builds the app and publishes
-   `dist/` to Pages automatically. Your site goes live at
-   `https://<your-username>.github.io/<repo-name>/`.
+This repo deploys **two independent environments from one GitHub Pages site**, each backed by
+its own Supabase project so staging testing never touches production data:
+
+| Branch | Environment | URL                                              | Supabase project    |
+| ------ | ----------- | ------------------------------------------------- | -------------------- |
+| `main` | Production  | `https://<user>.github.io/<repo>/`                 | your prod project    |
+| `dev`  | Staging     | `https://<user>.github.io/<repo>/preview/`         | a second, free project |
+
+Set up the second Supabase project the same way as step 1 (New project → run
+`supabase/schema.sql` → copy its URL/anon key) — that's your `dev` project.
+
+### One-time GitHub setup
+
+1. Create a new GitHub repository and push this project to it (commands below — nothing is
+   pushed automatically, you control this step).
+2. **Settings → Pages → Build and deployment → Source: Deploy from a branch → Branch:
+   `gh-pages` / `/(root)`.** The `gh-pages` branch doesn't exist yet — it's created
+   automatically the first time the deploy workflow runs, so save this setting, push, then
+   come back and confirm it's selected once the branch appears.
+3. **Settings → Secrets and variables → Actions → New repository secret**, add all four:
+   - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` — your **production** project
+   - `DEV_SUPABASE_URL` / `DEV_SUPABASE_ANON_KEY` — your **dev/staging** project
+4. Push `main` to deploy production; push `dev` to deploy staging (or trigger either manually
+   from the **Actions** tab). [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)
+   picks the right secrets and output path per branch automatically.
+
+### Day-to-day workflow
+
+Do your work on `dev`, push it to see it live on the staging URL, and merge to `main` (PR or
+direct merge) only when you want it live for real users:
+
+```bash
+git checkout dev
+# ...make changes, commit...
+git push origin dev              # → deploys to the /preview/ staging URL
+
+git checkout main
+git merge dev
+git push origin main             # → deploys to production
+```
 
 Deploying to a custom domain or a `<username>.github.io` root-page repo instead of a project
-page? Add a repository **variable** (not secret) named `VITE_BASE_PATH` set to `/` — otherwise
-the default `/​<repo-name>/​` base path (auto-derived from the repo name) is correct.
+page? The base-path env vars (`VITE_BASE_PATH`) are computed automatically per branch in the
+workflow — edit the two `echo "VITE_BASE_PATH=..."` lines in `deploy.yml` if you need `/`
+instead of `/<repo-name>/`.
 
 ### Pushing this project to GitHub
 
 ```bash
-git init
-git add .
-git commit -m "SST Freight — Week 1 MVP"
-git branch -M main
 git remote add origin https://github.com/<your-username>/<repo-name>.git
 git push -u origin main
+git checkout -b dev
+git push -u origin dev
 ```
 
 ## What's real vs. what's still a placeholder
