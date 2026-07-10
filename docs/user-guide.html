@@ -1,0 +1,1030 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SST Freight — User Guide</title>
+<style>
+  :root {
+    --paper: #f2f5fa;
+    --paper-raised: #ffffff;
+    --ink: #10151f;
+    --ink-soft: #454e5f;
+    --ink-faint: #74809a;
+    --rule: #d7deea;
+    --rule-strong: #b9c4d6;
+    --accent: #2563eb;
+    --accent-ink: #1d4fd1;
+    --accent-wash: #e6edfc;
+    --ok: #15803d;
+    --ok-wash: #e3f6ea;
+    --warn: #b45309;
+    --warn-wash: #fdf1de;
+    --pending: #be123c;
+    --pending-wash: #fce8ee;
+    --info: #1d4fd1;
+    --info-wash: #e6edfc;
+
+    /* the app's own dark chrome — used inside every recreated screen panel,
+       regardless of which theme this guide itself is in */
+    --app-bg: #0b1220;
+    --app-card: #0f172a;
+    --app-border: #1e293b;
+    --app-border-soft: #172033;
+    --app-text: #f1f5f9;
+    --app-text-dim: #94a3b8;
+    --app-text-faint: #64748b;
+
+    --font-body: Iowan Old Style, Charter, Georgia, "Noto Serif", serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+
+    --measure: 42em;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0d1117;
+      --paper-raised: #141b26;
+      --ink: #e8ecf3;
+      --ink-soft: #b6c0d1;
+      --ink-faint: #7d889c;
+      --rule: #263041;
+      --rule-strong: #35415a;
+      --accent: #5b8cff;
+      --accent-ink: #8fb0ff;
+      --accent-wash: #17233d;
+      --ok: #4ade80;
+      --ok-wash: #12261c;
+      --warn: #fbbf24;
+      --warn-wash: #2a2110;
+      --pending: #fb7185;
+      --pending-wash: #2a1620;
+      --info: #60a5fa;
+      --info-wash: #101e33;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper: #0d1117;
+    --paper-raised: #141b26;
+    --ink: #e8ecf3;
+    --ink-soft: #b6c0d1;
+    --ink-faint: #7d889c;
+    --rule: #263041;
+    --rule-strong: #35415a;
+    --accent: #5b8cff;
+    --accent-ink: #8fb0ff;
+    --accent-wash: #17233d;
+    --ok: #4ade80;
+    --ok-wash: #12261c;
+    --warn: #fbbf24;
+    --warn-wash: #2a2110;
+    --pending: #fb7185;
+    --pending-wash: #2a1620;
+    --info: #60a5fa;
+    --info-wash: #101e33;
+  }
+
+  :root[data-theme="light"] {
+    --paper: #f2f5fa;
+    --paper-raised: #ffffff;
+    --ink: #10151f;
+    --ink-soft: #454e5f;
+    --ink-faint: #74809a;
+    --rule: #d7deea;
+    --rule-strong: #b9c4d6;
+    --accent: #2563eb;
+    --accent-ink: #1d4fd1;
+    --accent-wash: #e6edfc;
+    --ok: #15803d;
+    --ok-wash: #e3f6ea;
+    --warn: #b45309;
+    --warn-wash: #fdf1de;
+    --pending: #be123c;
+    --pending-wash: #fce8ee;
+    --info: #1d4fd1;
+    --info-wash: #e6edfc;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent-ink); }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 0 clamp(18px, 4vw, 48px);
+  }
+
+  /* ── Masthead ─────────────────────────────────────────────── */
+
+  .masthead {
+    border-bottom: 1px solid var(--rule);
+    padding: clamp(28px, 5vw, 52px) 0 clamp(22px, 4vw, 36px);
+  }
+
+  .masthead .kicker {
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin-bottom: 14px;
+  }
+
+  .masthead .kicker .mark {
+    width: 20px;
+    height: 20px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 12px;
+  }
+
+  .masthead h1 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: clamp(30px, 4.4vw, 46px);
+    line-height: 1.08;
+    letter-spacing: -0.01em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+    max-width: 18ch;
+  }
+
+  .masthead .dek {
+    font-size: 17px;
+    line-height: 1.55;
+    color: var(--ink-soft);
+    max-width: var(--measure);
+    margin: 0;
+  }
+
+  .masthead .meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 22px;
+    margin-top: 24px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  .masthead .meta-row strong {
+    color: var(--ink-soft);
+    font-weight: 600;
+  }
+
+  /* ── Body grid: TOC + content ────────────────────────────── */
+
+  .layout {
+    display: grid;
+    grid-template-columns: 216px minmax(0, 1fr);
+    gap: clamp(28px, 5vw, 64px);
+    padding: clamp(28px, 5vw, 48px) 0 90px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    font-family: var(--font-ui);
+  }
+
+  @media (max-width: 860px) {
+    nav.toc { position: static; margin-bottom: 8px; }
+  }
+
+  nav.toc .toc-label {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin-bottom: 10px;
+  }
+
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border-left: 1px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+  }
+
+  nav.toc a {
+    display: block;
+    padding: 6px 0 6px 14px;
+    margin-left: -1px;
+    border-left: 2px solid transparent;
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--ink-soft);
+    text-decoration: none;
+  }
+
+  nav.toc a:hover { color: var(--accent-ink); border-left-color: var(--rule-strong); }
+
+  main { min-width: 0; }
+
+  section.chapter {
+    padding-top: clamp(36px, 6vw, 56px);
+    margin-top: clamp(36px, 6vw, 56px);
+    border-top: 1px solid var(--rule);
+    scroll-margin-top: 20px;
+  }
+
+  section.chapter:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+
+  .chapter-num {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent-ink);
+    letter-spacing: 0.04em;
+    margin-bottom: 8px;
+  }
+
+  section.chapter h2 {
+    font-family: var(--font-body);
+    font-weight: 600;
+    font-size: clamp(22px, 3vw, 28px);
+    letter-spacing: -0.005em;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+
+  .chapter-sub {
+    color: var(--ink-faint);
+    font-size: 14.5px;
+    margin: 0 0 26px;
+    max-width: var(--measure);
+  }
+
+  .prose { max-width: var(--measure); }
+  .prose p { font-size: 16px; line-height: 1.68; color: var(--ink-soft); margin: 0 0 16px; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose ul, .prose ol { max-width: var(--measure); padding-left: 22px; color: var(--ink-soft); font-size: 16px; line-height: 1.6; }
+  .prose li { margin-bottom: 8px; }
+
+  h3.sub {
+    font-family: var(--font-ui);
+    font-weight: 700;
+    font-size: 13px;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--ink);
+    margin: 30px 0 12px;
+  }
+
+  /* ── role badges ──────────────────────────────────────────── */
+
+  .who {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    padding: 3px 9px 3px 7px;
+    border-radius: 20px;
+    margin-bottom: 16px;
+  }
+  .who.owner { background: var(--accent-wash); color: var(--accent-ink); }
+  .who.everyone { background: var(--ok-wash); color: var(--ok); }
+  .who::before { content: "●"; font-size: 8px; }
+
+  /* ── callout figure ───────────────────────────────────────── */
+
+  figure.screen {
+    margin: 22px 0 8px;
+    max-width: 640px;
+  }
+
+  .device-frame {
+    position: relative;
+    background: var(--app-bg);
+    border: 1px solid var(--app-border);
+    border-radius: 12px;
+    overflow: auto;
+    box-shadow: 0 18px 40px -18px rgba(10, 15, 30, 0.35);
+  }
+
+  [data-theme="light"] .device-frame,
+  @media (prefers-color-scheme: light) { }
+
+  .device-frame .inner { position: relative; font-family: var(--font-ui); }
+
+  .badge {
+    position: absolute;
+    width: 21px;
+    height: 21px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.28), 0 2px 6px rgba(0,0,0,0.4);
+    transform: translate(-50%, -50%);
+    z-index: 5;
+  }
+
+  ol.legend {
+    list-style: none;
+    margin: 14px 0 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+    font-family: var(--font-ui);
+  }
+
+  ol.legend li {
+    display: flex;
+    gap: 10px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+
+  ol.legend .n {
+    flex: none;
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 10.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 1px;
+  }
+
+  ol.legend b { color: var(--ink); font-weight: 600; }
+
+  /* ── mini recreated UI atoms (mirror the real app's own CSS) ─ */
+
+  .mini-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px; font-weight: 600; border: none; cursor: default;
+  }
+  .mini-btn.primary { background: #2563eb; color: #fff; }
+  .mini-btn.ghost { background: transparent; color: #94a3b8; border: 1px solid #1e293b; }
+
+  .mini-input {
+    background: #0b1220; border: 1px solid #1e293b; border-radius: 7px;
+    color: #e2e8f0; font-family: var(--font-ui);
+  }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    border-radius: 20px; font-weight: 600; font-family: var(--font-ui);
+  }
+  .pill.booked { background: rgba(251,191,36,0.14); color: #fbbf24; }
+  .pill.cleared { background: rgba(16,185,129,0.14); color: #4ade80; }
+  .pill.transit { background: rgba(59,130,246,0.14); color: #60a5fa; }
+  .pill.pending { background: rgba(244,63,94,0.14); color: #fb7185; }
+
+  .mode-tag { font-weight: 700; font-family: var(--font-ui); }
+  .mode-tag.ocean { color: #38bdf8; }
+  .mode-tag.air { color: #a78bfa; }
+  .mode-tag.truck { color: #fbbf24; }
+
+  /* ── callout note boxes ───────────────────────────────────── */
+
+  .note {
+    max-width: var(--measure);
+    border-left: 3px solid var(--accent);
+    background: var(--accent-wash);
+    padding: 14px 18px;
+    border-radius: 0 8px 8px 0;
+    margin: 20px 0;
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--ink);
+  }
+  .note.warn { border-color: var(--warn); background: var(--warn-wash); }
+  .note b { font-weight: 700; }
+
+  /* ── formula card (volumetric weight) ────────────────────── */
+
+  .formula {
+    font-family: var(--font-mono);
+    background: var(--paper-raised);
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 16px 20px;
+    max-width: var(--measure);
+    font-size: 13.5px;
+    color: var(--ink-soft);
+    line-height: 2;
+  }
+  .formula b { color: var(--accent-ink); }
+
+  /* ── table of two-column comparisons (roles) ─────────────── */
+
+  .cols-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    max-width: 760px;
+    margin: 18px 0;
+  }
+  @media (max-width: 620px) { .cols-2 { grid-template-columns: 1fr; } }
+
+  .col-card {
+    border: 1px solid var(--rule);
+    background: var(--paper-raised);
+    border-radius: 12px;
+    padding: 18px 20px;
+  }
+  .col-card h4 {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    margin: 0 0 10px;
+    color: var(--ink);
+  }
+  .col-card ul { margin: 0; padding-left: 18px; font-size: 14px; color: var(--ink-soft); line-height: 1.65; }
+
+  /* ── FAQ ──────────────────────────────────────────────────── */
+
+  details.faq {
+    border-bottom: 1px solid var(--rule);
+    padding: 16px 0;
+    max-width: var(--measure);
+  }
+  details.faq summary {
+    cursor: pointer;
+    font-family: var(--font-ui);
+    font-weight: 600;
+    font-size: 15px;
+    color: var(--ink);
+    list-style: none;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  details.faq summary::-webkit-details-marker { display: none; }
+  details.faq summary::before {
+    content: "+";
+    font-family: var(--font-mono);
+    color: var(--accent-ink);
+    font-weight: 700;
+    flex: none;
+  }
+  details.faq[open] summary::before { content: "–"; }
+  details.faq p { margin: 10px 0 0 20px; color: var(--ink-soft); font-size: 14.5px; line-height: 1.6; }
+
+  footer.end {
+    border-top: 1px solid var(--rule);
+    margin-top: 60px;
+    padding: 26px 0 60px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+  }
+
+  ::selection { background: var(--accent-wash); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="wrap">
+    <div class="kicker"><span class="mark">S</span> SST Freight · User Guide</div>
+    <h1>Getting your team onto SST Freight</h1>
+    <p class="dek">
+      A screen-by-screen walkthrough of the platform — written for someone who has never
+      opened it before. Every panel below is a faithful recreation of the real screen,
+      numbered to match the steps in the text next to it.
+    </p>
+    <div class="meta-row">
+      <span><strong>Covers</strong> Week 1 MVP release</span>
+      <span><strong>App</strong> sst-freight (production &amp; staging)</span>
+      <span><strong>Updated</strong> for launch</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="layout">
+    <nav class="toc" aria-label="Table of contents">
+      <div class="toc-label">On this page</div>
+      <ol>
+        <li><a href="#signing-in">1. Creating your account</a></li>
+        <li><a href="#organization">2. Your organization</a></li>
+        <li><a href="#dashboard">3. The dashboard</a></li>
+        <li><a href="#booking">4. Creating a booking</a></li>
+        <li><a href="#search">5. Finding a shipment</a></li>
+        <li><a href="#switching">6. Multiple organizations</a></li>
+        <li><a href="#roles">7. Who can do what</a></li>
+        <li><a href="#coming">8. What's coming later</a></li>
+        <li><a href="#faq">9. Troubleshooting</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- 1. SIGNING IN -->
+      <section class="chapter" id="signing-in">
+        <div class="chapter-num">01</div>
+        <h2>Creating your account</h2>
+        <p class="chapter-sub">The very first screen anyone sees, before they belong to any organization.</p>
+
+        <div class="prose">
+          <p>
+            Go to the site link your admin sent you. You'll land on the sign-in screen.
+            If this is your first time, switch to <strong>Create Account</strong> instead —
+            enter any email address you actually have access to, and a password of at least
+            6 characters.
+          </p>
+        </div>
+
+        <figure class="screen">
+          <div class="device-frame">
+            <div class="inner" style="width:400px;padding:34px 30px;">
+              <span class="badge" style="top:52px;left:220px;">1</span>
+              <span class="badge" style="top:100px;left:70px;">2</span>
+              <span class="badge" style="top:100px;left:255px;">2</span>
+              <span class="badge" style="top:158px;left:200px;">3</span>
+              <span class="badge" style="top:255px;left:200px;">4</span>
+              <span class="badge" style="top:335px;left:200px;">5</span>
+
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+                <div style="width:32px;height:32px;border-radius:9px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;">S</div>
+                <div style="font-weight:700;color:#f1f5f9;font-size:16px;">SST Freight</div>
+              </div>
+              <div style="font-size:12px;color:#64748b;margin-bottom:20px;">Multi-tenant Customs Clearing &amp; Forwarding Platform</div>
+
+              <div style="background:#0b1220;border:1px solid #1e293b;border-radius:9px;padding:3px;display:flex;gap:2px;margin-bottom:18px;">
+                <div class="mini-btn primary" style="flex:1;padding:7px;font-size:12px;">Sign In</div>
+                <div class="mini-btn ghost" style="flex:1;padding:7px;font-size:12px;border:none;">Create Account</div>
+              </div>
+
+              <div style="font-size:10.5px;color:#64748b;margin-bottom:4px;">Email</div>
+              <div class="mini-input" style="padding:9px 11px;font-size:12.5px;margin-bottom:12px;">you@company.com</div>
+              <div style="font-size:10.5px;color:#64748b;margin-bottom:4px;">Password</div>
+              <div class="mini-input" style="padding:9px 11px;font-size:12.5px;margin-bottom:16px;">••••••••</div>
+
+              <div class="mini-btn primary" style="width:100%;padding:11px;font-size:13px;">Sign In</div>
+            </div>
+          </div>
+          <ol class="legend">
+            <li><span class="n">1</span><span><b>Sign In / Create Account tabs</b> — switch here first if you don't have an account yet.</span></li>
+            <li><span class="n">2</span><span><b>Email &amp; Password</b> — use a password you'll remember; there's no "forgot password" flow live yet, so write it down.</span></li>
+            <li><span class="n">3</span><span>(Create Account only) A confirmation message may appear — check your inbox if so, otherwise you're signed in immediately.</span></li>
+            <li><span class="n">4</span><span>Wrong password shows a clear red error here instead of failing silently.</span></li>
+            <li><span class="n">5</span><span><b>Sign In</b> button — disabled until both fields look valid.</span></li>
+          </ol>
+        </figure>
+      </section>
+
+      <!-- 2. ORGANIZATION -->
+      <section class="chapter" id="organization">
+        <div class="chapter-num">02</div>
+        <h2>Your organization</h2>
+        <p class="chapter-sub">Every shipment, booking, and teammate lives inside an organization. You'll see this screen right after your first sign-in.</p>
+
+        <div class="prose">
+          <p>
+            You have two options here, and you'll only need one of them:
+          </p>
+          <ul>
+            <li><strong>Starting a new company workspace?</strong> Use <strong>Create Organization</strong> — you become its first member automatically.</li>
+            <li><strong>Joining a teammate's existing workspace?</strong> Ask them for their <strong>invite code</strong> (they'll find it in their sidebar — see Section 3) and use <strong>Join with Invite Code</strong> instead.</li>
+          </ul>
+        </div>
+
+        <figure class="screen">
+          <div class="device-frame">
+            <div class="inner" style="width:420px;padding:34px 30px;">
+              <span class="badge" style="top:30px;left:60px;">1</span>
+              <span class="badge" style="top:150px;left:210px;">2</span>
+              <span class="badge" style="top:230px;left:210px;">3</span>
+              <span class="badge" style="top:320px;left:210px;">4</span>
+
+              <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+                <div style="width:32px;height:32px;border-radius:9px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;">S</div>
+                <div style="font-weight:700;color:#f1f5f9;font-size:16px;">SST Freight</div>
+              </div>
+              <div style="font-size:12.5px;color:#94a3b8;line-height:1.5;margin-bottom:18px;">
+                You're not part of an organization yet. Create one for your company, or join an existing team with an invite code.
+              </div>
+
+              <div style="background:#0b1220;border:1px solid #1e293b;border-radius:9px;padding:3px;display:flex;gap:2px;margin-bottom:16px;">
+                <div class="mini-btn primary" style="flex:1;padding:7px;font-size:12px;">Create Organization</div>
+                <div class="mini-btn ghost" style="flex:1;padding:7px;font-size:12px;border:none;">Join with Invite Code</div>
+              </div>
+
+              <div class="mini-input" style="padding:9px 11px;font-size:12.5px;margin-bottom:14px;color:#475569;">e.g. SST Freight Pvt Ltd</div>
+              <div class="mini-btn primary" style="width:100%;padding:11px;font-size:13px;">Create Organization</div>
+            </div>
+          </div>
+          <ol class="legend">
+            <li><span class="n">1</span><span>Confirms which account you're signed in as — always double-check this before creating a workspace.</span></li>
+            <li><span class="n">2</span><span><b>Create Organization / Join with Invite Code</b> — the two tabs described above.</span></li>
+            <li><span class="n">3</span><span>Type your company's name exactly as you want your team to see it — this becomes visible to every member.</span></li>
+            <li><span class="n">4</span><span>One click and you're on the dashboard, with an invite code ready to share.</span></li>
+          </ol>
+        </figure>
+
+        <div class="note">
+          <b>If you already belong to one or more organizations</b>, this screen instead shows a grid of them to pick from — see Section 6, "Multiple organizations."
+        </div>
+      </section>
+
+      <!-- 3. DASHBOARD -->
+      <section class="chapter" id="dashboard">
+        <div class="chapter-num">03</div>
+        <h2>The dashboard</h2>
+        <p class="chapter-sub">Home base. Everything else in the app is reachable from here.</p>
+
+        <figure class="screen" style="max-width:100%;">
+          <div class="device-frame">
+            <div class="inner" style="display:flex;min-height:420px;">
+              <!-- sidebar -->
+              <div style="width:190px;flex:none;background:#060a14;border-right:1px solid #1e293b;padding:16px;position:relative;">
+                <span class="badge" style="top:24px;left:95px;">1</span>
+                <span class="badge" style="top:120px;left:95px;">2</span>
+                <span class="badge" style="top:280px;left:95px;">3</span>
+                <span class="badge" style="top:335px;left:95px;">4</span>
+
+                <div style="display:flex;align-items:center;gap:8px;padding-bottom:14px;border-bottom:1px solid #1e293b;margin-bottom:14px;">
+                  <div style="width:28px;height:28px;border-radius:7px;background:#2563eb;display:flex;align-items:center;justify-content:center;font-weight:700;color:#fff;font-size:12px;">S</div>
+                  <div>
+                    <div style="font-size:11.5px;font-weight:700;color:#f1f5f9;">SST Freight Pvt Ltd</div>
+                    <div style="font-size:9.5px;color:#22c55e;">owner</div>
+                  </div>
+                </div>
+                <div style="display:flex;flex-direction:column;gap:3px;margin-bottom:70px;">
+                  <div style="padding:7px 9px;border-radius:7px;background:#111e33;font-size:11.5px;color:#f1f5f9;font-weight:500;">Dashboard</div>
+                  <div style="padding:7px 9px;border-radius:7px;font-size:11.5px;color:#8291a6;">Directory</div>
+                  <div style="padding:7px 9px;border-radius:7px;font-size:11.5px;color:#8291a6;">Customs Filings</div>
+                </div>
+                <div style="font-size:9.5px;color:#64748b;background:#0b1220;border:1px solid #1e293b;border-radius:7px;padding:7px 8px;margin-bottom:8px;">
+                  Invite code
+                  <div style="font-family:monospace;font-size:11px;color:#cbd5e1;margin-top:2px;">8FQ3ZK9C</div>
+                </div>
+                <div style="font-size:10.5px;color:#94a3b8;border:1px solid #1e293b;border-radius:7px;padding:7px 8px;">⇄ Switch organization</div>
+              </div>
+
+              <!-- main -->
+              <div style="flex:1;padding:0;position:relative;">
+                <span class="badge" style="top:26px;left:180px;">5</span>
+                <span class="badge" style="top:26px;left:390px;">6</span>
+                <span class="badge" style="top:90px;left:400px;">7</span>
+                <span class="badge" style="top:150px;left:60px;">8</span>
+
+                <div style="height:52px;border-bottom:1px solid #1e293b;display:flex;align-items:center;justify-content:space-between;padding:0 20px;">
+                  <div class="mini-input" style="padding:7px 10px;font-size:11.5px;width:230px;color:#475569;">Search tracking ref, client...</div>
+                  <div class="mini-btn primary" style="padding:7px 13px;font-size:11.5px;">+ New Booking</div>
+                </div>
+                <div style="padding:18px 20px;">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+                    <div style="font-size:15px;font-weight:700;color:#f1f5f9;">Active Shipments</div>
+                    <div style="background:#0f172a;border:1px solid #1e293b;border-radius:8px;padding:2px;display:flex;gap:1px;font-size:10.5px;">
+                      <div style="padding:5px 9px;background:#1e293b;border-radius:5px;color:#f1f5f9;">All · 3</div>
+                      <div style="padding:5px 9px;color:#8291a6;">Ocean · 1</div>
+                      <div style="padding:5px 9px;color:#8291a6;">Air · 1</div>
+                      <div style="padding:5px 9px;color:#8291a6;">Truck · 1</div>
+                    </div>
+                  </div>
+                  <div style="background:#0f172a;border:1px solid #1e293b;border-radius:10px;overflow:hidden;">
+                    <div style="display:grid;grid-template-columns:60px 110px 1fr 90px;padding:9px 14px;font-size:9.5px;color:#64748b;text-transform:uppercase;border-bottom:1px solid #1e293b;">
+                      <div>Mode</div><div>Ref</div><div>Route</div><div>Status</div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:60px 110px 1fr 90px;padding:10px 14px;font-size:11px;border-bottom:1px solid #172033;align-items:center;">
+                      <div class="mode-tag ocean">Ocean</div>
+                      <div style="font-family:monospace;color:#f1f5f9;">BKG-2026-118</div>
+                      <div style="color:#94a3b8;">Chennai → Rotterdam</div>
+                      <div><span class="pill cleared" style="padding:2px 8px;font-size:9.5px;">● Cleared</span></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:60px 110px 1fr 90px;padding:10px 14px;font-size:11px;align-items:center;">
+                      <div class="mode-tag air">Air</div>
+                      <div style="font-family:monospace;color:#f1f5f9;">AWB-2026-044</div>
+                      <div style="color:#94a3b8;">Mumbai → Dubai</div>
+                      <div><span class="pill booked" style="padding:2px 8px;font-size:9.5px;">● Booked</span></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ol class="legend">
+            <li><span class="n">1</span><span><b>Your organization</b> — name, color, and your role in it.</span></li>
+            <li><span class="n">2</span><span><b>Navigation</b> — Dashboard is live today; Directory and Customs Filings are previews of what's coming (Section 8).</span></li>
+            <li><span class="n">3</span><span><b>Invite code</b> — share this with a teammate so they can join this exact organization.</span></li>
+            <li><span class="n">4</span><span><b>Switch organization</b> — jump to a different workspace if you belong to more than one.</span></li>
+            <li><span class="n">5</span><span><b>Search</b> — matches tracking ref, client name, origin, or destination as you type.</span></li>
+            <li><span class="n">6</span><span><b>New Booking</b> — opens the booking form (Section 4).</span></li>
+            <li><span class="n">7</span><span><b>Mode filters</b> — narrow the list to Ocean, Air, or Truck, with live counts.</span></li>
+            <li><span class="n">8</span><span><b>Shipment table</b> — every booking in this organization, newest first. Color of the mode label and status pill are consistent everywhere in the app.</span></li>
+          </ol>
+        </figure>
+      </section>
+
+      <!-- 4. BOOKING -->
+      <section class="chapter" id="booking">
+        <div class="chapter-num">04</div>
+        <h2>Creating a booking</h2>
+        <p class="chapter-sub">One form, three shapes — the fields change based on how the cargo is moving.</p>
+
+        <div class="prose">
+          <p>
+            Click <strong>+ New Booking</strong> from the dashboard. <strong>Shipper, Consignee, Origin,
+            and Destination</strong> are required for every booking regardless of mode — the
+            <strong>Create Booking</strong> button stays disabled until all four are filled in.
+            Everything below that changes depending on which tab you're on.
+          </p>
+        </div>
+
+        <h3 class="sub">Ocean — FCL or LCL</h3>
+        <figure class="screen">
+          <div class="device-frame">
+            <div class="inner" style="width:460px;padding:26px;">
+              <span class="badge" style="top:64px;left:80px;">1</span>
+              <span class="badge" style="top:130px;left:80px;">2</span>
+              <span class="badge" style="top:130px;left:340px;">3</span>
+
+              <div style="display:flex;justify-content:space-between;margin-bottom:16px;">
+                <div style="font-weight:700;color:#f1f5f9;font-size:14px;">New Booking</div>
+                <div style="color:#64748b;">×</div>
+              </div>
+              <div style="background:#0b1220;border:1px solid #1e293b;border-radius:8px;padding:2px;display:flex;gap:1px;margin-bottom:14px;font-size:11px;">
+                <div style="flex:1;padding:6px;background:#2563eb;border-radius:5px;color:#fff;text-align:center;">Ocean (FCL/LCL)</div>
+                <div style="flex:1;padding:6px;color:#8291a6;text-align:center;">Air</div>
+                <div style="flex:1;padding:6px;color:#8291a6;text-align:center;">Truck</div>
+              </div>
+              <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <div style="flex:1;padding:6px;text-align:center;border-radius:6px;background:#2563eb;color:#fff;font-size:11px;font-weight:600;">FCL</div>
+                <div style="flex:1;padding:6px;text-align:center;border-radius:6px;border:1px solid #1e293b;color:#8291a6;font-size:11px;font-weight:600;">LCL</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="mini-input" style="padding:8px 10px;font-size:11px;color:#e2e8f0;">20ft Standard ▾</div>
+                <div class="mini-input" style="padding:8px 10px;font-size:11px;color:#475569;">Vessel Name</div>
+              </div>
+            </div>
+          </div>
+          <ol class="legend">
+            <li><span class="n">1</span><span>Choose <b>FCL</b> (Full Container Load) or <b>LCL</b> (Less than Container Load).</span></li>
+            <li><span class="n">2</span><span><b>Container Size</b> — 20ft, 40ft, or 40ft High Cube.</span></li>
+            <li><span class="n">3</span><span><b>Vessel Name &amp; Voyage No.</b> — optional, add them if known.</span></li>
+          </ol>
+        </figure>
+
+        <h3 class="sub">Air — with automatic volumetric weight</h3>
+        <figure class="screen">
+          <div class="device-frame">
+            <div class="inner" style="width:460px;padding:26px;">
+              <span class="badge" style="top:70px;left:80px;">1</span>
+              <span class="badge" style="top:150px;left:80px;">2</span>
+              <span class="badge" style="top:230px;left:120px;">3</span>
+              <span class="badge" style="top:230px;left:330px;">4</span>
+
+              <div style="font-weight:700;color:#f1f5f9;font-size:14px;margin-bottom:16px;">New Booking</div>
+              <div style="background:#0b1220;border:1px solid #1e293b;border-radius:8px;padding:2px;display:flex;gap:1px;margin-bottom:14px;font-size:11px;">
+                <div style="flex:1;padding:6px;color:#8291a6;text-align:center;">Ocean (FCL/LCL)</div>
+                <div style="flex:1;padding:6px;background:#2563eb;border-radius:5px;color:#fff;text-align:center;">Air</div>
+                <div style="flex:1;padding:6px;color:#8291a6;text-align:center;">Truck</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+                <div class="mini-input" style="padding:7px 9px;font-size:10.5px;color:#e2e8f0;">100</div>
+                <div class="mini-input" style="padding:7px 9px;font-size:10.5px;color:#e2e8f0;">50</div>
+                <div class="mini-input" style="padding:7px 9px;font-size:10.5px;color:#e2e8f0;">40</div>
+              </div>
+              <div class="mini-input" style="padding:8px 10px;font-size:11px;color:#e2e8f0;margin-bottom:12px;">Gross Weight: 20</div>
+              <div style="display:flex;gap:8px;background:#0b1220;border:1px solid #1e293b;border-radius:7px;padding:10px 12px;">
+                <div style="flex:1;">
+                  <div style="font-size:9px;color:#64748b;">Volumetric Weight</div>
+                  <div style="font-family:monospace;font-weight:700;color:#c4b5fd;font-size:13px;">33.3 kg</div>
+                </div>
+                <div style="flex:1;">
+                  <div style="font-size:9px;color:#64748b;">Chargeable Weight</div>
+                  <div style="font-family:monospace;font-weight:700;color:#4ade80;font-size:13px;">33.3 kg</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <ol class="legend">
+            <li><span class="n">1</span><span>Air tab — same four required fields at the top, plus this section.</span></li>
+            <li><span class="n">2</span><span><b>Length / Width / Height (cm)</b> and <b>Gross Weight (kg)</b> — the actual measured weight of the shipment.</span></li>
+            <li><span class="n">3</span><span><b>Volumetric Weight</b> updates live as you type — this is what the box's <i>size</i> would weigh under IATA's standard formula.</span></li>
+            <li><span class="n">4</span><span><b>Chargeable Weight</b> — airlines bill on whichever number is larger, gross or volumetric. The app calculates this for you automatically.</span></li>
+          </ol>
+        </figure>
+
+        <div class="formula">
+          volumetric&nbsp;weight&nbsp;(kg) = <b>(length&nbsp;×&nbsp;width&nbsp;×&nbsp;height&nbsp;in&nbsp;cm)</b> ÷ 6000<br>
+          chargeable&nbsp;weight&nbsp;(kg) = <b>max</b>(gross&nbsp;weight, volumetric&nbsp;weight)
+        </div>
+
+        <h3 class="sub">Truck — domestic road moves</h3>
+        <figure class="screen">
+          <div class="device-frame">
+            <div class="inner" style="width:460px;padding:26px;">
+              <span class="badge" style="top:110px;left:90px;">1</span>
+              <span class="badge" style="top:110px;left:330px;">2</span>
+
+              <div style="font-weight:700;color:#f1f5f9;font-size:14px;margin-bottom:16px;">New Booking</div>
+              <div style="background:#0b1220;border:1px solid #1e293b;border-radius:8px;padding:2px;display:flex;gap:1px;margin-bottom:20px;font-size:11px;">
+                <div style="flex:1;padding:6px;color:#8291a6;text-align:center;">Ocean (FCL/LCL)</div>
+                <div style="flex:1;padding:6px;color:#8291a6;text-align:center;">Air</div>
+                <div style="flex:1;padding:6px;background:#2563eb;border-radius:5px;color:#fff;text-align:center;">Truck</div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="mini-input" style="padding:8px 10px;font-size:11px;color:#e2e8f0;">20ft Open Truck ▾</div>
+                <div class="mini-input" style="padding:8px 10px;font-size:11px;color:#475569;">+91 9xxxxxxxxx</div>
+              </div>
+            </div>
+          </div>
+          <ol class="legend">
+            <li><span class="n">1</span><span><b>Vehicle Type</b> — Open Truck, Close-Body Container, or Multi-Axle Trailer.</span></li>
+            <li><span class="n">2</span><span><b>Driver Phone</b> — optional, useful for coordinating pickup.</span></li>
+          </ol>
+        </figure>
+
+        <div class="note">
+          A Truck booking starts life with status <b>Loading</b> instead of <b>Booked</b> — everything else starts as <b>Booked</b>. This is the app's only automatic status assignment right now; moving a shipment to Cleared, In Transit, etc. isn't wired up to a button yet (see Section 8).
+        </div>
+      </section>
+
+      <!-- 5. SEARCH -->
+      <section class="chapter" id="search">
+        <div class="chapter-num">05</div>
+        <h2>Finding a shipment</h2>
+        <p class="chapter-sub">No dedicated search page — it all happens right on the dashboard.</p>
+        <div class="prose">
+          <p>
+            Type into the search bar at the top of the dashboard — it matches against the
+            <strong>tracking reference, client name, origin, and destination</strong> simultaneously, updating
+            the table as you type. Combine it with the <strong>mode filter tabs</strong> (All / Ocean / Air / Truck)
+            to narrow further — for example, typing "Rotterdam" while the Ocean tab is selected shows only
+            ocean shipments bound for Rotterdam.
+          </p>
+        </div>
+      </section>
+
+      <!-- 6. SWITCHING ORGS -->
+      <section class="chapter" id="switching">
+        <div class="chapter-num">06</div>
+        <h2>Working across multiple organizations</h2>
+        <p class="chapter-sub">If you're on staff at more than one company using SST Freight, or manage several branches as separate workspaces.</p>
+        <div class="prose">
+          <p>
+            Click <strong>⇄ Switch organization</strong> in the sidebar at any time. You'll see a grid of every
+            organization you belong to, each showing your role in it — pick one to jump straight to its
+            dashboard. Your data never mixes between organizations: shipments, bookings, and search results
+            you see are always scoped to whichever one is currently selected.
+          </p>
+          <p>
+            The app remembers your last choice, so next time you sign in you'll land back in the same
+            organization automatically.
+          </p>
+        </div>
+      </section>
+
+      <!-- 7. ROLES -->
+      <section class="chapter" id="roles">
+        <div class="chapter-num">07</div>
+        <h2>Who can do what, today</h2>
+        <p class="chapter-sub">An honest answer, not an aspirational one.</p>
+        <div class="prose">
+          <p>
+            Every organization has an <strong>owner</strong> (whoever created it) and <strong>members</strong> (everyone
+            who joined via invite code). Right now, in this first release, that distinction is
+            <strong>visible but not yet enforced</strong> — every member, regardless of role, can view and create
+            bookings within the organization. There's no separate "read-only" or "admin-only" mode yet.
+          </p>
+        </div>
+
+        <div class="cols-2">
+          <div class="col-card">
+            <h4>What every member can do</h4>
+            <ul>
+              <li>View all shipments in the organization</li>
+              <li>Create new bookings (Ocean, Air, Truck)</li>
+              <li>Search and filter the shipment list</li>
+              <li>See and share the organization's invite code</li>
+              <li>Switch between organizations they belong to</li>
+            </ul>
+          </div>
+          <div class="col-card">
+            <h4>What's role-specific today</h4>
+            <ul>
+              <li>Nothing yet — only the badge next to your name (<em>owner</em> / <em>member</em>) differs</li>
+              <li>Anyone can invite new teammates by sharing the code</li>
+              <li>There's no way to remove a member or transfer ownership yet</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="note warn">
+          Only share your invite code with people you actually want inside your organization — anyone
+          with the code can join and see every shipment in it.
+        </div>
+      </section>
+
+      <!-- 8. COMING LATER -->
+      <section class="chapter" id="coming">
+        <div class="chapter-num">08</div>
+        <h2>What's coming later</h2>
+        <p class="chapter-sub">Two sections are visible in navigation today as a preview of the roadmap.</p>
+        <div class="prose">
+          <ul>
+            <li><strong>Directory</strong> — a proper record of shippers, consignees, and overseas agents, instead of typing names freehand into each booking.</li>
+            <li><strong>Customs Filings</strong> — Bill of Entry and Shipping Bill filing workflows.</li>
+          </ul>
+          <p>Clicking either from the sidebar today shows a short placeholder message rather than an error — that's expected, not a bug.</p>
+        </div>
+      </section>
+
+      <!-- 9. FAQ -->
+      <section class="chapter" id="faq">
+        <div class="chapter-num">09</div>
+        <h2>Troubleshooting</h2>
+        <p class="chapter-sub">The handful of things people actually get stuck on.</p>
+
+        <details class="faq" open>
+          <summary>I signed up and got "Email not confirmed" when trying to sign in</summary>
+          <p>
+            Ask your admin to confirm your account from the Supabase dashboard, or wait for
+            a confirmation email if one was sent. Once your admin has this fully configured,
+            new signups sign you in immediately with no extra step.
+          </p>
+        </details>
+        <details class="faq">
+          <summary>I can't see a shipment my colleague just created</summary>
+          <p>
+            Make sure you're both looking at the <em>same organization</em> — check the name at the top of
+            the sidebar on both screens. If they match and it's still missing, try the search box in case
+            a filter is narrowing the list, then a full page refresh.
+          </p>
+        </details>
+        <details class="faq">
+          <summary>The dashboard shows "Couldn't load shipments" with a Retry button</summary>
+          <p>
+            This means the app successfully reached the server but the request failed — usually a brief
+            connectivity issue. Click <b>Retry</b>. If it keeps happening, tell your admin.
+          </p>
+        </details>
+        <details class="faq">
+          <summary>I created the wrong organization by mistake</summary>
+          <p>
+            There's no delete-organization option in this release. Create the correct one and simply stop
+            using the old one — or ask your admin to clean it up directly in the database.
+          </p>
+        </details>
+        <details class="faq">
+          <summary>Can I change my password?</summary>
+          <p>
+            Not from within the app yet in this release — talk to your admin.
+          </p>
+        </details>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer class="end">
+  <div class="wrap">SST Freight — Week 1 MVP · internal user guide</div>
+</footer>
+
+</body>
+</html>
