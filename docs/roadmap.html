@@ -159,7 +159,7 @@
     <div class="meta-row">
       <span><strong>Baseline</strong> Week 1 MVP, live</span>
       <span><strong>Benchmarked against</strong> Logitude World, Shipthis, GoFreight, Magaya</span>
-      <span><strong>Horizon</strong> Week 2 → Week 10</span>
+      <span><strong>Horizon</strong> Week 2 → Week 12</span>
     </div>
   </div>
 </div>
@@ -187,8 +187,8 @@
 
         <div class="scorecard">
           <div class="cell"><div class="num ok">4</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search)</div></div>
-          <div class="cell"><div class="num info">9</div><div class="lbl">weeks committed<br>Week 2 → Week 10</div></div>
-          <div class="cell"><div class="num pending">10</div><div class="lbl">gaps remain vs.<br>competitors after Week 10</div></div>
+          <div class="cell"><div class="num info">11</div><div class="lbl">weeks committed<br>Week 2 → Week 12</div></div>
+          <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
 
@@ -205,8 +205,8 @@
       <!-- 2. PLAN -->
       <section class="chapter" id="plan">
         <div class="chapter-num">02</div>
-        <h2>Week 2 → Week 10 implementation plan</h2>
-        <p class="chapter-sub">Weeks 3 and 4 are the true blockers everything else depends on; 5/6/9 can reorder freely against each other.</p>
+        <h2>Week 2 → Week 12 implementation plan</h2>
+        <p class="chapter-sub">Weeks 3 and 4 are the true blockers everything else depends on; 5/6/9 can reorder freely against each other. Weeks 11–12 added after review — see note below the table.</p>
 
         <div class="table-scroll">
           <table>
@@ -216,8 +216,8 @@
             <tbody>
               <tr>
                 <td class="week">02</td>
-                <td><strong>Directory</strong></td>
-                <td>Shipper / consignee / overseas-agent records; autocomplete into booking form instead of free text</td>
+                <td><strong>Directory</strong> <span class="tag ok">expanded</span></td>
+                <td>Shipper / consignee / overseas-agent records, <strong>plus vendor records</strong> (trucking companies, CFS agents) as a distinct contact type; autocomplete into booking form instead of free text</td>
                 <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span><span class="tag">Magaya</span></td>
                 <td><span class="chip status-not-started">Not started</span></td>
               </tr>
@@ -244,8 +244,8 @@
               </tr>
               <tr>
                 <td class="week">06</td>
-                <td><strong>Accounting basics</strong></td>
-                <td>Invoice generation from a shipment, paid/unpaid state, basic P&amp;L view</td>
+                <td><strong>Accounting basics</strong> <span class="tag ok">expanded</span></td>
+                <td>Invoice generation from a shipment, paid/unpaid state, basic P&amp;L view, <strong>plus multi-currency quoting and invoicing</strong> (customer-facing FX rates — distinct from Week 8's internal FX billing infrastructure)</td>
                 <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span><span class="tag">Magaya</span></td>
                 <td><span class="chip status-not-started">Not started</span></td>
               </tr>
@@ -277,8 +277,28 @@
                 <td><span class="tag">GoFreight</span> <span class="tag">(India scope — see §4)</span></td>
                 <td><span class="chip status-not-started">Not started</span></td>
               </tr>
+              <tr>
+                <td class="week">11</td>
+                <td><strong>Document management</strong> <span class="tag ok">new</span></td>
+                <td>General shipping documents — Bill of Lading, packing lists, Certificate of Origin — generated and attached across the shipment lifecycle, not just at customs filing</td>
+                <td><span class="tag">Shipthis</span></td>
+                <td><span class="chip status-not-started">Not started</span></td>
+              </tr>
+              <tr>
+                <td class="week">12</td>
+                <td><strong>Reporting &amp; custom dashboards</strong> <span class="tag ok">new</span></td>
+                <td>Volume, revenue, and performance reporting beyond the raw shipment list; configurable dashboards per user</td>
+                <td><span class="tag">Logitude</span> <span class="tag risk">needs data from Wks 4/6/9 to be meaningful — placed last on purpose</span></td>
+                <td><span class="chip status-not-started">Not started</span></td>
+              </tr>
             </tbody>
           </table>
+        </div>
+
+        <div class="note ok">
+          <b>Updated this pass:</b> Vendor management folded into Week 2, multi-currency folded into
+          Week 6, and two new weeks added — Document Management (11) and Reporting &amp; Dashboards (12).
+          These four were previously listed as deferred gaps; they're now committed roadmap items.
         </div>
 
         <div class="note">
@@ -291,8 +311,8 @@
       <!-- 3. GAPS -->
       <section class="chapter" id="gaps">
         <div class="chapter-num">03</div>
-        <h2>Gaps that remain after Week 10</h2>
-        <p class="chapter-sub">What the plan above does <em>not</em> close, even once fully shipped.</p>
+        <h2>Gaps that remain after Week 12</h2>
+        <p class="chapter-sub">What the plan above does <em>not</em> close, even once fully shipped. Four items that were here last version — reporting/dashboards, document management, vendor management, multi-currency — are now committed in §2 instead.</p>
 
         <div class="table-scroll">
           <table>
@@ -335,30 +355,6 @@
                 <td>Logitude ("automations")</td>
                 <td>No generic workflow-automation feature planned</td>
                 <td>Lower priority initially</td>
-              </tr>
-              <tr>
-                <td><strong>Reporting &amp; custom dashboards</strong></td>
-                <td>Logitude (up to 5 custom dashboards)</td>
-                <td>Nothing beyond the raw shipment list is planned</td>
-                <td>Real gap, especially for Enterprise-tier clients</td>
-              </tr>
-              <tr>
-                <td><strong>Broader document management</strong> (BOL, packing lists, COO)</td>
-                <td>Shipthis</td>
-                <td>Week 10 is scoped to customs filings only</td>
-                <td>Needs a scope decision — could fold into Week 10 or get its own week</td>
-              </tr>
-              <tr>
-                <td><strong>Vendor management</strong> (trucking cos., CFS agents)</td>
-                <td>Shipthis (separate module)</td>
-                <td>Week 2 Directory scope doesn't explicitly say vendors are included</td>
-                <td>Needs a scope decision, likely low extra effort if folded in</td>
-              </tr>
-              <tr>
-                <td><strong>Multi-currency invoicing/quoting</strong></td>
-                <td>Implied standard across Logitude/Shipthis/GoFreight</td>
-                <td>Week 6 doesn't specify currency handling</td>
-                <td>Needs clarifying — Week 8's FX billing infrastructure ≠ customer-facing multi-currency quotes</td>
               </tr>
             </tbody>
           </table>
