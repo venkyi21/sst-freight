@@ -119,6 +119,7 @@
 
   .chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
   .chip.status-not-started { background: var(--rule); color: var(--ink-faint); }
+  .chip.status-complete { background: var(--ok-wash); color: var(--ok); }
   .chip::before { content: "●"; font-size: 7px; }
   .tag { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: var(--info-wash); color: var(--info); margin: 2px 3px 2px 0; }
   .tag.risk { background: var(--warn-wash); color: var(--warn); }
@@ -183,11 +184,11 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Week 2's Directory is now live too.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">4</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search)</div></div>
-          <div class="cell"><div class="num info">11</div><div class="lbl">weeks committed<br>Week 2 → Week 12</div></div>
+          <div class="cell"><div class="num ok">5</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory)</div></div>
+          <div class="cell"><div class="num info">10</div><div class="lbl">weeks remaining<br>Week 3 → Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
@@ -219,7 +220,7 @@
                 <td><strong>Directory</strong> <span class="tag ok">expanded</span></td>
                 <td>Shipper / consignee / overseas-agent records, <strong>plus vendor records</strong> (trucking companies, CFS agents) as a distinct contact type; autocomplete into booking form instead of free text</td>
                 <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span><span class="tag">Magaya</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
               </tr>
               <tr>
                 <td class="week">03</td>
