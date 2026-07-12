@@ -6,6 +6,7 @@ import ShipmentsTable from '../components/ShipmentsTable'
 import BookingModal from '../components/BookingModal'
 import DirectoryPage from '../components/DirectoryPage'
 import TeamPage from '../components/TeamPage'
+import ShipmentDetailModal from '../components/ShipmentDetailModal'
 import PlaceholderPage from '../components/PlaceholderPage'
 import type { NavPage, Shipment, ShipmentMode } from '../types'
 
@@ -33,6 +34,7 @@ export default function DashboardPage() {
   const [reloadToken, setReloadToken] = useState(0)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingDefaultMode, setBookingDefaultMode] = useState<ShipmentMode>('ocean')
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null)
 
   const orgId = currentOrg?.id ?? null
 
@@ -217,7 +219,7 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <ShipmentsTable shipments={filtered} loading={loading} />
+              <ShipmentsTable shipments={filtered} loading={loading} onRowClick={setSelectedShipment} />
             )}
           </div>
         )}
@@ -242,6 +244,17 @@ export default function DashboardPage() {
           defaultMode={bookingDefaultMode}
           onClose={() => setBookingOpen(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {selectedShipment && (
+        <ShipmentDetailModal
+          shipment={selectedShipment}
+          onClose={() => setSelectedShipment(null)}
+          onUpdated={(updated) => {
+            setShipments((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+            setSelectedShipment(updated)
+          }}
         />
       )}
     </div>

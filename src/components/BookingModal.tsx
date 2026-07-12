@@ -112,7 +112,6 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
     const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
     const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
 
-    const status = mode === 'truck' ? 'Loading' : 'Booked'
     const base = {
       org_id: orgId,
       mode,
@@ -121,7 +120,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
       consignee_contact_id: consigneeId,
       origin: origin.trim(),
       destination: destination.trim(),
-      status,
+      status: 'Booked',
       created_by: user.id,
       load_type: mode === 'ocean' ? loadType : null,
       container_size: mode === 'ocean' ? containerSize : null,

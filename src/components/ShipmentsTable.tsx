@@ -3,9 +3,10 @@ import { MODE_META, statusMeta, type Shipment } from '../types'
 interface ShipmentsTableProps {
   shipments: Shipment[]
   loading: boolean
+  onRowClick: (shipment: Shipment) => void
 }
 
-export default function ShipmentsTable({ shipments, loading }: ShipmentsTableProps) {
+export default function ShipmentsTable({ shipments, loading, onRowClick }: ShipmentsTableProps) {
   return (
     <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
@@ -23,7 +24,7 @@ export default function ShipmentsTable({ shipments, loading }: ShipmentsTablePro
             const mode = MODE_META[s.mode]
             const status = statusMeta(s.status)
             return (
-              <tr key={s.id} style={{ borderBottom: '1px solid #172033' }}>
+              <tr key={s.id} onClick={() => onRowClick(s)} style={{ borderBottom: '1px solid #172033', cursor: 'pointer' }}>
                 <td style={cellStyle}>
                   <span style={{ fontSize: 12.5, fontWeight: 600, color: mode.color }}>{mode.label}</span>
                 </td>

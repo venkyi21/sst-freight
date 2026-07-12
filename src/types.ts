@@ -75,7 +75,7 @@ export interface Shipment {
   client: string
   origin: string
   destination: string
-  status: string
+  status: ShipmentStatus
   load_type: string | null
   container_size: string | null
   vessel_name: string | null
@@ -100,19 +100,27 @@ export const MODE_META: Record<ShipmentMode, { label: string; color: string }> =
   truck: { label: 'Truck', color: '#fbbf24' },
 }
 
+export type ShipmentStatus = 'Booked' | 'Docs' | 'Cleared' | 'In Transit' | 'Delivered'
+
+export const STATUS_SEQUENCE: ShipmentStatus[] = ['Booked', 'Docs', 'Cleared', 'In Transit', 'Delivered']
+
 export const STATUS_META: Record<string, { bg: string; color: string }> = {
-  'Customs Cleared': { bg: 'rgba(16,185,129,0.12)', color: '#4ade80' },
-  Delivered: { bg: 'rgba(16,185,129,0.12)', color: '#4ade80' },
-  'In Transit': { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
-  'Vessel Departed': { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
   Booked: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24' },
-  Loading: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24' },
-  'Gate-In Port': { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24' },
-  'Pending Documentation': { bg: 'rgba(244,63,94,0.12)', color: '#fb7185' },
+  Docs: { bg: 'rgba(244,63,94,0.12)', color: '#fb7185' },
+  Cleared: { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
+  'In Transit': { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
+  Delivered: { bg: 'rgba(16,185,129,0.12)', color: '#4ade80' },
 }
 
 export function statusMeta(status: string): { bg: string; color: string } {
   return STATUS_META[status] ?? { bg: 'rgba(148,163,184,0.12)', color: '#94a3b8' }
+}
+
+export interface StatusHistoryEntry {
+  from_status: ShipmentStatus | null
+  to_status: ShipmentStatus
+  changed_by_email: string
+  created_at: string
 }
 
 export const TENANT_COLORS = ['#2563eb', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4']
