@@ -184,11 +184,11 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Week 2's Directory is now live too.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–4 (Directory, roles &amp; permissions, shipment status workflow) are now live too.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">5</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory)</div></div>
-          <div class="cell"><div class="num info">10</div><div class="lbl">weeks remaining<br>Week 3 → Week 12</div></div>
+          <div class="cell"><div class="num ok">7</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow)</div></div>
+          <div class="cell"><div class="num info">8</div><div class="lbl">weeks remaining<br>Week 5 → Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
@@ -207,7 +207,7 @@
       <section class="chapter" id="plan">
         <div class="chapter-num">02</div>
         <h2>Week 2 → Week 12 implementation plan</h2>
-        <p class="chapter-sub">Weeks 3 and 4 are the true blockers everything else depends on; 5/6/9 can reorder freely against each other. Weeks 11–12 added after review — see note below the table.</p>
+        <p class="chapter-sub">Weeks 3 and 4 were the true blockers everything else depends on — both done; 5/6/9 can still reorder freely against each other. Weeks 11–12 added after review — see note below the table.</p>
 
         <div class="table-scroll">
           <table>
@@ -227,14 +227,14 @@
                 <td><strong>Real roles &amp; permissions</strong></td>
                 <td>Enforce owner/admin/member in RLS + UI (today it's a label only); add a platform-level Super-Admin role</td>
                 <td><span class="tag ok">Foundational — blocks Week 8</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
               </tr>
               <tr>
                 <td class="week">04</td>
                 <td><strong>Shipment status workflow</strong></td>
                 <td>Real state machine (Booked → Docs → Cleared → In Transit → Delivered) + status-change notifications</td>
                 <td><span class="tag">Shipthis</span><span class="tag">GoFreight</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
               </tr>
               <tr>
                 <td class="week">05</td>
