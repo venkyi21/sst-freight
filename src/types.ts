@@ -23,6 +23,20 @@ export interface OrganizationWithRole extends Organization {
   role: MembershipRole
 }
 
+export interface OrgMember {
+  membership_id: string
+  user_id: string
+  email: string
+  role: MembershipRole
+  created_at: string
+}
+
+export const ROLE_META: Record<MembershipRole, { label: string }> = {
+  owner: { label: 'Owner' },
+  admin: { label: 'Admin' },
+  member: { label: 'Member' },
+}
+
 export type ContactKind = 'shipper' | 'consignee' | 'overseas_agent' | 'vendor'
 export type VendorType = 'trucking_company' | 'cfs_agent'
 
@@ -78,7 +92,7 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'customs'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'customs'
 
 export const MODE_META: Record<ShipmentMode, { label: string; color: string }> = {
   ocean: { label: 'Ocean', color: '#38bdf8' },

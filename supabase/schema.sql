@@ -74,6 +74,17 @@ create index if not exists contacts_org_id_idx on contacts (org_id);
 alter table shipments add column if not exists shipper_contact_id uuid references contacts (id) on delete set null;
 alter table shipments add column if not exists consignee_contact_id uuid references contacts (id) on delete set null;
 
+-- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
+-- No RLS policy is defined for this table and no grants are given to `authenticated` —
+-- it is unreachable from the client entirely. The only way in is a manual insert via the
+-- Supabase SQL editor; the only way it's ever read is through is_platform_admin() below,
+-- which runs as SECURITY DEFINER and so bypasses RLS regardless.
+create table if not exists platform_admins (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+alter table platform_admins enable row level security;
+
 -- ─────────────────────────────────────────────────────────────
 -- Row Level Security
 -- ─────────────────────────────────────────────────────────────
@@ -96,13 +107,36 @@ as $$
   );
 $$;
 
+create or replace function is_org_admin(check_org_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from memberships
+    where org_id = check_org_id and user_id = auth.uid() and role in ('owner', 'admin')
+  );
+$$;
+
+create or replace function is_platform_admin()
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (select 1 from platform_admins where user_id = auth.uid());
+$$;
+
 -- organizations: readable only by members. No direct insert policy —
 -- creation happens exclusively through create_organization() below so a
 -- user can never insert a row without also getting an owner membership.
 drop policy if exists "members can view their orgs" on organizations;
 create policy "members can view their orgs"
   on organizations for select
-  using (is_org_member(id));
+  using (is_org_member(id) or is_platform_admin());
 
 -- memberships: a user can see their own membership rows only. No direct
 -- insert policy — memberships are only created via create_organization()
@@ -111,13 +145,13 @@ create policy "members can view their orgs"
 drop policy if exists "users can view their memberships" on memberships;
 create policy "users can view their memberships"
   on memberships for select
-  using (user_id = auth.uid());
+  using (user_id = auth.uid() or is_platform_admin());
 
 -- shipments: scoped strictly to org membership.
 drop policy if exists "members can view org shipments" on shipments;
 create policy "members can view org shipments"
   on shipments for select
-  using (is_org_member(org_id));
+  using (is_org_member(org_id) or is_platform_admin());
 
 drop policy if exists "members can insert org shipments" on shipments;
 create policy "members can insert org shipments"
@@ -133,7 +167,7 @@ create policy "members can update org shipments"
 drop policy if exists "members can view org contacts" on contacts;
 create policy "members can view org contacts"
   on contacts for select
-  using (is_org_member(org_id));
+  using (is_org_member(org_id) or is_platform_admin());
 
 drop policy if exists "members can insert org contacts" on contacts;
 create policy "members can insert org contacts"
@@ -207,9 +241,93 @@ begin
 end;
 $$;
 
+create or replace function list_org_members(p_org_id uuid)
+returns table (membership_id uuid, user_id uuid, email text, role text, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_org_member(p_org_id) then
+    raise exception 'Not a member of this organization';
+  end if;
+
+  return query
+    select m.id, m.user_id, u.email::text, m.role, m.created_at
+    from memberships m
+    join auth.users u on u.id = m.user_id
+    where m.org_id = p_org_id
+    order by m.created_at asc;
+end;
+$$;
+
+create or replace function update_member_role(p_membership_id uuid, p_new_role text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target memberships;
+begin
+  if p_new_role not in ('member', 'admin') then
+    raise exception 'Invalid role';
+  end if;
+
+  select * into v_target from memberships where id = p_membership_id;
+  if v_target.id is null then
+    raise exception 'Membership not found';
+  end if;
+  if not is_org_admin(v_target.org_id) then
+    raise exception 'Not authorized to manage this organization''s team';
+  end if;
+  if v_target.role = 'owner' and not exists (
+    select 1 from memberships where org_id = v_target.org_id and user_id = auth.uid() and role = 'owner'
+  ) then
+    raise exception 'Only an owner can change another owner''s role';
+  end if;
+
+  update memberships set role = p_new_role where id = p_membership_id;
+end;
+$$;
+
+create or replace function remove_member(p_membership_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_target memberships;
+begin
+  select * into v_target from memberships where id = p_membership_id;
+  if v_target.id is null then
+    raise exception 'Membership not found';
+  end if;
+  if v_target.user_id = auth.uid() then
+    raise exception 'Cannot remove your own membership';
+  end if;
+  if not is_org_admin(v_target.org_id) then
+    raise exception 'Not authorized to manage this organization''s team';
+  end if;
+  if v_target.role = 'owner' and not exists (
+    select 1 from memberships where org_id = v_target.org_id and user_id = auth.uid() and role = 'owner'
+  ) then
+    raise exception 'Only an owner can remove another owner';
+  end if;
+
+  delete from memberships where id = p_membership_id;
+end;
+$$;
+
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
+grant execute on function is_org_admin(uuid) to authenticated;
+grant execute on function is_platform_admin() to authenticated;
+grant execute on function list_org_members(uuid) to authenticated;
+grant execute on function update_member_role(uuid, text) to authenticated;
+grant execute on function remove_member(uuid) to authenticated;
 
 grant select on organizations to authenticated;
 grant select on memberships to authenticated;

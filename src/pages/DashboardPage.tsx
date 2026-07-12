@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar'
 import ShipmentsTable from '../components/ShipmentsTable'
 import BookingModal from '../components/BookingModal'
 import DirectoryPage from '../components/DirectoryPage'
+import TeamPage from '../components/TeamPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import type { NavPage, Shipment, ShipmentMode } from '../types'
 
@@ -22,7 +23,7 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
 })
 
 export default function DashboardPage() {
-  const { currentOrg, clearSelectedOrganization } = useAuth()
+  const { currentOrg, clearSelectedOrganization, user } = useAuth()
   const [navPage, setNavPage] = useState<NavPage>('dashboard')
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all')
   const [search, setSearch] = useState('')
@@ -222,6 +223,10 @@ export default function DashboardPage() {
         )}
 
         {navPage === 'directory' && <DirectoryPage orgId={currentOrg.id} />}
+
+        {navPage === 'team' && user && (
+          <TeamPage orgId={currentOrg.id} currentRole={currentOrg.role} currentUserId={user.id} />
+        )}
 
         {navPage === 'customs' && (
           <PlaceholderPage

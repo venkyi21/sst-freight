@@ -97,6 +97,10 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg }: Sideb
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Directory
           </button>
+          <button type="button" onClick={() => onNavigate('team')} style={navButtonStyle(navPage === 'team')}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+            Team
+          </button>
           <button type="button" onClick={() => onNavigate('customs')} style={navButtonStyle(navPage === 'customs')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Customs Filings
