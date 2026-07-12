@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { chargeableWeightKg, volumetricWeightKg } from '../lib/volumetric'
 import ContactAutocomplete from './ContactAutocomplete'
+import { generateRef, shipmentRefPrefix } from '../lib/refGenerator'
 import type { Shipment, ShipmentMode } from '../types'
 
 interface BookingModalProps {
@@ -28,18 +29,6 @@ const labelStyle: CSSProperties = {
   color: '#64748b',
   display: 'block',
   marginBottom: 5,
-}
-
-function refPrefix(mode: ShipmentMode): string {
-  if (mode === 'ocean') return 'BKG'
-  if (mode === 'air') return 'AWB'
-  return 'TRK'
-}
-
-function generateRef(mode: ShipmentMode): string {
-  const year = new Date().getFullYear()
-  const suffix = Math.floor(100 + Math.random() * 899)
-  return `${refPrefix(mode)}-${year}-${suffix}`
 }
 
 export default function BookingModal({ orgId, defaultMode, onClose, onCreated }: BookingModalProps) {
@@ -138,7 +127,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
     for (let attempt = 0; attempt < 5; attempt++) {
       const { data, error: insertError } = await supabase
         .from('shipments')
-        .insert({ ...base, ref: generateRef(mode) })
+        .insert({ ...base, ref: generateRef(shipmentRefPrefix(mode)) })
         .select()
         .single()
 

@@ -96,6 +96,50 @@ create table if not exists shipment_status_history (
 create index if not exists shipment_status_history_shipment_id_idx on shipment_status_history (shipment_id);
 alter table shipment_status_history enable row level security;
 
+create table if not exists tariffs (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  mode text not null check (mode in ('ocean', 'air', 'truck')),
+  origin text not null,
+  destination text not null,
+  rate numeric not null check (rate > 0),
+  currency text not null default 'INR',
+  notes text,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists tariffs_org_id_idx on tariffs (org_id);
+alter table tariffs enable row level security;
+
+-- quotes: shipper/consignee follow the same pattern as shipments — a nullable FK for
+-- traceability plus a denormalized name snapshot for display without an extra join.
+-- mode/origin/destination/rate are snapshotted from the tariff at creation time (not a live
+-- reference), so a later tariff edit never retroactively changes an existing quote.
+create table if not exists quotes (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  ref text not null,
+  tariff_id uuid references tariffs (id) on delete set null,
+  mode text not null check (mode in ('ocean', 'air', 'truck')),
+  origin text not null,
+  destination text not null,
+  shipper_contact_id uuid references contacts (id) on delete set null,
+  shipper_name text not null,
+  consignee_contact_id uuid references contacts (id) on delete set null,
+  consignee_name text not null,
+  quantity numeric not null check (quantity > 0),
+  rate numeric not null,
+  currency text not null default 'INR',
+  total numeric not null,
+  status text not null default 'draft' check (status in ('draft', 'converted')),
+  converted_shipment_id uuid references shipments (id) on delete set null,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  unique (org_id, ref)
+);
+create index if not exists quotes_org_id_idx on quotes (org_id);
+alter table quotes enable row level security;
+
 -- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
 -- No RLS policy is defined for this table and no grants are given to `authenticated` —
 -- it is unreachable from the client entirely. The only way in is a manual insert via the
@@ -207,6 +251,39 @@ create policy "members can insert org contacts"
 drop policy if exists "members can update org contacts" on contacts;
 create policy "members can update org contacts"
   on contacts for update
+  using (is_org_member(org_id));
+
+-- tariffs: scoped strictly to org membership, same shape as contacts.
+drop policy if exists "members can view org tariffs" on tariffs;
+create policy "members can view org tariffs"
+  on tariffs for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org tariffs" on tariffs;
+create policy "members can insert org tariffs"
+  on tariffs for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org tariffs" on tariffs;
+create policy "members can update org tariffs"
+  on tariffs for update
+  using (is_org_member(org_id));
+
+-- quotes: scoped strictly to org membership, same shape as contacts. Update is needed here
+-- (unlike shipments) so conversion can flip status/converted_shipment_id client-side.
+drop policy if exists "members can view org quotes" on quotes;
+create policy "members can view org quotes"
+  on quotes for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org quotes" on quotes;
+create policy "members can insert org quotes"
+  on quotes for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org quotes" on quotes;
+create policy "members can update org quotes"
+  on quotes for update
   using (is_org_member(org_id));
 
 -- ─────────────────────────────────────────────────────────────
@@ -446,3 +523,5 @@ grant select, insert on shipments to authenticated;
 revoke update on shipments from authenticated;
 grant select, insert, update on contacts to authenticated;
 grant select on shipment_status_history to authenticated;
+grant select, insert, update on tariffs to authenticated;
+grant select, insert, update on quotes to authenticated;

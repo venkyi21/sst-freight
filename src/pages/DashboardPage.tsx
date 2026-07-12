@@ -7,6 +7,7 @@ import BookingModal from '../components/BookingModal'
 import DirectoryPage from '../components/DirectoryPage'
 import TeamPage from '../components/TeamPage'
 import ShipmentDetailModal from '../components/ShipmentDetailModal'
+import RatesQuotesPage from '../components/RatesQuotesPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import type { NavPage, Shipment, ShipmentMode } from '../types'
 
@@ -228,6 +229,10 @@ export default function DashboardPage() {
 
         {navPage === 'team' && user && (
           <TeamPage orgId={currentOrg.id} currentRole={currentOrg.role} currentUserId={user.id} />
+        )}
+
+        {navPage === 'quotes' && user && (
+          <RatesQuotesPage orgId={currentOrg.id} userId={user.id} onBookingCreated={handleCreated} />
         )}
 
         {navPage === 'customs' && (

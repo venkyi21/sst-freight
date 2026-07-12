@@ -92,12 +92,55 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'customs'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'customs'
 
 export const MODE_META: Record<ShipmentMode, { label: string; color: string }> = {
   ocean: { label: 'Ocean', color: '#38bdf8' },
   air: { label: 'Air', color: '#a78bfa' },
   truck: { label: 'Truck', color: '#fbbf24' },
+}
+
+export const RATE_BASIS_META: Record<ShipmentMode, { label: string; unit: string }> = {
+  ocean: { label: 'Per Container', unit: 'container(s)' },
+  air: { label: 'Per Kg', unit: 'kg' },
+  truck: { label: 'Per Trip', unit: 'trip(s)' },
+}
+
+export interface Tariff {
+  id: string
+  org_id: string
+  mode: ShipmentMode
+  origin: string
+  destination: string
+  rate: number
+  currency: string
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export type QuoteStatus = 'draft' | 'converted'
+
+export interface Quote {
+  id: string
+  org_id: string
+  ref: string
+  tariff_id: string | null
+  mode: ShipmentMode
+  origin: string
+  destination: string
+  shipper_contact_id: string | null
+  shipper_name: string
+  consignee_contact_id: string | null
+  consignee_name: string
+  quantity: number
+  rate: number
+  currency: string
+  total: number
+  status: QuoteStatus
+  converted_shipment_id: string | null
+  created_by: string | null
+  created_at: string
 }
 
 export type ShipmentStatus = 'Booked' | 'Docs' | 'Cleared' | 'In Transit' | 'Delivered'
