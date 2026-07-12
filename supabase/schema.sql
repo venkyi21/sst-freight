@@ -53,6 +53,27 @@ create table if not exists shipments (
 create index if not exists shipments_org_id_idx on shipments (org_id);
 create index if not exists memberships_user_id_idx on memberships (user_id);
 
+create table if not exists contacts (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  kind text not null check (kind in ('shipper', 'consignee', 'overseas_agent', 'vendor')),
+  vendor_type text check (vendor_type in ('trucking_company', 'cfs_agent')),
+  name text not null,
+  email text,
+  phone text,
+  city text,
+  country text,
+  notes text,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  check ((kind = 'vendor') = (vendor_type is not null))
+);
+
+create index if not exists contacts_org_id_idx on contacts (org_id);
+
+alter table shipments add column if not exists shipper_contact_id uuid references contacts (id) on delete set null;
+alter table shipments add column if not exists consignee_contact_id uuid references contacts (id) on delete set null;
+
 -- ─────────────────────────────────────────────────────────────
 -- Row Level Security
 -- ─────────────────────────────────────────────────────────────
@@ -60,6 +81,7 @@ create index if not exists memberships_user_id_idx on memberships (user_id);
 alter table organizations enable row level security;
 alter table memberships enable row level security;
 alter table shipments enable row level security;
+alter table contacts enable row level security;
 
 create or replace function is_org_member(check_org_id uuid)
 returns boolean
@@ -105,6 +127,22 @@ create policy "members can insert org shipments"
 drop policy if exists "members can update org shipments" on shipments;
 create policy "members can update org shipments"
   on shipments for update
+  using (is_org_member(org_id));
+
+-- contacts: scoped strictly to org membership, same shape as shipments.
+drop policy if exists "members can view org contacts" on contacts;
+create policy "members can view org contacts"
+  on contacts for select
+  using (is_org_member(org_id));
+
+drop policy if exists "members can insert org contacts" on contacts;
+create policy "members can insert org contacts"
+  on contacts for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org contacts" on contacts;
+create policy "members can update org contacts"
+  on contacts for update
   using (is_org_member(org_id));
 
 -- ─────────────────────────────────────────────────────────────
@@ -176,3 +214,4 @@ grant execute on function is_org_member(uuid) to authenticated;
 grant select on organizations to authenticated;
 grant select on memberships to authenticated;
 grant select, insert, update on shipments to authenticated;
+grant select, insert, update on contacts to authenticated;

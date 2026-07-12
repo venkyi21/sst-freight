@@ -23,6 +23,36 @@ export interface OrganizationWithRole extends Organization {
   role: MembershipRole
 }
 
+export type ContactKind = 'shipper' | 'consignee' | 'overseas_agent' | 'vendor'
+export type VendorType = 'trucking_company' | 'cfs_agent'
+
+export interface Contact {
+  id: string
+  org_id: string
+  kind: ContactKind
+  vendor_type: VendorType | null
+  name: string
+  email: string | null
+  phone: string | null
+  city: string | null
+  country: string | null
+  notes: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export const CONTACT_KIND_META: Record<ContactKind, { label: string }> = {
+  shipper: { label: 'Shipper' },
+  consignee: { label: 'Consignee' },
+  overseas_agent: { label: 'Overseas Agent' },
+  vendor: { label: 'Vendor' },
+}
+
+export const VENDOR_TYPE_META: Record<VendorType, { label: string }> = {
+  trucking_company: { label: 'Trucking Company' },
+  cfs_agent: { label: 'CFS Agent' },
+}
+
 export interface Shipment {
   id: string
   org_id: string
@@ -42,6 +72,8 @@ export interface Shipment {
   gross_weight_kg: number | null
   vehicle_type: string | null
   driver_phone: string | null
+  shipper_contact_id: string | null
+  consignee_contact_id: string | null
   created_by: string | null
   created_at: string
 }

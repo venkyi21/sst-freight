@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { chargeableWeightKg, volumetricWeightKg } from '../lib/volumetric'
+import ContactAutocomplete from './ContactAutocomplete'
 import type { Shipment, ShipmentMode } from '../types'
 
 interface BookingModalProps {
@@ -45,7 +46,9 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
   const { user } = useAuth()
   const [mode, setMode] = useState<ShipmentMode>(defaultMode)
   const [shipper, setShipper] = useState('')
+  const [shipperContactId, setShipperContactId] = useState<string | null>(null)
   const [consignee, setConsignee] = useState('')
+  const [consigneeContactId, setConsigneeContactId] = useState<string | null>(null)
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [loadType, setLoadType] = useState<'FCL' | 'LCL'>('FCL')
@@ -70,17 +73,52 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
 
   const valid = shipper.trim() && consignee.trim() && origin.trim() && destination.trim()
 
+  async function resolveContactId(
+    existingId: string | null,
+    kind: 'shipper' | 'consignee',
+    name: string,
+    userId: string,
+  ): Promise<string | null> {
+    if (existingId) return existingId
+
+    // Re-check for an exact-name match at submit time rather than trusting the
+    // autocomplete's client-side list, which may still be loading — avoids
+    // creating a duplicate contact when the name matches one that already exists.
+    const { data: existingMatch } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('org_id', orgId)
+      .eq('kind', kind)
+      .ilike('name', name)
+      .limit(1)
+      .maybeSingle()
+    if (existingMatch) return (existingMatch as { id: string }).id
+
+    const { data, error: insertError } = await supabase
+      .from('contacts')
+      .insert({ org_id: orgId, kind, name, created_by: userId })
+      .select('id')
+      .single()
+    if (insertError || !data) return null
+    return (data as { id: string }).id
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!valid || !user) return
     setBusy(true)
     setError(null)
 
+    const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
+    const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
+
     const status = mode === 'truck' ? 'Loading' : 'Booked'
     const base = {
       org_id: orgId,
       mode,
       client: consignee.trim(),
+      shipper_contact_id: shipperId,
+      consignee_contact_id: consigneeId,
       origin: origin.trim(),
       destination: destination.trim(),
       status,
@@ -207,11 +245,27 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>Shipper</label>
-              <input type="text" value={shipper} onChange={(e) => setShipper(e.target.value)} placeholder="Shipper name" style={inputStyle} />
+              <ContactAutocomplete
+                orgId={orgId}
+                kind="shipper"
+                value={shipper}
+                onChange={setShipper}
+                onSelectContact={setShipperContactId}
+                placeholder="Shipper name"
+                inputStyle={inputStyle}
+              />
             </div>
             <div>
               <label style={labelStyle}>Consignee</label>
-              <input type="text" value={consignee} onChange={(e) => setConsignee(e.target.value)} placeholder="Consignee name" style={inputStyle} />
+              <ContactAutocomplete
+                orgId={orgId}
+                kind="consignee"
+                value={consignee}
+                onChange={setConsignee}
+                onSelectContact={setConsigneeContactId}
+                placeholder="Consignee name"
+                inputStyle={inputStyle}
+              />
             </div>
             <div>
               <label style={labelStyle}>Origin</label>

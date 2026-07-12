@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabaseClient'
 import Sidebar from '../components/Sidebar'
 import ShipmentsTable from '../components/ShipmentsTable'
 import BookingModal from '../components/BookingModal'
+import DirectoryPage from '../components/DirectoryPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import type { NavPage, Shipment, ShipmentMode } from '../types'
 
@@ -220,12 +221,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {navPage === 'directory' && (
-          <PlaceholderPage
-            title="Client & Vendor Directory"
-            description="Shipper, consignee and overseas-agent records land here in Week 2 of the release plan."
-          />
-        )}
+        {navPage === 'directory' && <DirectoryPage orgId={currentOrg.id} />}
 
         {navPage === 'customs' && (
           <PlaceholderPage
