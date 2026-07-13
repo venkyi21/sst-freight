@@ -138,13 +138,18 @@ built.
 
 ## 3. Non-Functional Requirements
 
-| Category | Requirement | Status |
-| --- | --- | --- |
-| **Tenant isolation** | No organization can ever read or write another organization's data, under any client-reachable code path. | ✅ Verified — automated multi-org test suite, re-run after every subsequent feature to confirm no regression. |
-| **Availability** | No formal SLA is defined or contracted. Uptime is bounded by GitHub Pages' and Supabase's own platform availability (both third-party, both outside this project's control). | Not measured — inherited, not engineered. |
-| **Performance** | No load testing has been performed. No claim is made about response time under concurrent load. | ⚠️ Not measured — do not assume a specific number without testing first. |
-| **Backup / recovery** | See `docs/migration-runbook.md` — as of the last check, the dev Supabase project's dashboard showed "No backups" under its free tier. Reconfirm current backup status directly in Supabase before relying on it. | ⚠️ Not guaranteed — verify before trusting. |
-| **Browser support** | No explicit browser matrix defined; built and manually verified against Chromium (headless, via automated QA passes each week). | Untested outside Chromium-based browsers. |
+The **Target** column states a goal to design and code toward, not a measured or contracted
+result — it exists so "fast enough" and "available enough" mean something concrete instead of
+being judged by feel. A target is only promoted to "✅ Verified" once an actual test produces a
+number to compare against it; until then, treat it as directional.
+
+| Category | Requirement | Target (not yet verified) | Status |
+| --- | --- | --- | --- |
+| **Tenant isolation** | No organization can ever read or write another organization's data, under any client-reachable code path. | N/A — binary correctness property, not a threshold. | ✅ Verified — automated multi-org test suite, re-run after every subsequent feature to confirm no regression. |
+| **Availability** | No formal SLA is defined or contracted. Uptime is bounded by GitHub Pages' and Supabase's own platform availability (both third-party, both outside this project's control). | **99% monthly uptime** (≈7.3 hours/month allowed downtime) — chosen as a realistic floor given GitHub Pages' and Supabase free/starter-tier published targets, appropriate for this app's current small-B2B scale (not a number to advertise to customers as an SLA). | Not measured — inherited, not engineered. |
+| **Performance** | No load testing has been performed. No claim is made about response time under concurrent load. | **RPC/query response < 500ms at p95, under ≤ 20 concurrent users** — sized to this app's actual current user base (small forwarding teams), not a generic web-scale figure. | ⚠️ Not measured — do not assume a specific number without testing first. |
+| **Backup / recovery** | See `docs/migration-runbook.md` — as of the last check, the dev Supabase project's dashboard showed "No backups" under its free tier. Reconfirm current backup status directly in Supabase before relying on it. | **Daily backups, 7-day retention** on the production project once on a paid Supabase tier — matches Supabase's own smallest paid-tier backup offering, not a custom figure. | ⚠️ Not guaranteed — verify before trusting. |
+| **Browser support** | No explicit browser matrix defined; built and manually verified against Chromium (headless, via automated QA passes each week). | Chromium, Firefox, and Safari (desktop), latest 2 major versions each. | Untested outside Chromium-based browsers. |
 
 ## 4. Explicitly out of scope (this SRS's boundary)
 
@@ -152,3 +157,30 @@ GST/tax handling, itemized multi-line quotes, per-shipment P&L, a "leave organiz
 service flow, and ownership transfer are all deliberately not requirements today — see
 `docs/tech-debt.md` for what's a shipped shortcut vs. `docs/roadmap.html` §3 for what's a
 not-yet-built competitive gap.
+
+## 5. 24-month horizon
+
+This SRS documents only what's shipped (Weeks 1–7). The near-term pipeline (`docs/roadmap.html`,
+Weeks 8–12) covers the next few months: Customs Filings, GST/e-invoicing, itemized multi-line
+quotes, per-shipment P&L, and the remaining competitive gaps identified during Week 6/7 planning.
+Beyond that near-term list, this section states direction rather than committed scope — nothing
+below is a requirement yet, and none of it should be built speculatively ahead of an actual
+decision to do so:
+
+- **0–6 months**: close out `docs/roadmap.html`'s remaining Weeks 8–12 items. This is the only
+  portion with any real specificity today.
+- **6–12 months**: revisit every item currently deferred as a scale/onboarding trigger rather
+  than fixed forever — e.g. `docs/tech-debt.md`'s invite-code rate limiting ("before invite-code
+  brute-forcing becomes a real concern at scale") and the Vite 8 dependency upgrade ("before
+  onboarding anyone who runs `npm run dev` on a shared/untrusted network"). Whether either has
+  actually become necessary by then is a judgment call at the time, not a scheduled certainty now.
+- **12–24 months**: directional only, contingent on real user/tenant growth actually happening —
+  no design work should start on these until that growth is real: a formal SLA (once the
+  **Availability** target above has a track record to back it), a paid Supabase tier with the
+  backup posture described in §3, and reassessing whether the current no-backend/static-site
+  architecture (ADR-0001's foundation) still fits if concurrent load ever approaches or exceeds
+  the Performance target above.
+
+**Explicitly not a horizon commitment**: no headcount, revenue, or customer-count projection is
+stated anywhere in this document — this section is about which *technical* questions become worth
+revisiting and roughly when, not a business plan.

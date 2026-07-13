@@ -16,6 +16,18 @@ called from the frontend.
 
 All examples use the JS client: `supabase.rpc('function_name', { p_arg: value })`.
 
+## Versioning
+
+**There is no versioning scheme.** A function is changed in place via `create or replace
+function` — the new body takes effect immediately for every caller, with no deprecation window,
+no `v2` naming convention, and no way for an old and new signature to coexist. This is safe
+**only** because the frontend and this schema are deployed from the same repository, in lockstep
+(the same commit that changes a function's signature also updates every call site) — there is no
+independently-versioned client (a mobile app, a third-party integration) calling these RPCs
+against a schema it doesn't control the deploy timing of. **If that ever changes**, this becomes
+a real gap that needs solving properly (e.g. versioned function names, a deprecation policy)
+before it's needed, not after something breaks in production for a caller this repo doesn't ship.
+
 ## Function signatures
 
 <!-- AUTO-GENERATED:START (run `node scripts/generate-api-reference.js` to refresh) -->

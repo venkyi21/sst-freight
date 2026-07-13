@@ -316,7 +316,13 @@
             <li><strong>P&amp;L is org-wide totals only</strong> — no per-shipment profitability view yet.</li>
             <li><strong>No "leave organization" or ownership-transfer flow.</strong></li>
             <li><strong>One test suite has a live-API fragility</strong> — an FX-rate assertion hardcodes an expected value from a source that legitimately changes.</li>
+            <li><strong>Two open dependency vulnerabilities</strong> (found via <code>npm audit</code>) — see the note below.</li>
+            <li><strong>No dependency version pinning or license inventory</strong> — every <code>package.json</code> entry uses a caret range, and no license audit has been run.</li>
           </ul>
+        </div>
+
+        <div class="note warn">
+          <b>Real, currently-open vulnerability:</b> <code>esbuild &lt;=0.24.2</code> (transitive via <code>vite &lt;=6.4.2</code>), moderate severity — the Vite <b>dev server</b> accepts requests from any website and returns the response. <b>Dev-only exposure</b>: doesn't affect the production static build GitHub Pages actually serves. The fix (<code>npm audit fix --force</code>) force-upgrades to <code>vite@8.1.4</code>, a breaking major-version jump not yet verified against this project's plugin versions — deferred deliberately for a solo-developer project, revisit before onboarding anyone who runs <code>npm run dev</code> on a shared/untrusted network. Full details: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/tech-debt.md">docs/tech-debt.md</a>.
         </div>
       </section>
 

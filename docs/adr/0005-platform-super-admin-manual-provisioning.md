@@ -21,6 +21,21 @@ controls the database. The only way it is ever *read* is through `is_platform_ad
 existing table policies (`is_org_member(org_id) or is_platform_admin()`). No UI exists for
 granting, viewing, or revoking platform-admin status.
 
+## Alternatives Considered
+
+- **A self-service admin-request flow** (e.g. an existing platform admin approves a promotion
+  request through some UI). Rejected as premature: this would require building an approval UI,
+  its own RPC, and its own authorization story for a capability the roadmap only needed to exist
+  in foundational form to unblock Week 8 — building that surface now means shipping an attack
+  surface (however small) with no actual consumer yet. Revisit only when a real admin dashboard
+  is actually being built (see Consequences below).
+- **Auto-granting platform-admin to existing organization Owners** (e.g. every org's first Owner
+  is also a platform admin). Rejected outright, not just deferred: this conflates two
+  fundamentally different privilege scopes — an Owner's authority is intentionally bounded to
+  their own organization (ADR-0001's whole premise), while platform-admin sees across every
+  tenant. Granting it automatically to a role that already exists at scale (every org has one)
+  would make the isolation guarantee meaningless for the one actor type it exists to constrain.
+
 ## Consequences
 
 - **There is no code path — not even a hidden or undocumented one — by which becoming a platform

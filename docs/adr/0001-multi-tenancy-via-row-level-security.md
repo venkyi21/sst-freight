@@ -20,6 +20,21 @@ reusable helper, `is_org_member(check_org_id)` (`supabase/schema.sql`), which ch
 existence via `auth.uid()`. No table trusts a client-supplied `org_id` filter to be honest —
 the RLS policy itself re-derives whether the requesting user may see that row.
 
+## Alternatives Considered
+
+- **Application-level filtering** (every query manually scoped with `.eq('org_id', currentOrgId)`
+  in frontend code, no RLS). Rejected: this app has no backend server, so "application-level"
+  here would mean *client-side* filtering — trusting the browser to honestly restrict its own
+  queries. A single missed `.eq()` call, or a direct API call bypassing the UI entirely, would
+  leak cross-tenant data with nothing else in the way. RLS makes the database itself refuse the
+  row regardless of what the client asks for, which a client-trust model structurally cannot.
+- **A middleware/backend service that enforces tenancy in code** (e.g. a Node API layer between
+  the frontend and Postgres). Rejected as a foundational choice, not merely deferred: standing up
+  a server contradicts the static-site/no-backend architecture this project is built around (see
+  `docs/sdd.md` §1) and would introduce hosting, deployment, and secret-management concerns this
+  project has deliberately avoided everywhere else. If a genuine need for server-side compute ever
+  arises, that's a new ADR, not a retrofit of this one.
+
 ## Consequences
 
 - **Isolation is provable, not just conventional.** A bug in frontend filtering logic cannot leak

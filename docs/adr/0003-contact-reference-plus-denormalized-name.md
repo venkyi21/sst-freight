@@ -21,6 +21,19 @@ records) and a plain `*_name` text column snapshotted at creation time. `shipmen
 consistent starting with `quotes.shipper_name`/`consignee_name` and `invoices.client_name` /
 `shipment_costs.vendor_name`.
 
+## Alternatives Considered
+
+- **Id-only reference** (a plain `*_contact_id` foreign key, no name snapshot; every display path
+  joins to `contacts` for the current name). Rejected: a contact rename or deletion would silently
+  rewrite how historical invoices/quotes/bookings display — an issued invoice would show whatever
+  the client is named *today*, not what it was named when the invoice was issued, which is
+  incorrect accounting behavior. It also forces a join into every list view just to render a name.
+- **Plain-text-only** (just `*_name` text columns, no FK back to `contacts` at all — effectively
+  keeping the pre-Week-2 free-text status quo for every new feature). Rejected: this was the exact
+  problem Week 2's Directory was built to fix (typo'd/duplicate shipper names with no canonical
+  record) — extending free-text-only to quotes/invoices/costs would reopen that gap in every
+  feature built after Week 2, and loses any traceability back to a specific directory entry.
+
 ## Consequences
 
 - **List views never need a join to `contacts` just to render a name** — `ShipmentsTable`,

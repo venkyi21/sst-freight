@@ -65,3 +65,25 @@ fast otherwise.
   expected total — legitimately differs run to run. The test has already needed a manual fix once
   for this reason. Should assert against the rate the test itself observes from the fetch/API
   response, not a number baked in at authoring time.
+
+## Dependencies
+
+- **Two real, currently-open vulnerabilities** (found by running `npm audit` directly — not
+  previously documented anywhere): `esbuild <=0.24.2` (pulled in transitively via `vite <=6.4.2`),
+  moderate severity, [GHSA-67mh-4wv8-2f99](https://github.com/advisories/GHSA-67mh-4wv8-2f99) —
+  the Vite **dev server** accepts requests from any website and returns the response. **Dev-only
+  exposure**: this affects `npm run dev` on a developer's machine, not the production static build
+  actually served by GitHub Pages, since esbuild's dev server isn't part of the shipped bundle.
+  `npm audit fix --force` resolves it but force-upgrades to `vite@8.1.4` — a breaking major-version
+  jump (5→8) whose compatibility with `@vitejs/plugin-react`'s current version hasn't been
+  verified, and could break the build. Deferred deliberately: for a solo-developer project where
+  the dev server isn't exposed to an untrusted network, the risk of a build break outweighs the
+  dev-only, moderate-severity finding — but this should be revisited (test the Vite 8 upgrade on
+  a branch first) before onboarding anyone who runs `npm run dev` on a shared/untrusted network.
+- **No dependency version pinning.** Every entry in `package.json` uses a caret range (`^18.3.1`,
+  etc.), not an exact pin — a `npm install` on a fresh clone can silently pull a newer minor/patch
+  version than what was last tested. `package-lock.json` mitigates this for reproducible installs
+  within this repo, but there's no CI step verifying the lockfile matches `package.json` exactly.
+- **No dependency license inventory exists.** No audit has been run to confirm every transitive
+  dependency's license is compatible with however this project is ultimately distributed/licensed
+  (not yet a concern at a solo-project stage; would matter before any external distribution).

@@ -20,6 +20,19 @@ the next value from a fixed sequence and rejects the call once already at `'Deli
 transition — including the initial one, via an `after insert` trigger — is logged to
 `shipment_status_history`, an append-only table with no client write grant at all.
 
+## Alternatives Considered
+
+- **Check-constraint-only** (keep direct client `UPDATE` on `shipments.status`, just constrain it
+  to the five valid string values). Rejected: a check constraint restricts the *set* of values but
+  not the *sequence* — a client could still jump straight from `'Booked'` to `'Delivered'` via a
+  raw update call, which is not a real state machine, just a restricted free-text field. This was
+  exactly the gap Week 4 was meant to close, so it was rejected as not actually solving the problem.
+- **A free, editable status dropdown in the UI** (any Member picks any of the 5 values at will,
+  enforced only by hiding invalid options in the frontend select). Rejected for the same reason as
+  above, one level up the stack: a UI-only restriction is bypassable via any direct API call, and
+  this project's standing principle (ADR-0001) is that client-side restrictions are not a security
+  or correctness boundary — only server-side enforcement (the RPC + revoked grant) is.
+
 ## Consequences
 
 - **The state machine cannot be bypassed from the client**, not even accidentally. This was
