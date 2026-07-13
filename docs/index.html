@@ -316,13 +316,16 @@
             <li><strong>P&amp;L is org-wide totals only</strong> — no per-shipment profitability view yet.</li>
             <li><strong>No "leave organization" or ownership-transfer flow.</strong></li>
             <li><strong>One test suite has a live-API fragility</strong> — an FX-rate assertion hardcodes an expected value from a source that legitimately changes.</li>
-            <li><strong>Two open dependency vulnerabilities</strong> (found via <code>npm audit</code>) — see the note below.</li>
-            <li><strong>No dependency version pinning or license inventory</strong> — every <code>package.json</code> entry uses a caret range, and no license audit has been run.</li>
+            <li><strong>One open dependency vulnerability</strong> (found via <code>npm audit</code>) — see the note below.</li>
           </ul>
         </div>
 
         <div class="note warn">
           <b>Real, currently-open vulnerability:</b> <code>esbuild &lt;=0.24.2</code> (transitive via <code>vite &lt;=6.4.2</code>), moderate severity — the Vite <b>dev server</b> accepts requests from any website and returns the response. <b>Dev-only exposure</b>: doesn't affect the production static build GitHub Pages actually serves. The fix (<code>npm audit fix --force</code>) force-upgrades to <code>vite@8.1.4</code>, a breaking major-version jump not yet verified against this project's plugin versions — deferred deliberately for a solo-developer project, revisit before onboarding anyone who runs <code>npm run dev</code> on a shared/untrusted network. Full details: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/tech-debt.md">docs/tech-debt.md</a>.
+        </div>
+
+        <div class="note ok">
+          <b>Closed:</b> dependency version pinning and a license inventory, both previously open gaps here, are now done — every <code>package.json</code> entry is an exact pin (no caret ranges), and every production-shipped dependency is MIT or 0BSD (fully permissive). Full detail: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/dependency-manifest.md">docs/dependency-manifest.md</a>.
         </div>
       </section>
 
@@ -357,10 +360,10 @@
             <h3>README.md</h3>
             <p>Setup, hosting, two-environment deploy workflow, and links to every doc on this page.</p>
           </a>
-          <a class="doc-card" href="https://github.com/venkyi21/sst-freight/blob/dev/package.json">
+          <a class="doc-card" href="https://github.com/venkyi21/sst-freight/blob/dev/docs/dependency-manifest.md">
             <div class="doc-icon">Dependency Manifest</div>
-            <h3>package.json</h3>
-            <p>React 18, Vite 5, TypeScript 5, <code>@supabase/supabase-js</code> — the entire runtime dependency list, deliberately minimal.</p>
+            <h3>dependency-manifest.md</h3>
+            <p>Exact pinned versions, a per-package license inventory (all MIT/0BSD), and the current vulnerability footprint — <code>package.json</code> itself has the deliberately minimal runtime list this is generated from.</p>
           </a>
           <a class="doc-card" href="https://github.com/venkyi21/sst-freight/blob/dev/CLAUDE.md">
             <div class="doc-icon">Maintenance rules</div>

@@ -134,6 +134,8 @@ git push -u origin dev
   made in this project and why, so later work doesn't accidentally contradict one.
 - [`docs/tech-debt.md`](docs/tech-debt.md) — known, deliberate shortcuts in shipped code and what
   it would take to close each one.
+- [`docs/dependency-manifest.md`](docs/dependency-manifest.md) — exact pinned dependency versions,
+  a per-package license inventory, and the current `npm audit` vulnerability footprint.
 - [`docs/api-reference.md`](docs/api-reference.md) — reference for every Supabase RPC function
   the frontend calls (this app has no separate backend API beyond these). Its signature table is
   auto-generated — run `npm run docs:gen-api` after any change to `supabase/schema.sql`.
