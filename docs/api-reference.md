@@ -16,6 +16,28 @@ called from the frontend.
 
 All examples use the JS client: `supabase.rpc('function_name', { p_arg: value })`.
 
+## Function signatures
+
+<!-- AUTO-GENERATED:START (run `node scripts/generate-api-reference.js` to refresh) -->
+
+_Generated from `supabase/schema.sql` — do not hand-edit this table, run the script instead._
+
+| Function | Returns | Granted to |
+| --- | --- | --- |
+| `is_org_member(check_org_id uuid)` | `boolean` | `authenticated` |
+| `is_org_admin(check_org_id uuid)` | `boolean` | `authenticated` |
+| `is_platform_admin()` | `boolean` | `authenticated` |
+| `create_organization(p_name text, p_color text default '#2563eb')` | `organizations` | `authenticated` |
+| `join_organization(p_invite_code text)` | `organizations` | `authenticated` |
+| `list_org_members(p_org_id uuid)` | `table (membership_id uuid, user_id uuid, email text, role text, created_at timestamptz)` | `authenticated` |
+| `update_member_role(p_membership_id uuid, p_new_role text)` | `void` | `authenticated` |
+| `remove_member(p_membership_id uuid)` | `void` | `authenticated` |
+| `advance_shipment_status(p_shipment_id uuid)` | `shipments` | `authenticated` |
+| `list_shipment_status_history(p_shipment_id uuid)` | `table (from_status text, to_status text, changed_by_email text, created_at timestamptz)` | `authenticated` |
+| `get_public_shipment_tracking(p_token uuid)` | `jsonb` | `anon`, `authenticated` |
+
+<!-- AUTO-GENERATED:END -->
+
 ## Organizations & membership
 
 ### `create_organization(p_name text, p_color text default '#2563eb') → organizations`

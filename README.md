@@ -131,8 +131,19 @@ git push -u origin dev
 - [`docs/tech-debt.md`](docs/tech-debt.md) — known, deliberate shortcuts in shipped code and what
   it would take to close each one.
 - [`docs/api-reference.md`](docs/api-reference.md) — reference for every Supabase RPC function
-  the frontend calls (this app has no separate backend API beyond these).
+  the frontend calls (this app has no separate backend API beyond these). Its signature table is
+  auto-generated — run `npm run docs:gen-api` after any change to `supabase/schema.sql`.
 - [`docs/roadmap.html`](docs/roadmap.html) — the feature roadmap and competitive gap tracker.
+- [`CLAUDE.md`](CLAUDE.md) — which of the above to update for which kind of change, and this
+  project's standing architectural conventions.
+
+These are enforced, not just suggested: a pre-commit hook and a CI check both fail if
+`supabase/schema.sql` changes without a matching update to at least one docs-as-code file.
+Activate the local hook once per clone (git doesn't use `.githooks/` automatically):
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ## Project structure
 
