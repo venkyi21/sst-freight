@@ -184,11 +184,11 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–9 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–9 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8, an inline-validation/tooltip UX pass inserted ahead of Week 10, and Week 10's Customs Filing Simulator.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">14</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking)</div></div>
-          <div class="cell"><div class="num info">3</div><div class="lbl">weeks remaining<br>Week 10 → Week 12</div></div>
+          <div class="cell"><div class="num ok">15</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking, customs filing simulator)</div></div>
+          <div class="cell"><div class="num info">2</div><div class="lbl">weeks remaining<br>Week 11 → Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
@@ -287,10 +287,10 @@
               </tr>
               <tr>
                 <td class="week">10</td>
-                <td><strong>Customs Filing</strong></td>
-                <td>Bill of Entry / Shipping Bill workflows via ICEGATE (India)</td>
+                <td><strong>Customs Filing Simulator</strong> <span class="tag ok">scoped</span></td>
+                <td>Bill of Entry (import) / Shipping Bill (export) filings via a real first-ever step-by-step wizard (ADR-0015), linked to an existing shipment so shipper/consignee auto-populate. <strong>Differentiator</strong>: a real, seeded HS-code reference table (~22 codes, real published BCD/IGST/Social Welfare Surcharge rates) searchable by keyword or code, with duty computed transparently the moment a code is picked — directly targeting the sourced industry pain point that HS-code misclassification (often silent, sometimes copied straight off the invoice) is the #1 cause of unexpected duty bills and audit exposure. <strong>Narrower than the row title implies, stated plainly</strong>: no real ICEGATE/CHA/DSC registration exists today (confirmed directly, not assumed — ADR-0016), so this is a genuine simulator, not a live government filing — the same honesty pattern as Week 8's rake ledger.</td>
                 <td><span class="tag">GoFreight</span> <span class="tag">(India scope — see §4)</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
               </tr>
               <tr>
                 <td class="week">11</td>

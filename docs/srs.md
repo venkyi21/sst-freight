@@ -205,6 +205,39 @@ built.
     broader wording) remain entirely unbuilt; no free API path exists for either (see
     `docs/tech-debt.md`).
 
+### FR-12: Customs Filing Simulator
+
+- **US-12.1** — As a Member, I can create a Bill of Entry (import) or Shipping Bill (export)
+  filing through a step-by-step wizard, linked to an existing shipment so shipper/consignee
+  auto-populate instead of re-typing them.
+  - AC: Verified end-to-end in a real browser — creating a filing for both `bill_of_entry` and
+    `shipping_bill` types, linked to a real shipment, produces a filing row with the shipment's
+    shipper/consignee names carried over.
+  - AC: This is the app's first genuine multi-step wizard (per ADR-0015) — verified all four
+    steps (Filing, Goods & HS Code, Duty, Review) render and validate in sequence.
+- **US-12.2** — As a Member, I can search for an HS/tariff code by keyword or code and see its
+  Basic Customs Duty, Social Welfare Surcharge, and IGST rates immediately, before committing to
+  it — instead of copying whatever code is on the commercial invoice, the pain point industry
+  research named as the #1 cause of unexpected duty bills and audit exposure.
+  - AC: Verified a keyword search (e.g. "mobile", "cotton") and a code-prefix search both return
+    matching real seeded HS codes with their duty rates displayed inline, before selection.
+  - AC: Duty is computed transparently using the real Indian customs stacking order (BCD on
+    assessable value; Social Welfare Surcharge on the BCD amount; IGST on assessable value + BCD +
+    SWS) — verified against a known input by hand-calculation, not just code-reviewed.
+- **US-12.3** — As a Member, I can see clearly, both in the wizard and the filings list, that this
+  is a simulated filing with no live submission to ICEGATE or any government system.
+  - AC: Verified the disclaimer text renders in the wizard's Duty and Review steps and in the
+    filings list's page description.
+- **US-12.4** — As an Owner/Admin, filings created or edited by anyone in my organization are
+  captured in the existing audit trail (ADR-0010), and no other organization can see or write my
+  organization's filings.
+  - AC: Verified directly (not just UI-hidden) — a direct Postgres call from a different
+    organization's membership against `customs_filings` is rejected by RLS; a real filing
+    insert/update produces a corresponding `audit_log` row.
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — no live ICEGATE/CHA integration;
+    `hs_codes` is a periodic, manually-refreshed reference snapshot, not synced to CBIC tariff
+    notifications; HS code coverage is representative (~22 codes), not exhaustive.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

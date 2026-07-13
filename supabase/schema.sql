@@ -206,6 +206,81 @@ create table if not exists shipment_costs (
 create index if not exists shipment_costs_org_id_idx on shipment_costs (org_id);
 alter table shipment_costs enable row level security;
 
+-- hs_codes (Week 10, ADR-0016): the first *global*, non-org-scoped reference table in this
+-- schema — a shared HS/tariff-classification lookup, not tenant data. Seeded with a
+-- representative snapshot of real, published Indian Customs duty rates across common
+-- goods categories (electronics, textiles, auto parts, chemicals, machinery); it is not
+-- live-synced to CBIC tariff notifications (see docs/tech-debt.md). This is what the
+-- Customs Filing Simulator's duty transparency/validation differentiator is built on — a
+-- real reference lookup instead of accepting whatever code appears on the invoice.
+create table if not exists hs_codes (
+  hs_code text primary key,
+  description text not null,
+  basic_customs_duty_pct numeric not null check (basic_customs_duty_pct >= 0),
+  igst_pct numeric not null check (igst_pct >= 0),
+  social_welfare_surcharge_pct numeric not null default 10 check (social_welfare_surcharge_pct >= 0),
+  created_at timestamptz not null default now()
+);
+alter table hs_codes enable row level security;
+
+insert into hs_codes (hs_code, description, basic_customs_duty_pct, igst_pct, social_welfare_surcharge_pct) values
+  ('8517.12', 'Mobile phones (smartphones)', 0, 18, 10),
+  ('8471.30', 'Laptops / notebook computers', 0, 18, 10),
+  ('8528.72', 'LED/LCD television receivers', 20, 18, 10),
+  ('8415.10', 'Split air conditioners', 20, 28, 10),
+  ('8450.11', 'Household washing machines', 20, 18, 10),
+  ('6109.10', 'Cotton T-shirts, knitted', 15, 12, 10),
+  ('6203.42', 'Men''s cotton trousers', 15, 12, 10),
+  ('5208.11', 'Woven cotton fabric, unbleached', 10, 5, 10),
+  ('8708.29', 'Motor vehicle body parts & accessories', 15, 28, 10),
+  ('8708.99', 'Motor vehicle parts, other', 15, 28, 10),
+  ('8409.91', 'Engine parts for spark-ignition engines', 7.5, 28, 10),
+  ('8483.10', 'Transmission shafts and cranks', 7.5, 18, 10),
+  ('2933.99', 'Heterocyclic compounds (pharma intermediates)', 5, 18, 10),
+  ('3004.90', 'Medicaments, packaged for retail sale', 5, 12, 10),
+  ('3901.10', 'Polyethylene, primary form', 5, 18, 10),
+  ('8479.89', 'Industrial machinery, n.e.s.', 7.5, 18, 10),
+  ('8413.70', 'Centrifugal pumps', 7.5, 18, 10),
+  ('7308.90', 'Structures of iron or steel', 10, 18, 10),
+  ('9403.20', 'Metal furniture', 20, 18, 10),
+  ('4202.22', 'Handbags with outer surface of textile material', 20, 18, 10),
+  ('8544.42', 'Electric conductors/cables, fitted with connectors', 10, 18, 10),
+  ('3926.90', 'Articles of plastics, other', 10, 18, 10)
+on conflict (hs_code) do nothing;
+
+-- customs_filings (Week 10, ADR-0016): Bill of Entry (import) / Shipping Bill (export)
+-- simulator. Org-scoped, same plain-RLS-gated-CRUD shape as tariffs/quotes — a privileged
+-- RPC isn't warranted here per ADR-0002/0006. shipment_id/shipper/consignee follow the
+-- established nullable-FK + denormalized-snapshot pattern (ADR-0003). Duty amounts are
+-- computed client-side at submission (same convention as quotes.total) using the real
+-- Indian customs stacking order: BCD on assessable value, SWS on BCD, IGST on
+-- (assessable value + BCD + SWS) — not a live government filing (see ADR-0016).
+create table if not exists customs_filings (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  ref text not null,
+  filing_type text not null check (filing_type in ('bill_of_entry', 'shipping_bill')),
+  shipment_id uuid references shipments (id) on delete set null,
+  shipper_contact_id uuid references contacts (id) on delete set null,
+  shipper_name text,
+  consignee_contact_id uuid references contacts (id) on delete set null,
+  consignee_name text,
+  goods_description text not null,
+  hs_code text references hs_codes (hs_code),
+  assessable_value_inr numeric not null check (assessable_value_inr > 0),
+  bcd_amount_inr numeric not null default 0,
+  sws_amount_inr numeric not null default 0,
+  igst_amount_inr numeric not null default 0,
+  total_duty_inr numeric not null default 0,
+  status text not null default 'draft' check (status in ('draft', 'filed', 'cleared')),
+  filed_at timestamptz,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  unique (org_id, ref)
+);
+create index if not exists customs_filings_org_id_idx on customs_filings (org_id);
+alter table customs_filings enable row level security;
+
 -- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
 -- No RLS policy is defined for this table and no grants are given to `authenticated` —
 -- it is unreachable from the client entirely. The only way in is a manual insert via the
@@ -440,6 +515,31 @@ create policy "members can insert org shipment costs"
 drop policy if exists "members can update org shipment costs" on shipment_costs;
 create policy "members can update org shipment costs"
   on shipment_costs for update
+  using (is_org_member(org_id));
+
+-- hs_codes: the exception to every policy above — global reference data, visible to every
+-- authenticated user regardless of org, no tenant boundary applies. No insert/update/delete
+-- policy exists; the only writer is the seed insert in schema.sql above.
+drop policy if exists "authenticated can view hs codes" on hs_codes;
+create policy "authenticated can view hs codes"
+  on hs_codes for select
+  to authenticated
+  using (true);
+
+-- customs_filings: scoped strictly to org membership, same shape as tariffs/quotes.
+drop policy if exists "members can view org customs filings" on customs_filings;
+create policy "members can view org customs filings"
+  on customs_filings for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org customs filings" on customs_filings;
+create policy "members can insert org customs filings"
+  on customs_filings for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org customs filings" on customs_filings;
+create policy "members can update org customs filings"
+  on customs_filings for update
   using (is_org_member(org_id));
 
 -- ─────────────────────────────────────────────────────────────
@@ -772,6 +872,9 @@ create trigger invoices_audit after insert or update or delete on invoices
 drop trigger if exists shipment_costs_audit on shipment_costs;
 create trigger shipment_costs_audit after insert or update or delete on shipment_costs
   for each row execute function log_audit_event();
+drop trigger if exists customs_filings_audit on customs_filings;
+create trigger customs_filings_audit after insert or update or delete on customs_filings
+  for each row execute function log_audit_event();
 
 -- list_audit_log: the only reader of audit_log. Gated to Owner/Admin (or platform admin) —
 -- same is_org_admin() gate as update_member_role()/remove_member(), since this ledger covers
@@ -1090,3 +1193,5 @@ grant select, insert, update on tariffs to authenticated;
 grant select, insert, update on quotes to authenticated;
 grant select, insert, update on invoices to authenticated;
 grant select, insert, update on shipment_costs to authenticated;
+grant select on hs_codes to authenticated;
+grant select, insert, update on customs_filings to authenticated;

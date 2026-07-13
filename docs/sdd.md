@@ -78,10 +78,12 @@ erDiagram
   organizations ||--o{ shipment_costs : "owns"
   organizations ||--o{ audit_log : "owns"
   organizations ||--o{ platform_revenue_ledger : "owns"
+  organizations ||--o{ customs_filings : "owns"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
   shipments ||--o{ shipment_costs : "costed via"
+  shipments ||--o{ customs_filings : "filed via (nullable FK)"
   shipments }o--o| contacts : "shipper / consignee (nullable FK)"
 
   quotes }o--o| contacts : "shipper / consignee (nullable FK)"
@@ -92,6 +94,8 @@ erDiagram
   shipment_costs }o--o| contacts : "vendor (nullable FK)"
   invoices |o--o| platform_revenue_ledger : "fx_spread rake (nullable FK)"
   shipment_costs |o--o| platform_revenue_ledger : "instant_payout rake (nullable FK)"
+  customs_filings }o--o| contacts : "shipper / consignee (nullable FK)"
+  customs_filings }o--|| hs_codes : "classified as"
 ```
 
 Every tenant-scoped table (everything except `organizations` and `memberships` themselves) has
@@ -111,6 +115,14 @@ design, not a modeling gap, since a real FK per audited table would need a schem
 time a new table joins the audit scope. One generic `AFTER` trigger (`log_audit_event()`) writes
 every row; `list_audit_log()` is the only read path, gated to Owner/Admin.
 
+**Week 10 (ADR-0016)**: `customs_filings` (Bill of Entry / Shipping Bill simulator) follows the
+same tenant-scoped shape as every table above — `org_id` + RLS. `hs_codes` does not — it's the
+**first global, non-org-scoped table** in this schema, a shared HS/tariff duty-rate reference set
+that's identical for every organization, not tenant data. Its RLS policy is `to authenticated
+using (true)` for `select` only, deliberately different from every `is_org_member(org_id)` policy
+elsewhere; no insert/update/delete grant exists, since the only writer is the seed data in
+`schema.sql` itself. Not drawn as owned by `organizations` above precisely because it isn't.
+
 **Week 8 (ADR-0012/ADR-0013)**: `organizations` gained `billing_model`, `monthly_fee_inr`, and
 `enabled_modules` — the platform-monetization config described in §5. `platform_revenue_ledger`
 is the simulated FinTech Slice rake ledger — no real funds move through it (ADR-0013); its
@@ -121,9 +133,10 @@ per-invoice or per-cost).
 
 ## 4. Request patterns
 
-**Pattern A — plain RLS-gated table access** (contacts, tariffs, most of quotes/invoices/costs):
-the client calls `.select()`/`.insert()`/`.update()` directly; Postgres's RLS policy decides
-per-row visibility.
+**Pattern A — plain RLS-gated table access** (contacts, tariffs, most of quotes/invoices/costs,
+customs_filings): the client calls `.select()`/`.insert()`/`.update()` directly; Postgres's RLS
+policy decides per-row visibility. `hs_codes` is a read-only variant of this same pattern — no
+insert/update path exists at all, and its `using (true)` policy has no org dimension to check.
 
 ```mermaid
 sequenceDiagram

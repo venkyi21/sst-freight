@@ -147,7 +147,7 @@ export const PLATFORM_RAKE_META: Record<PlatformRakeType, { label: string }> = {
 }
 
 export type AuditOperation = 'insert' | 'update' | 'delete'
-export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations'
+export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations' | 'customs_filings'
 
 export interface AuditLogEntry {
   id: string
@@ -166,6 +166,7 @@ export const AUDIT_TABLE_META: Record<AuditTableName, { label: string }> = {
   invoices: { label: 'Invoices' },
   shipment_costs: { label: 'Shipment Costs' },
   organizations: { label: 'Billing Plan' },
+  customs_filings: { label: 'Customs Filings' },
 }
 
 export const AUDIT_OPERATION_META: Record<AuditOperation, { label: string; color: string; background: string }> = {
@@ -281,6 +282,52 @@ export interface ShipmentCost {
 }
 
 export const INVOICE_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CNY']
+
+export interface HsCode {
+  hs_code: string
+  description: string
+  basic_customs_duty_pct: number
+  igst_pct: number
+  social_welfare_surcharge_pct: number
+  created_at: string
+}
+
+export type CustomsFilingType = 'bill_of_entry' | 'shipping_bill'
+export type CustomsFilingStatus = 'draft' | 'filed' | 'cleared'
+
+export const CUSTOMS_FILING_TYPE_META: Record<CustomsFilingType, { label: string; shortLabel: string }> = {
+  bill_of_entry: { label: 'Bill of Entry (Import)', shortLabel: 'BOE' },
+  shipping_bill: { label: 'Shipping Bill (Export)', shortLabel: 'SB' },
+}
+
+export const CUSTOMS_FILING_STATUS_META: Record<CustomsFilingStatus, { label: string; color: string; background: string }> = {
+  draft: { label: 'Draft', color: '#94a3b8', background: 'rgba(148,163,184,0.12)' },
+  filed: { label: 'Filed', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
+  cleared: { label: 'Cleared', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
+}
+
+export interface CustomsFiling {
+  id: string
+  org_id: string
+  ref: string
+  filing_type: CustomsFilingType
+  shipment_id: string | null
+  shipper_contact_id: string | null
+  shipper_name: string | null
+  consignee_contact_id: string | null
+  consignee_name: string | null
+  goods_description: string
+  hs_code: string | null
+  assessable_value_inr: number
+  bcd_amount_inr: number
+  sws_amount_inr: number
+  igst_amount_inr: number
+  total_duty_inr: number
+  status: CustomsFilingStatus
+  filed_at: string | null
+  created_by: string | null
+  created_at: string
+}
 
 export interface PublicTrackingData {
   ref: string

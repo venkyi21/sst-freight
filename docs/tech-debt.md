@@ -131,6 +131,28 @@ is a near-term coding task, and none of it should be attempted without that infr
 - **Wizards were deliberately not built for existing forms** — see ADR-0015. This is a scope
   decision, not an oversight; revisit only if a form's field count genuinely grows.
 
+## Customs filing simulation (Week 10, ADR-0016)
+
+- **No real ICEGATE/CHA integration exists, and none is planned until real registration exists.**
+  SST Freight does not hold a real ICEGATE Trading Partner registration, CHA license, or Digital
+  Signature Certificate today — confirmed directly with the user, not assumed. Closing this needs
+  a real government-vetted EDI relationship, not a coding task; revisit if/when that registration
+  exists (see ADR-0016's "Option A/B" alternatives).
+- **`hs_codes` is a periodic snapshot, not live-synced to CBIC tariff notifications.** The ~22
+  seeded HS codes carry real, published category-level BCD/IGST/SWS rates at the time they were
+  researched, but India's actual customs tariff schedule changes via government notification.
+  Refreshing this table is a future, manual task — there is no automatic sync, and the app does
+  not claim one.
+- **HS code coverage is representative, not exhaustive.** ~22 codes across common categories
+  (electronics, textiles, auto parts, chemicals, machinery) — a real filing for a product outside
+  this set has no matching reference row today. Closing this means expanding the seed list, not a
+  structural change.
+- **`customs_filings.status` has no forward-only enforcement** (unlike `shipments.status`,
+  ADR-0004) — `draft`/`filed`/`cleared` is a plain, client-updatable column, matching how
+  `quotes.status`/`invoices.status` already work. Acceptable here since filing status isn't a
+  security boundary, but worth revisiting if a future workflow needs to guarantee filings can't be
+  un-filed.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because
