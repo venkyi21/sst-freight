@@ -47,6 +47,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `advance_shipment_status(p_shipment_id uuid)` | `shipments` | `authenticated` |
 | `list_shipment_status_history(p_shipment_id uuid)` | `table (from_status text, to_status text, changed_by_email text, created_at timestamptz)` | `authenticated` |
 | `get_public_shipment_tracking(p_token uuid)` | `jsonb` | `anon`, `authenticated` |
+| `list_audit_log(p_org_id uuid, p_table_name text default null, p_record_id uuid default null, p_limit int default 200)` | `table (id uuid, table_name text, record_id uuid, operation text, changed_by_email text, changed_at timestamptz, old_data jsonb, new_data jsonb)` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -152,4 +153,24 @@ matches.
 
 ```ts
 const { data, error } = await supabase.rpc('get_public_shipment_tracking', { p_token: token })
+```
+
+## Audit log
+
+Introduced alongside the app error-logging module (ADR-0010, ADR-0011). Covers `contacts`,
+`memberships`, `invoices`, and `shipment_costs` — **not** `shipments`/`shipment_status_history`,
+which already has its own purpose-built history above.
+
+### `list_audit_log(p_org_id uuid, p_table_name text default null, p_record_id uuid default null, p_limit int default 200) → { id, table_name, record_id, operation, changed_by_email, changed_at, old_data, new_data }[]`
+
+Reads the append-only `audit_log` table, most recent first. Caller must be an Owner/Admin of
+`p_org_id` (or a platform admin) — raises `Not authorized to view the audit log` otherwise; a
+plain Member gets no read access at all, not just a hidden UI element. `p_table_name` and
+`p_record_id` are optional filters (pass `null`/omit to see everything the caller is entitled to,
+up to `p_limit`). `old_data`/`new_data` are the full row as `jsonb` (`null` for `old_data` on
+`insert`, `null` for `new_data` on `delete`) — every column is captured, not a fixed subset chosen
+in advance, so a future column added to any audited table is covered automatically.
+
+```ts
+const { data, error } = await supabase.rpc('list_audit_log', { p_org_id: orgId, p_table_name: 'invoices' })
 ```

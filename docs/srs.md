@@ -136,6 +136,21 @@ built.
   - AC: An invalid/guessed link shows a plain "not found" message; no SQL or stack trace text is
     ever shown, and no other shipment's data is returned.
 
+### FR-9: Audit Trail
+
+- **US-9.1** — As an Owner or Admin, I can view a chronological log of who changed what across
+  contacts, team roles, invoices, and shipment costs — filterable by table, with the full
+  before/after values for each change.
+  - AC: Verified directly against a real trigger firing, not just code inspection: editing a
+    contact, changing an invoice's `fx_rate`, promoting a team member, and adding a shipment cost
+    each produce a corresponding `audit_log` row with the correct operation and an accurate
+    old/new value diff.
+  - AC: A plain Member's `list_audit_log` RPC call is rejected server-side (`Not authorized to
+    view the audit log`) — verified by a direct RPC call bypassing the UI, not only a hidden nav
+    item.
+  - AC: **Known limitation** (see `docs/tech-debt.md`) — no retention/archival policy exists;
+    every row is kept indefinitely.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted
@@ -150,6 +165,7 @@ number to compare against it; until then, treat it as directional.
 | **Performance** | No load testing has been performed. No claim is made about response time under concurrent load. | **RPC/query response < 500ms at p95, under ≤ 20 concurrent users** — sized to this app's actual current user base (small forwarding teams), not a generic web-scale figure. | ⚠️ Not measured — do not assume a specific number without testing first. |
 | **Backup / recovery** | See `docs/migration-runbook.md` — as of the last check, the dev Supabase project's dashboard showed "No backups" under its free tier. Reconfirm current backup status directly in Supabase before relying on it. | **Daily backups, 7-day retention** on the production project once on a paid Supabase tier — matches Supabase's own smallest paid-tier backup offering, not a custom figure. | ⚠️ Not guaranteed — verify before trusting. |
 | **Browser support** | No explicit browser matrix defined; built and manually verified against Chromium (headless, via automated QA passes each week). | Chromium, Firefox, and Safari (desktop), latest 2 major versions each. | Untested outside Chromium-based browsers. |
+| **Error observability** | Global JS errors, unhandled promise rejections, React render errors, and the FX-rate external API call are captured client-side (ADR-0011); no external log vendor is wired in yet, so today coverage means "visible in the browser console," not "alerts someone." | An external vendor (Axiom/Logflare or similar) actually receiving these events, once one is chosen. | ⚠️ Console-only today — verified the capture fires correctly, not that anyone is watching. |
 
 ## 4. Explicitly out of scope (this SRS's boundary)
 

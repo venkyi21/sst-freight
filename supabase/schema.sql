@@ -196,6 +196,27 @@ create table if not exists platform_admins (
 );
 alter table platform_admins enable row level security;
 
+-- audit_log: generic, append-only ledger for contacts/memberships/invoices/shipment_costs.
+-- record_id is a deliberately polymorphic reference (no FK) since it points into four different
+-- tables — this is a loose reference by design, not a modeling oversight; see ADR-0010.
+-- Same "zero client-reachable path" shape as platform_admins: no RLS policy, no grant to
+-- `authenticated` at all. The only writer is log_audit_event() below (SECURITY DEFINER trigger);
+-- the only reader is list_audit_log() (SECURITY DEFINER RPC, bypasses RLS, admin-gated).
+create table if not exists audit_log (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  table_name text not null,
+  record_id uuid not null,
+  operation text not null check (operation in ('insert', 'update', 'delete')),
+  changed_by uuid references auth.users (id),
+  changed_at timestamptz not null default now(),
+  old_data jsonb,
+  new_data jsonb
+);
+create index if not exists audit_log_org_id_idx on audit_log (org_id);
+create index if not exists audit_log_record_idx on audit_log (table_name, record_id);
+alter table audit_log enable row level security;
+
 -- ─────────────────────────────────────────────────────────────
 -- Row Level Security
 -- ─────────────────────────────────────────────────────────────
@@ -648,6 +669,70 @@ begin
 end;
 $$;
 
+-- log_audit_event: generic AFTER trigger reused across contacts/memberships/invoices/
+-- shipment_costs (ADR-0010). Runs after any BEFORE trigger on the same table (e.g.
+-- invoices_protect_fx_rate) since Postgres fires BEFORE triggers first, so it always captures
+-- the final row. The DELETE branch is real but currently unreachable — none of these four
+-- tables have a client delete grant yet (docs/tech-debt.md) — included now so the ledger doesn't
+-- need a schema change the day delete is added.
+create or replace function log_audit_event()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org_id uuid := case when tg_op = 'DELETE' then old.org_id else new.org_id end;
+begin
+  insert into audit_log (org_id, table_name, record_id, operation, changed_by, old_data, new_data)
+  values (
+    v_org_id, tg_table_name, coalesce(new.id, old.id), lower(tg_op), auth.uid(),
+    case when tg_op in ('UPDATE', 'DELETE') then to_jsonb(old) end,
+    case when tg_op in ('INSERT', 'UPDATE') then to_jsonb(new) end
+  );
+  return coalesce(new, old);
+end;
+$$;
+
+drop trigger if exists contacts_audit on contacts;
+create trigger contacts_audit after insert or update or delete on contacts
+  for each row execute function log_audit_event();
+drop trigger if exists memberships_audit on memberships;
+create trigger memberships_audit after insert or update or delete on memberships
+  for each row execute function log_audit_event();
+drop trigger if exists invoices_audit on invoices;
+create trigger invoices_audit after insert or update or delete on invoices
+  for each row execute function log_audit_event();
+drop trigger if exists shipment_costs_audit on shipment_costs;
+create trigger shipment_costs_audit after insert or update or delete on shipment_costs
+  for each row execute function log_audit_event();
+
+-- list_audit_log: the only reader of audit_log. Gated to Owner/Admin (or platform admin) —
+-- same is_org_admin() gate as update_member_role()/remove_member(), since this ledger covers
+-- financial (invoices, shipment_costs) and access-control (memberships) data.
+create or replace function list_audit_log(p_org_id uuid, p_table_name text default null, p_record_id uuid default null, p_limit int default 200)
+returns table (id uuid, table_name text, record_id uuid, operation text, changed_by_email text, changed_at timestamptz, old_data jsonb, new_data jsonb)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (is_org_admin(p_org_id) or is_platform_admin()) then
+    raise exception 'Not authorized to view the audit log';
+  end if;
+
+  return query
+    select l.id, l.table_name, l.record_id, l.operation, u.email::text, l.changed_at, l.old_data, l.new_data
+    from audit_log l
+    left join auth.users u on u.id = l.changed_by
+    where l.org_id = p_org_id
+      and (p_table_name is null or l.table_name = p_table_name)
+      and (p_record_id is null or l.record_id = p_record_id)
+    order by l.changed_at desc
+    limit p_limit;
+end;
+$$;
+
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
@@ -659,6 +744,7 @@ grant execute on function remove_member(uuid) to authenticated;
 grant execute on function advance_shipment_status(uuid) to authenticated;
 grant execute on function list_shipment_status_history(uuid) to authenticated;
 grant execute on function get_public_shipment_tracking(uuid) to anon, authenticated;
+grant execute on function list_audit_log(uuid, text, uuid, int) to authenticated;
 
 grant select on organizations to authenticated;
 grant select on memberships to authenticated;

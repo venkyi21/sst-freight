@@ -231,7 +231,7 @@
         </figure>
 
         <figure class="diagram">
-          <img src="diagrams/data-model-er.png" alt="Entity relationship diagram of organizations, memberships, shipments, contacts, tariffs, quotes, invoices, shipment_costs, and shipment_status_history" />
+          <img src="diagrams/data-model-er.png" alt="Entity relationship diagram of organizations, memberships, shipments, contacts, tariffs, quotes, invoices, shipment_costs, shipment_status_history, and audit_log" />
           <figcaption>Data model — every tenant-scoped table has its own RLS policy; nullable FKs pair with denormalized name snapshots (ADR-0003).</figcaption>
         </figure>
 
@@ -317,6 +317,8 @@
             <li><strong>No "leave organization" or ownership-transfer flow.</strong></li>
             <li><strong>One test suite has a live-API fragility</strong> — an FX-rate assertion hardcodes an expected value from a source that legitimately changes.</li>
             <li><strong>One open dependency vulnerability</strong> (found via <code>npm audit</code>) — see the note below.</li>
+            <li><strong>Audit log's <code>DELETE</code> branch is currently unreachable</strong> — none of the four audited tables have a client delete grant yet (ADR-0010).</li>
+            <li><strong>No error-log vendor wired in yet</strong> — errors land in the browser console today; see the note below.</li>
           </ul>
         </div>
 

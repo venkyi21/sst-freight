@@ -71,6 +71,7 @@ erDiagram
   organizations ||--o{ quotes : "owns"
   organizations ||--o{ invoices : "owns"
   organizations ||--o{ shipment_costs : "owns"
+  organizations ||--o{ audit_log : "owns"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
@@ -94,6 +95,13 @@ foreign key paired with a denormalized name column (`shipments.client`, `quotes.
 `consignee_name`, `invoices.client_name`, `shipment_costs.vendor_name`) — deleting or renaming a
 contact never rewrites historical records. Full column definitions live in
 `supabase/schema.sql`, not duplicated here (this diagram would drift; the schema file can't).
+
+**`audit_log`'s reference is deliberately not drawn as an FK relationship** (ADR-0010):
+`audit_log.record_id` points into whichever of `contacts`/`memberships`/`invoices`/
+`shipment_costs` its `table_name` column names — a polymorphic reference by design, not a
+modeling gap, since a real FK per audited table would need a schema change every time a new table
+joins the audit scope. One generic `AFTER` trigger (`log_audit_event()`) writes every row;
+`list_audit_log()` is the only read path, gated to Owner/Admin.
 
 ## 4. Request patterns
 

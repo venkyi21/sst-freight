@@ -184,10 +184,10 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–7 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal) are now live too.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–7 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">10</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal)</div></div>
+          <div class="cell"><div class="num ok">12</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging)</div></div>
           <div class="cell"><div class="num info">5</div><div class="lbl">weeks remaining<br>Week 8 → Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
@@ -255,6 +255,13 @@
                 <td><strong>Customer tracking portal</strong></td>
                 <td>Read-only, shareable link per shipment — no login required for the consignee, <strong>plus a visual status timeline and payment/invoice visibility</strong> as differentiators beyond a bare status word</td>
                 <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">—</td>
+                <td><strong>Audit Trail &amp; Error Logging</strong> <span class="tag ok">inserted ahead of Week 8</span></td>
+                <td>Generic, append-only audit ledger (who changed what, before/after values) across contacts, team roles, invoices, and shipment costs — Owner/Admin-only, <strong>plus</strong> client-side error capture (global handler, React error boundary, external-API failures) with the log vendor deliberately deferred behind a config-only integration point</td>
+                <td><span class="tag ok">Regulatory accountability + operational observability — not a competitor-parity item</span></td>
                 <td><span class="chip status-complete">Complete</span></td>
               </tr>
               <tr>

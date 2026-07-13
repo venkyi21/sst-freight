@@ -27,5 +27,7 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0007](0007-live-fx-rates-with-role-gated-override.md) | Multi-currency FX rates are live-fetched and role-gated via a DB trigger | Accepted |
 | [0008](0008-dedicated-public-tracking-token.md) | Public customer links use a dedicated token, not the internal record id | Accepted |
 | [0009](0009-query-param-public-routing.md) | Public/no-auth routes use a query parameter, not a path segment | Accepted |
+| [0010](0010-generic-audit-ledger-via-trigger.md) | Generic audit ledger via a SECURITY DEFINER trigger, admin-only reads | Accepted |
+| [0011](0011-client-error-capture-deferred-vendor.md) | Client error capture ships now; the log vendor is deferred behind an env var | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

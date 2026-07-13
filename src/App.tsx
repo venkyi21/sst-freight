@@ -4,6 +4,7 @@ import AuthScreen from './components/AuthScreen'
 import OrgPicker from './components/OrgPicker'
 import DashboardPage from './pages/DashboardPage'
 import PublicTrackingPage from './components/PublicTrackingPage'
+import ErrorBoundary from './components/ErrorBoundary'
 
 function ConfigWarning() {
   return (
@@ -63,8 +64,10 @@ export default function App() {
   if (trackingToken) return <PublicTrackingPage token={trackingToken} />
 
   return (
-    <AuthProvider>
-      <AppShell />
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <AppShell />
+      </AuthProvider>
+    </ErrorBoundary>
   )
 }

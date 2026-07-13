@@ -57,6 +57,18 @@ fast otherwise.
   self-lockout) but there is no alternative flow for a user who genuinely wants to leave, and
   `update_member_role()` can never grant `'owner'` — an org can only ever have the one Owner
   created at `create_organization()` time.
+- **`audit_log`'s `DELETE` trigger branch is currently unreachable** (ADR-0010). None of
+  `contacts`/`memberships`/`invoices`/`shipment_costs` have a client delete grant yet — the
+  branch is real code, exercised by nothing today, kept so adding delete later needs no schema
+  change to the ledger itself.
+- **`audit_log` has no retention/archival policy.** Every `update` stores a full before/after row
+  snapshot with no expiry — fine at current data volume, worth revisiting if it grows large
+  enough to affect query performance or storage cost.
+- **No error-log vendor is wired in** (ADR-0011). `logError()` falls back to `console.error` when
+  `VITE_ERROR_LOG_ENDPOINT` is unset, which is always today — no Axiom/Logflare account exists yet
+  to integrate against for real. Individual Supabase RPC/query call sites are also not
+  instrumented — only global JS errors, unhandled rejections, React render errors, and the FX-rate
+  fetch are covered.
 
 ## Test suite
 

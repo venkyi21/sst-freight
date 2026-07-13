@@ -9,6 +9,7 @@ import TeamPage from '../components/TeamPage'
 import ShipmentDetailModal from '../components/ShipmentDetailModal'
 import RatesQuotesPage from '../components/RatesQuotesPage'
 import AccountingPage from '../components/AccountingPage'
+import AuditLogPage from '../components/AuditLogPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import type { NavPage, Shipment, ShipmentMode } from '../types'
 
@@ -237,6 +238,8 @@ export default function DashboardPage() {
         )}
 
         {navPage === 'accounting' && <AccountingPage orgId={currentOrg.id} currentRole={currentOrg.role} />}
+
+        {navPage === 'auditlog' && <AuditLogPage orgId={currentOrg.id} currentRole={currentOrg.role} />}
 
         {navPage === 'customs' && (
           <PlaceholderPage

@@ -113,6 +113,10 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg }: Sideb
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Customs Filings
           </button>
+          <button type="button" onClick={() => onNavigate('auditlog')} style={navButtonStyle(navPage === 'auditlog')}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+            Audit Log
+          </button>
         </nav>
       </div>
 

@@ -93,7 +93,34 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'auditlog'
+
+export type AuditOperation = 'insert' | 'update' | 'delete'
+export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs'
+
+export interface AuditLogEntry {
+  id: string
+  table_name: string
+  record_id: string
+  operation: AuditOperation
+  changed_by_email: string | null
+  changed_at: string
+  old_data: Record<string, unknown> | null
+  new_data: Record<string, unknown> | null
+}
+
+export const AUDIT_TABLE_META: Record<AuditTableName, { label: string }> = {
+  contacts: { label: 'Contacts' },
+  memberships: { label: 'Team' },
+  invoices: { label: 'Invoices' },
+  shipment_costs: { label: 'Shipment Costs' },
+}
+
+export const AUDIT_OPERATION_META: Record<AuditOperation, { label: string; color: string; background: string }> = {
+  insert: { label: 'Created', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
+  update: { label: 'Updated', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
+  delete: { label: 'Deleted', color: '#fb7185', background: 'rgba(244,63,94,0.14)' },
+}
 
 export const MODE_META: Record<ShipmentMode, { label: string; color: string }> = {
   ocean: { label: 'Ocean', color: '#38bdf8' },
