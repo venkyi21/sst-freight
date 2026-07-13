@@ -1,0 +1,31 @@
+# Architecture Decision Records
+
+This directory records the significant architectural decisions made in SST Freight, in the
+order they were made. It exists so that later work (Week 8 onward) doesn't accidentally
+re-litigate or quietly contradict a decision that was already made deliberately, for a reason.
+
+## Rules
+
+1. **Immutable once merged.** An ADR is never edited after it lands, other than fixing a typo.
+   If a decision changes, write a **new** ADR that explicitly supersedes the old one (e.g.
+   `0012-*.md` says "Supersedes ADR-0004") — the old one stays in place with its original
+   reasoning intact, marked `Status: Superseded by ADR-0012`.
+2. **Docs-as-code.** ADRs live in this git repo, not an external wiki, and are updated in the
+   same PR/commit as the code change they describe.
+3. **One decision per file.** Numbered sequentially (`0001`, `0002`, …).
+
+## Index
+
+| # | Title | Status |
+|---|-------|--------|
+| [0001](0001-multi-tenancy-via-row-level-security.md) | Multi-tenancy via Postgres Row-Level Security | Accepted |
+| [0002](0002-rpc-only-privileged-mutations.md) | Privileged mutations go through SECURITY DEFINER RPCs only | Accepted |
+| [0003](0003-contact-reference-plus-denormalized-name.md) | Contact references pair a nullable FK with a denormalized name snapshot | Accepted |
+| [0004](0004-shipment-status-forward-only-state-machine.md) | Shipment status is a forward-only state machine enforced server-side | Accepted |
+| [0005](0005-platform-super-admin-manual-provisioning.md) | Platform Super-Admin is manually provisioned, with zero self-service path | Accepted |
+| [0006](0006-quote-conversion-without-dedicated-rpc.md) | Quote-to-booking conversion uses plain client calls, not a dedicated RPC | Accepted |
+| [0007](0007-live-fx-rates-with-role-gated-override.md) | Multi-currency FX rates are live-fetched and role-gated via a DB trigger | Accepted |
+| [0008](0008-dedicated-public-tracking-token.md) | Public customer links use a dedicated token, not the internal record id | Accepted |
+| [0009](0009-query-param-public-routing.md) | Public/no-auth routes use a query parameter, not a path segment | Accepted |
+
+Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

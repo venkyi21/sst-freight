@@ -124,6 +124,16 @@ git push -u origin dev
   database level — fine for now, but add a rate limit before invite-code brute-forcing
   becomes a real concern at scale.
 
+## Further documentation
+
+- [`docs/adr/`](docs/adr/) — Architecture Decision Records: the significant technical decisions
+  made in this project and why, so later work doesn't accidentally contradict one.
+- [`docs/tech-debt.md`](docs/tech-debt.md) — known, deliberate shortcuts in shipped code and what
+  it would take to close each one.
+- [`docs/api-reference.md`](docs/api-reference.md) — reference for every Supabase RPC function
+  the frontend calls (this app has no separate backend API beyond these).
+- [`docs/roadmap.html`](docs/roadmap.html) — the feature roadmap and competitive gap tracker.
+
 ## Project structure
 
 ```
