@@ -231,7 +231,7 @@
         </figure>
 
         <figure class="diagram">
-          <img src="diagrams/data-model-er.png" alt="Entity relationship diagram of organizations, memberships, shipments, contacts, tariffs, quotes, invoices, shipment_costs, shipment_status_history, and audit_log" />
+          <img src="diagrams/data-model-er.png" alt="Entity relationship diagram of organizations, memberships, shipments, contacts, tariffs, quotes, invoices, shipment_costs, shipment_status_history, audit_log, and platform_revenue_ledger" />
           <figcaption>Data model — every tenant-scoped table has its own RLS policy; nullable FKs pair with denormalized name snapshots (ADR-0003).</figcaption>
         </figure>
 
@@ -319,6 +319,8 @@
             <li><strong>One open dependency vulnerability</strong> (found via <code>npm audit</code>) — see the note below.</li>
             <li><strong>Audit log's <code>DELETE</code> branch is currently unreachable</strong> — none of the four audited tables have a client delete grant yet (ADR-0010).</li>
             <li><strong>No error-log vendor wired in yet</strong> — errors land in the browser console today; see the note below.</li>
+            <li><strong>No real money moves in the Dual-Engine Monetization Core</strong> — FX spread/cargo insurance/instant payout are simulated ledger math only (ADR-0013); float yield isn't built at all; recurring fee collection, real rake settlement, and GST/TDS e-filing all need external partnerships this project doesn't have.</li>
+            <li><strong>ML-driven dunning, ASC 606 RevRec, cohort analytics, competitor-billing migration, and a public webhook/SDK layer</strong> — explicitly phased out of Week 8, not silently dropped.</li>
           </ul>
         </div>
 

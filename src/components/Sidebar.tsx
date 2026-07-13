@@ -23,9 +23,10 @@ interface SidebarProps {
   navPage: NavPage
   onNavigate: (page: NavPage) => void
   onSwitchOrg: () => void
+  isPlatformAdmin: boolean
 }
 
-export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg }: SidebarProps) {
+export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg, isPlatformAdmin }: SidebarProps) {
   const { signOut } = useAuth()
 
   return (
@@ -117,6 +118,12 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg }: Sideb
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Audit Log
           </button>
+          {isPlatformAdmin && (
+            <button type="button" onClick={() => onNavigate('platformadmin')} style={navButtonStyle(navPage === 'platformadmin')}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+              Platform Admin
+            </button>
+          )}
         </nav>
       </div>
 

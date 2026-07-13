@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import InvoiceModal from './InvoiceModal'
 import CostModal from './CostModal'
-import type { Invoice, MembershipRole, ShipmentCost } from '../types'
+import {
+  PLATFORM_RAKE_META,
+  type AuditLogEntry,
+  type BillingModel,
+  type Invoice,
+  type MembershipRole,
+  type PlatformRevenueEntry,
+  type ShipmentCost,
+} from '../types'
 
 type Tab = 'invoices' | 'pnl'
 
@@ -38,6 +46,7 @@ const statCardStyle: CSSProperties = {
 interface AccountingPageProps {
   orgId: string
   currentRole: MembershipRole
+  billingModel: BillingModel
 }
 
 function daysOverdue(dueDate: string | null): number | null {
@@ -50,7 +59,7 @@ function daysOverdue(dueDate: string | null): number | null {
   return diff > 0 ? diff : 0
 }
 
-export default function AccountingPage({ orgId, currentRole }: AccountingPageProps) {
+export default function AccountingPage({ orgId, currentRole, billingModel }: AccountingPageProps) {
   const [tab, setTab] = useState<Tab>('invoices')
 
   const [invoices, setInvoices] = useState<Invoice[]>([])
@@ -63,6 +72,13 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
   const [costsLoading, setCostsLoading] = useState(true)
   const [costsError, setCostsError] = useState<string | null>(null)
   const [costModalOpen, setCostModalOpen] = useState(false)
+  const [instantPayoutBusyId, setInstantPayoutBusyId] = useState<string | null>(null)
+  const [instantPayoutDoneIds, setInstantPayoutDoneIds] = useState<Set<string>>(new Set())
+
+  const [dnaInvoiceId, setDnaInvoiceId] = useState<string | null>(null)
+  const [dnaLoading, setDnaLoading] = useState(false)
+  const [dnaRakes, setDnaRakes] = useState<PlatformRevenueEntry[]>([])
+  const [dnaHistory, setDnaHistory] = useState<AuditLogEntry[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -155,6 +171,31 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
     setMarkingPaidId(null)
   }
 
+  async function handleInstantPayout(cost: ShipmentCost) {
+    setInstantPayoutBusyId(cost.id)
+    const { error } = await supabase.rpc('mark_cost_instant_payout', { p_shipment_cost_id: cost.id })
+    if (!error) {
+      setInstantPayoutDoneIds((prev) => new Set(prev).add(cost.id))
+    }
+    setInstantPayoutBusyId(null)
+  }
+
+  async function toggleRevenueDna(invoice: Invoice) {
+    if (dnaInvoiceId === invoice.id) {
+      setDnaInvoiceId(null)
+      return
+    }
+    setDnaInvoiceId(invoice.id)
+    setDnaLoading(true)
+    const [{ data: rakes }, { data: history }] = await Promise.all([
+      supabase.rpc('list_platform_revenue', { p_org_id: orgId }),
+      supabase.rpc('list_audit_log', { p_org_id: orgId, p_table_name: 'invoices', p_record_id: invoice.id }),
+    ])
+    setDnaRakes(((rakes as PlatformRevenueEntry[]) ?? []).filter((r) => r.invoice_id === invoice.id))
+    setDnaHistory((history as AuditLogEntry[]) ?? [])
+    setDnaLoading(false)
+  }
+
   function fmt(n: number): string {
     return `₹${n.toLocaleString('en-IN', { maximumFractionDigits: 0 })}`
   }
@@ -220,13 +261,16 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
                     <th style={headStyle}>Amount (INR)</th>
                     <th style={headStyle}>Due</th>
                     <th style={headStyle}>Status</th>
+                    <th style={headStyle}>Revenue DNA</th>
                   </tr>
                 </thead>
                 <tbody>
                   {invoices.map((inv) => {
                     const overdue = inv.status === 'unpaid' ? daysOverdue(inv.due_date) : null
+                    const dnaOpen = dnaInvoiceId === inv.id
                     return (
-                      <tr key={inv.id} style={{ borderBottom: '1px solid #172033' }}>
+                      <Fragment key={inv.id}>
+                      <tr style={{ borderBottom: '1px solid #172033' }}>
                         <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{inv.ref}</td>
                         <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{inv.client_name}</td>
                         <td style={{ ...cellStyle, fontSize: 13, color: '#e2e8f0' }}>
@@ -266,7 +310,55 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
                             </div>
                           )}
                         </td>
+                        <td style={cellStyle}>
+                          <button type="button" onClick={() => void toggleRevenueDna(inv)} style={dnaButtonStyle}>
+                            {dnaOpen ? 'Hide' : 'Trace'}
+                          </button>
+                        </td>
                       </tr>
+                      {dnaOpen && (
+                        <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
+                          <td colSpan={7} style={{ padding: '10px 20px 16px' }}>
+                            {dnaLoading ? (
+                              <div style={{ fontSize: 12, color: '#5b6b82' }}>Loading trace…</div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
+                                <div style={{ color: '#94a3b8' }}>
+                                  Shipment <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>{inv.shipment_id ?? '—'}</span>
+                                  {' → '}Invoice <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>{inv.ref}</span>
+                                  {' · '}
+                                  {inv.currency} {inv.amount.toLocaleString('en-IN')} @ fx {inv.fx_rate} = {fmt(inv.amount_inr)}
+                                </div>
+                                <div>
+                                  <div style={{ color: '#64748b', marginBottom: 4 }}>Platform rake breakdown (simulated)</div>
+                                  {dnaRakes.length === 0 ? (
+                                    <div style={{ color: '#475569' }}>No platform rake recorded for this invoice.</div>
+                                  ) : (
+                                    dnaRakes.map((r) => (
+                                      <div key={r.id} style={{ color: '#4ade80' }}>
+                                        {PLATFORM_RAKE_META[r.rake_type].label} — {r.rate_pct}% of {fmt(r.base_amount_inr)} = {fmt(r.rake_amount_inr)}
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                                <div>
+                                  <div style={{ color: '#64748b', marginBottom: 4 }}>Audit history</div>
+                                  {dnaHistory.length === 0 ? (
+                                    <div style={{ color: '#475569' }}>No changes recorded.</div>
+                                  ) : (
+                                    dnaHistory.map((h) => (
+                                      <div key={h.id} style={{ color: '#94a3b8' }}>
+                                        {h.operation} by {h.changed_by_email ?? '—'} · {new Date(h.changed_at).toLocaleString()}
+                                      </div>
+                                    ))
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     )
                   })}
                 </tbody>
@@ -308,6 +400,7 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
                     <th style={headStyle}>Description</th>
                     <th style={headStyle}>Amount</th>
                     <th style={headStyle}>Added</th>
+                    {billingModel === 'model_2' && <th style={headStyle}>Instant Payout</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -317,6 +410,23 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
                       <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{c.description}</td>
                       <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#fb7185' }}>{fmt(c.amount)}</td>
                       <td style={{ ...cellStyle, fontSize: 12, color: '#5b6b82' }}>{new Date(c.created_at).toLocaleDateString()}</td>
+                      {billingModel === 'model_2' && (
+                        <td style={cellStyle}>
+                          {instantPayoutDoneIds.has(c.id) ? (
+                            <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>● Settled (simulated)</span>
+                          ) : (
+                            <button
+                              type="button"
+                              disabled={instantPayoutBusyId === c.id}
+                              onClick={() => void handleInstantPayout(c)}
+                              style={dnaButtonStyle}
+                              title="Simulated — no real funds move yet"
+                            >
+                              Settle instantly (1%, simulated)
+                            </button>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -334,6 +444,17 @@ export default function AccountingPage({ orgId, currentRole }: AccountingPagePro
       {costModalOpen && <CostModal orgId={orgId} onClose={() => setCostModalOpen(false)} onCreated={handleCostCreated} />}
     </div>
   )
+}
+
+const dnaButtonStyle: CSSProperties = {
+  padding: '4px 9px',
+  borderRadius: 6,
+  border: '1px solid #1e293b',
+  background: 'transparent',
+  color: '#94a3b8',
+  fontSize: 11,
+  fontWeight: 600,
+  cursor: 'pointer',
 }
 
 const primaryButtonStyle: CSSProperties = {

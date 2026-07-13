@@ -72,6 +72,7 @@ erDiagram
   organizations ||--o{ invoices : "owns"
   organizations ||--o{ shipment_costs : "owns"
   organizations ||--o{ audit_log : "owns"
+  organizations ||--o{ platform_revenue_ledger : "owns"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
@@ -84,6 +85,8 @@ erDiagram
 
   invoices }o--o| contacts : "client (nullable FK)"
   shipment_costs }o--o| contacts : "vendor (nullable FK)"
+  invoices |o--o| platform_revenue_ledger : "fx_spread rake (nullable FK)"
+  shipment_costs |o--o| platform_revenue_ledger : "instant_payout rake (nullable FK)"
 ```
 
 Every tenant-scoped table (everything except `organizations` and `memberships` themselves) has
@@ -98,10 +101,18 @@ contact never rewrites historical records. Full column definitions live in
 
 **`audit_log`'s reference is deliberately not drawn as an FK relationship** (ADR-0010):
 `audit_log.record_id` points into whichever of `contacts`/`memberships`/`invoices`/
-`shipment_costs` its `table_name` column names — a polymorphic reference by design, not a
-modeling gap, since a real FK per audited table would need a schema change every time a new table
-joins the audit scope. One generic `AFTER` trigger (`log_audit_event()`) writes every row;
-`list_audit_log()` is the only read path, gated to Owner/Admin.
+`shipment_costs`/`organizations` its `table_name` column names — a polymorphic reference by
+design, not a modeling gap, since a real FK per audited table would need a schema change every
+time a new table joins the audit scope. One generic `AFTER` trigger (`log_audit_event()`) writes
+every row; `list_audit_log()` is the only read path, gated to Owner/Admin.
+
+**Week 8 (ADR-0012/ADR-0013)**: `organizations` gained `billing_model`, `monthly_fee_inr`, and
+`enabled_modules` — the platform-monetization config described in §5. `platform_revenue_ledger`
+is the simulated FinTech Slice rake ledger — no real funds move through it (ADR-0013); its
+`invoice_id`/`shipment_cost_id` FKs are both nullable since only the `fx_spread` rake ties to an
+invoice and only `instant_payout` ties to a shipment cost — `cargo_insurance` ties to neither
+directly (it's computed from a shipment's total invoiced amount, opted into per-shipment, not
+per-invoice or per-cost).
 
 ## 4. Request patterns
 
@@ -155,6 +166,12 @@ belong to my org."
 - **Public/no-auth surface**: exactly one function, `get_public_shipment_tracking`, granted to
   the `anon` role — its payload is a deliberately minimal, hand-curated subset of the data,
   documented field-by-field in `docs/api-reference.md`.
+- **Platform-admin write surface** (Week 8, ADR-0012): `is_platform_admin()` previously only
+  appeared as a read-side `or` clause in RLS policies (ADR-0005); `set_org_billing_model` and
+  `set_org_config` are the first RPCs where it gates an actual `UPDATE`. Module gating
+  (`is_module_enabled`) is enforced the same way as every other privilege boundary in this app —
+  inside Postgres RLS `with check` clauses on `tariffs`/`quotes`/`invoices` insert policies, not
+  only hidden in the UI.
 - **Full function-level detail**: `docs/api-reference.md`. **Full reasoning for each of the
   above**: the corresponding ADR in `docs/adr/`.
 

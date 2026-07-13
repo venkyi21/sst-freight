@@ -184,11 +184,11 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–7 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–8 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">12</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging)</div></div>
-          <div class="cell"><div class="num info">5</div><div class="lbl">weeks remaining<br>Week 8 → Week 12</div></div>
+          <div class="cell"><div class="num ok">13</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization)</div></div>
+          <div class="cell"><div class="num info">4</div><div class="lbl">weeks remaining<br>Week 9 → Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
@@ -266,10 +266,10 @@
               </tr>
               <tr>
                 <td class="week">08</td>
-                <td><strong>Dual-Engine Monetization Core</strong></td>
-                <td>Super-admin selects per-org model at onboarding — <strong>Model 1</strong> (Add-on Engine: fixed fee, feature-gated) or <strong>Model 2</strong> (FinTech Slice: ₹0 base, all modules unlocked, monetized via FX/insurance)</td>
+                <td><strong>Dual-Engine Monetization Core</strong> <span class="tag ok">scoped v2</span></td>
+                <td>Platform Super-Admin picks per-org <strong>Model 1</strong> (fixed fee, server-enforced module gating on Directory/Quotes/Accounting) or <strong>Model 2</strong> (₹0 base, all modules unlocked), with a live "Meter-Flip" switch auditable via Week 8's own audit-log reuse, <strong>plus</strong> a simulated FinTech Slice rake ledger (FX spread, cargo insurance, instant vendor payout — real math, no real money movement) and a "Revenue DNA" per-invoice trace (shipment → invoice → rake → audit history). <strong>Explicitly not built this pass</strong> (see <code>docs/tech-debt.md</code>): real recurring-fee collection, real rake settlement, float yield, GST/TDS e-filing, ML-driven dunning, ASC 606 RevRec, cohort analytics, competitor-billing migration tooling, and a public webhook/SDK layer — all need real external infrastructure (a licensed payment aggregator, an inked insurance partner, a government e-filing integration) this solo project doesn't have yet.</td>
                 <td><span class="tag ok">Own differentiator — not a competitor-parity item</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
               </tr>
               <tr>
                 <td class="week">09</td>

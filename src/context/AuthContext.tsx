@@ -15,6 +15,7 @@ interface AuthContextValue {
   session: Session | null
   user: User | null
   authLoading: boolean
+  isPlatformAdmin: boolean
   organizations: OrganizationWithRole[]
   orgsLoading: boolean
   orgsError: string | null
@@ -42,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [orgsLoading, setOrgsLoading] = useState(false)
   const [orgsError, setOrgsError] = useState<string | null>(null)
   const [currentOrgId, setCurrentOrgId] = useState<string | null>(null)
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false)
 
   const user = session?.user ?? null
 
@@ -113,9 +115,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const stored = window.localStorage.getItem(currentOrgStorageKey(user.id))
       setCurrentOrgId(stored)
       void refreshOrganizations()
+      supabase
+        .rpc('is_platform_admin')
+        .then(({ data }) => setIsPlatformAdmin(Boolean(data)))
     } else {
       setOrganizations([])
       setCurrentOrgId(null)
+      setIsPlatformAdmin(false)
     }
     // Only re-run when the signed-in user changes, not on every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -172,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     session,
     user,
     authLoading,
+    isPlatformAdmin,
     organizations,
     orgsLoading,
     orgsError,

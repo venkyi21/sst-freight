@@ -151,6 +151,40 @@ built.
   - AC: **Known limitation** (see `docs/tech-debt.md`) — no retention/archival policy exists;
     every row is kept indefinitely.
 
+### FR-10: Platform Monetization
+
+- **US-10.1** — As a platform Super-Admin, I can view every organization on the platform and pick,
+  per organization, Model 1 (fixed fee, module-gated) or Model 2 (₹0 base, all modules unlocked,
+  rake-based).
+  - AC: Verified directly against real RLS/RPC behavior — a plain (non-platform-admin) user's
+    direct call to `list_all_organizations`, `set_org_billing_model`, `set_org_config`, or
+    `list_platform_revenue` (with no `p_org_id`) is rejected server-side, not just hidden in the UI.
+  - AC: Switching an org's billing model ("Meter-Flip") is a single confirm action with no data
+    reload — verified the switch takes effect immediately and is captured in that org's own
+    `audit_log` (table `organizations`) automatically, via the same generic trigger already
+    covering contacts/memberships/invoices/shipment_costs.
+- **US-10.2** — As a Member of a Model 1 organization, I can only use the modules (Directory,
+  Rates & Quoting, Accounting) my organization's plan has enabled; a disabled module shows a clear
+  locked message instead of a broken action.
+  - AC: Verified server-side, not just in the UI — narrowing an org's enabled modules to exclude
+    Accounting causes a direct `invoices` insert (bypassing the UI) to be rejected by RLS.
+  - AC: Existing data in a since-disabled module remains fully visible — only new writes are
+    blocked, verified directly.
+  - AC: Every pre-Week-8 organization's `enabled_modules` defaults to all three gateable modules,
+    verified to produce zero behavior change for those orgs.
+- **US-10.3** — As a Member of a Model 2 organization, I can see a simulated breakdown of what the
+  platform would charge (FX spread on non-INR invoices, an opt-in cargo insurance premium, an
+  opt-in instant vendor payout fee) and trace any invoice back through its shipment, rate, and
+  full change history ("Revenue DNA").
+  - AC: Verified with real data, not assumed — a non-INR Model 2 invoice produces an `fx_spread`
+    ledger row with the exact 2% math; opting a shipment into insurance and a cost into instant
+    payout produce the exact 0.8%/1% math respectively.
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — no real funds move for any of
+    these; float yield has no simulated or real implementation at all; recurring fee collection
+    for Model 1, GST/TDS e-filing, ML-driven dunning, ASC 606 revenue recognition, cohort
+    analytics, one-click competitor-billing migration, and a public webhook/SDK layer are all
+    explicitly deferred, not built this pass.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

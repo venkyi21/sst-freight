@@ -1,20 +1,23 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { MODE_META, STATUS_SEQUENCE, statusMeta, type Shipment, type StatusHistoryEntry } from '../types'
+import { MODE_META, STATUS_SEQUENCE, statusMeta, type BillingModel, type Shipment, type StatusHistoryEntry } from '../types'
 
 interface ShipmentDetailModalProps {
   shipment: Shipment
+  billingModel: BillingModel
   onClose: () => void
   onUpdated: (shipment: Shipment) => void
 }
 
-export default function ShipmentDetailModal({ shipment, onClose, onUpdated }: ShipmentDetailModalProps) {
+export default function ShipmentDetailModal({ shipment, billingModel, onClose, onUpdated }: ShipmentDetailModalProps) {
   const [history, setHistory] = useState<StatusHistoryEntry[]>([])
   const [historyLoading, setHistoryLoading] = useState(true)
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [insuranceBusy, setInsuranceBusy] = useState(false)
+  const [insured, setInsured] = useState(false)
 
   const currentIndex = STATUS_SEQUENCE.indexOf(shipment.status)
   const nextStatus = STATUS_SEQUENCE[currentIndex + 1]
@@ -50,6 +53,13 @@ export default function ShipmentDetailModal({ shipment, onClose, onUpdated }: Sh
     }
     onUpdated(data as Shipment)
     setBusy(false)
+  }
+
+  async function handleInsure() {
+    setInsuranceBusy(true)
+    const { error } = await supabase.rpc('opt_in_cargo_insurance', { p_shipment_id: shipment.id })
+    if (!error) setInsured(true)
+    setInsuranceBusy(false)
   }
 
   async function handleCopyTrackingLink() {
@@ -120,6 +130,29 @@ export default function ShipmentDetailModal({ shipment, onClose, onUpdated }: Sh
             {linkCopied ? 'Copied!' : 'Copy Tracking Link'}
           </button>
         </div>
+
+        {billingModel === 'model_2' && (
+          <div style={{ marginBottom: 18 }}>
+            <button
+              type="button"
+              disabled={insuranceBusy || insured}
+              onClick={() => void handleInsure()}
+              title="Simulated — no real funds move yet"
+              style={{
+                background: 'transparent',
+                border: '1px solid #1e293b',
+                borderRadius: 6,
+                padding: '5px 10px',
+                color: insured ? '#4ade80' : '#94a3b8',
+                fontSize: 11.5,
+                fontWeight: 600,
+                cursor: insured ? 'default' : 'pointer',
+              }}
+            >
+              {insured ? '● Insured (simulated)' : 'Insure this shipment (0.8%, simulated)'}
+            </button>
+          </div>
+        )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 22, fontSize: 13 }}>
           <div>

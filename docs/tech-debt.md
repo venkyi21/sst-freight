@@ -70,6 +70,34 @@ fast otherwise.
   instrumented — only global JS errors, unhandled rejections, React render errors, and the FX-rate
   fetch are covered.
 
+## Platform monetization (Week 8, ADR-0012/ADR-0013)
+
+Everything below needs real external infrastructure this solo project doesn't have — none of it
+is a near-term coding task, and none of it should be attempted without that infrastructure first:
+
+- **No real recurring billing collection.** `organizations.monthly_fee_inr` is a displayed,
+  platform-admin-set number — nothing actually charges a Model 1 org's card/bank account on a
+  schedule. Closing this needs a real payment-gateway subscription-billing integration
+  (Stripe Billing, Razorpay Subscriptions, Chargebee), not just a stored number.
+- **No real settlement for any Model 2 rake.** FX spread, cargo insurance, and instant vendor
+  payout are all simulated ledger entries (ADR-0013) — no funds move. Real settlement needs a
+  licensed payment aggregator, an inked insurance underwriter partnership (the source strategy
+  doc's own Open Questions section admits this isn't arranged), and real bank payout rails.
+- **Float yield is not built at all**, not even simulated — it needs an escrow/wallet concept this
+  app has no reason to have. See ADR-0013 for why this wasn't faked with an invented number.
+- **No GST/TDS e-filing.** The source doc's "1-click TDS 194-O + GSTR filing" is entirely
+  unbuilt — it needs a government e-filing API integration, and TDS 194-O specifically is an
+  influencer/creator-payment withholding rule with no analog in freight forwarding at all.
+- **No ML-driven dunning, ASC 606 revenue recognition, cohort analytics, one-click
+  competitor-billing migration, or a public webhook/SDK layer.** All four are real items from the
+  source doc's 12-item competitor-parity list, explicitly phased out of this pass (user decision:
+  differentiators + minimum viable billing first) rather than silently dropped — see the Week 8
+  roadmap entry for the phasing decision.
+- **No transparency/renegotiation-risk analysis has been done** for `list_platform_revenue`'s
+  org-facing scoped view — ADR-0013 made a reasonable default choice (org Owner/Admin can see
+  their own org's simulated rakes), but the source doc raised this as a genuine open product
+  question ("may invite renegotiation") that hasn't been revisited with real customer feedback.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because

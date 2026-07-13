@@ -2,12 +2,18 @@ export type ShipmentMode = 'ocean' | 'air' | 'truck'
 
 export type MembershipRole = 'owner' | 'admin' | 'member'
 
+export type BillingModel = 'model_1' | 'model_2'
+export type PlatformModule = 'directory' | 'quotes' | 'accounting'
+
 export interface Organization {
   id: string
   name: string
   slug: string
   color: string
   invite_code: string
+  billing_model: BillingModel
+  monthly_fee_inr: number
+  enabled_modules: PlatformModule[]
   created_at: string
 }
 
@@ -93,10 +99,51 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'auditlog'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'auditlog' | 'platformadmin'
+
+export const PLATFORM_MODULE_META: Record<PlatformModule, { label: string }> = {
+  directory: { label: 'Directory' },
+  quotes: { label: 'Rates & Quoting' },
+  accounting: { label: 'Accounting' },
+}
+
+export const BILLING_MODEL_META: Record<BillingModel, { label: string; color: string; background: string }> = {
+  model_1: { label: 'Model 1 · Add-on Engine', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
+  model_2: { label: 'Model 2 · FinTech Slice', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
+}
+
+export interface PlatformOrgSummary {
+  id: string
+  name: string
+  billing_model: BillingModel
+  monthly_fee_inr: number
+  enabled_modules: PlatformModule[]
+  created_at: string
+}
+
+export type PlatformRakeType = 'fx_spread' | 'cargo_insurance' | 'instant_payout'
+
+export interface PlatformRevenueEntry {
+  id: string
+  org_id: string
+  org_name: string
+  invoice_id: string | null
+  shipment_cost_id: string | null
+  rake_type: PlatformRakeType
+  rate_pct: number
+  base_amount_inr: number
+  rake_amount_inr: number
+  created_at: string
+}
+
+export const PLATFORM_RAKE_META: Record<PlatformRakeType, { label: string }> = {
+  fx_spread: { label: 'FX Spread' },
+  cargo_insurance: { label: 'Cargo Insurance' },
+  instant_payout: { label: 'Instant Vendor Payout' },
+}
 
 export type AuditOperation = 'insert' | 'update' | 'delete'
-export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs'
+export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations'
 
 export interface AuditLogEntry {
   id: string
@@ -114,6 +161,7 @@ export const AUDIT_TABLE_META: Record<AuditTableName, { label: string }> = {
   memberships: { label: 'Team' },
   invoices: { label: 'Invoices' },
   shipment_costs: { label: 'Shipment Costs' },
+  organizations: { label: 'Billing Plan' },
 }
 
 export const AUDIT_OPERATION_META: Record<AuditOperation, { label: string; color: string; background: string }> = {

@@ -9,10 +9,10 @@ table definitions and RLS policies in `supabase/schema.sql` directly for those).
 Every function below is `security definer`, meaning it runs with the privileges of the function
 owner rather than the calling user — each one performs its own authorization check internally
 (see ADR-0002 for why this pattern was chosen over broader table grants). **If a function isn't
-listed here, it isn't part of the public API** — three additional functions
-(`is_org_member`, `is_org_admin`, `is_platform_admin`) exist purely as internal helpers used
-inside RLS policies and other RPCs; they're technically callable directly but aren't meant to be
-called from the frontend.
+listed here, it isn't part of the public API** — four additional functions
+(`is_org_member`, `is_org_admin`, `is_platform_admin`, `is_module_enabled`) exist purely as
+internal helpers used inside RLS policies and other RPCs; they're technically callable directly
+but aren't meant to be called from the frontend.
 
 All examples use the JS client: `supabase.rpc('function_name', { p_arg: value })`.
 
@@ -39,6 +39,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `is_org_member(check_org_id uuid)` | `boolean` | `authenticated` |
 | `is_org_admin(check_org_id uuid)` | `boolean` | `authenticated` |
 | `is_platform_admin()` | `boolean` | `authenticated` |
+| `is_module_enabled(p_org_id uuid, p_module text)` | `boolean` | _(no grant found)_ |
 | `create_organization(p_name text, p_color text default '#2563eb')` | `organizations` | `authenticated` |
 | `join_organization(p_invite_code text)` | `organizations` | `authenticated` |
 | `list_org_members(p_org_id uuid)` | `table (membership_id uuid, user_id uuid, email text, role text, created_at timestamptz)` | `authenticated` |
@@ -48,6 +49,12 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `list_shipment_status_history(p_shipment_id uuid)` | `table (from_status text, to_status text, changed_by_email text, created_at timestamptz)` | `authenticated` |
 | `get_public_shipment_tracking(p_token uuid)` | `jsonb` | `anon`, `authenticated` |
 | `list_audit_log(p_org_id uuid, p_table_name text default null, p_record_id uuid default null, p_limit int default 200)` | `table (id uuid, table_name text, record_id uuid, operation text, changed_by_email text, changed_at timestamptz, old_data jsonb, new_data jsonb)` | `authenticated` |
+| `list_all_organizations()` | `table (id uuid, name text, billing_model text, monthly_fee_inr numeric, enabled_modules text[], created_at timestamptz)` | `authenticated` |
+| `set_org_billing_model(p_org_id uuid, p_model text)` | `organizations` | `authenticated` |
+| `set_org_config(p_org_id uuid, p_monthly_fee_inr numeric, p_enabled_modules text[])` | `organizations` | `authenticated` |
+| `list_platform_revenue(p_org_id uuid default null)` | `table (id uuid, org_id uuid, org_name text, invoice_id uuid, shipment_cost_id uuid, rake_type text, rate_pct numeric, base_amount_inr numeric, rake_amount_inr numeric, created_at timestamptz)` | `authenticated` |
+| `opt_in_cargo_insurance(p_shipment_id uuid)` | `void` | `authenticated` |
+| `mark_cost_instant_payout(p_shipment_cost_id uuid)` | `void` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -158,8 +165,9 @@ const { data, error } = await supabase.rpc('get_public_shipment_tracking', { p_t
 ## Audit log
 
 Introduced alongside the app error-logging module (ADR-0010, ADR-0011). Covers `contacts`,
-`memberships`, `invoices`, and `shipment_costs` — **not** `shipments`/`shipment_status_history`,
-which already has its own purpose-built history above.
+`memberships`, `invoices`, `shipment_costs`, and (since Week 8, ADR-0012) `organizations` —
+**not** `shipments`/`shipment_status_history`, which already has its own purpose-built history
+above.
 
 ### `list_audit_log(p_org_id uuid, p_table_name text default null, p_record_id uuid default null, p_limit int default 200) → { id, table_name, record_id, operation, changed_by_email, changed_at, old_data, new_data }[]`
 
@@ -174,3 +182,50 @@ in advance, so a future column added to any audited table is covered automatical
 ```ts
 const { data, error } = await supabase.rpc('list_audit_log', { p_org_id: orgId, p_table_name: 'invoices' })
 ```
+
+## Platform monetization
+
+Introduced Week 8 (ADR-0012, ADR-0013). Lets a platform Super-Admin pick, per organization,
+either Model 1 (fixed fee, module-gated) or Model 2 (₹0 base, all modules unlocked, platform
+takes a simulated rake off invoices/costs/shipments). The first feature in this app where
+`is_platform_admin()` backs a **write**-capable RPC, not just a read-side RLS `or` clause.
+
+### `list_all_organizations() → { id, name, billing_model, monthly_fee_inr, enabled_modules, created_at }[]`
+
+Platform-admin only. The full cross-org list ADR-0005 named as deliberately deferred until an
+actual admin-facing feature needed it.
+
+### `set_org_billing_model(p_org_id uuid, p_model text) → organizations`
+
+Platform-admin only. The "Meter-Flip" action — flips an org between `'model_1'`/`'model_2'`.
+Every call is automatically captured in `audit_log` (table `organizations`) via the same generic
+trigger covering contacts/memberships/invoices/shipment_costs — no separate history mechanism.
+
+### `set_org_config(p_org_id uuid, p_monthly_fee_inr numeric, p_enabled_modules text[]) → organizations`
+
+Platform-admin only. Sets a Model 1 org's displayed monthly fee and which of `'directory'`,
+`'quotes'`, `'accounting'` are enabled. Has no monetization effect for Model 2 orgs (they bypass
+`enabled_modules` entirely — see `is_module_enabled`), but the values are still stored.
+
+### `list_platform_revenue(p_org_id uuid default null) → { id, org_id, org_name, invoice_id, shipment_cost_id, rake_type, rate_pct, base_amount_inr, rake_amount_inr, created_at }[]`
+
+Reads the simulated `platform_revenue_ledger` — **no real funds ever move via this table**, it
+only records what the platform would charge. `p_org_id = null` is the platform-wide view
+(platform-admin only); passing a specific `p_org_id` also permits that org's own Owner/Admin to
+see it (ADR-0013 resolves the source doc's own "expose revenue back to the org?" open question in
+favor of yes, scoped to admins).
+
+```ts
+const { data, error } = await supabase.rpc('list_platform_revenue', { p_org_id: orgId })
+```
+
+### `opt_in_cargo_insurance(p_shipment_id uuid) → void`
+
+Any org member. Records a simulated 0.8% cargo-insurance rake against the shipment's total
+invoiced `amount_inr` — a no-op (no ledger row) for Model 1 orgs, which have no rake-based
+monetization.
+
+### `mark_cost_instant_payout(p_shipment_cost_id uuid) → void`
+
+Any org member. Records a simulated 1% instant-vendor-payout rake against a shipment cost — same
+Model 1 no-op behavior as above.

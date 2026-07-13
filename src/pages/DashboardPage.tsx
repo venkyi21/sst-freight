@@ -10,8 +10,13 @@ import ShipmentDetailModal from '../components/ShipmentDetailModal'
 import RatesQuotesPage from '../components/RatesQuotesPage'
 import AccountingPage from '../components/AccountingPage'
 import AuditLogPage from '../components/AuditLogPage'
+import PlatformAdminPage from '../components/PlatformAdminPage'
 import PlaceholderPage from '../components/PlaceholderPage'
-import type { NavPage, Shipment, ShipmentMode } from '../types'
+import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
+
+function isModuleEnabled(org: OrganizationWithRole, module: PlatformModule): boolean {
+  return org.billing_model === 'model_2' || org.enabled_modules.includes(module)
+}
 
 type ModeFilter = 'all' | ShipmentMode
 
@@ -27,7 +32,7 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
 })
 
 export default function DashboardPage() {
-  const { currentOrg, clearSelectedOrganization, user } = useAuth()
+  const { currentOrg, clearSelectedOrganization, user, isPlatformAdmin } = useAuth()
   const [navPage, setNavPage] = useState<NavPage>('dashboard')
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all')
   const [search, setSearch] = useState('')
@@ -97,7 +102,13 @@ export default function DashboardPage() {
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100%' }}>
-      <Sidebar org={currentOrg} navPage={navPage} onNavigate={setNavPage} onSwitchOrg={clearSelectedOrganization} />
+      <Sidebar
+        org={currentOrg}
+        navPage={navPage}
+        onNavigate={setNavPage}
+        onSwitchOrg={clearSelectedOrganization}
+        isPlatformAdmin={isPlatformAdmin}
+      />
 
       <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <header
@@ -233,13 +244,29 @@ export default function DashboardPage() {
           <TeamPage orgId={currentOrg.id} currentRole={currentOrg.role} currentUserId={user.id} />
         )}
 
-        {navPage === 'quotes' && user && (
+        {navPage === 'quotes' && user && !isModuleEnabled(currentOrg, 'quotes') && (
+          <PlaceholderPage
+            title="Rates & Quoting isn't enabled"
+            description="This module isn't enabled for your organization's plan — contact your account admin."
+          />
+        )}
+        {navPage === 'quotes' && user && isModuleEnabled(currentOrg, 'quotes') && (
           <RatesQuotesPage orgId={currentOrg.id} userId={user.id} onBookingCreated={handleCreated} />
         )}
 
-        {navPage === 'accounting' && <AccountingPage orgId={currentOrg.id} currentRole={currentOrg.role} />}
+        {navPage === 'accounting' && !isModuleEnabled(currentOrg, 'accounting') && (
+          <PlaceholderPage
+            title="Accounting isn't enabled"
+            description="This module isn't enabled for your organization's plan — contact your account admin."
+          />
+        )}
+        {navPage === 'accounting' && isModuleEnabled(currentOrg, 'accounting') && (
+          <AccountingPage orgId={currentOrg.id} currentRole={currentOrg.role} billingModel={currentOrg.billing_model} />
+        )}
 
         {navPage === 'auditlog' && <AuditLogPage orgId={currentOrg.id} currentRole={currentOrg.role} />}
+
+        {navPage === 'platformadmin' && <PlatformAdminPage isPlatformAdmin={isPlatformAdmin} />}
 
         {navPage === 'customs' && (
           <PlaceholderPage
@@ -261,6 +288,7 @@ export default function DashboardPage() {
       {selectedShipment && (
         <ShipmentDetailModal
           shipment={selectedShipment}
+          billingModel={currentOrg.billing_model}
           onClose={() => setSelectedShipment(null)}
           onUpdated={(updated) => {
             setShipments((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))

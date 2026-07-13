@@ -17,6 +17,14 @@ create table if not exists organizations (
   created_at timestamptz not null default now()
 );
 
+-- Week 8 (ADR-0012): platform monetization. billing_model picks which engine an org is on;
+-- enabled_modules gates Model 1 orgs to the modules they've paid for (Model 2 orgs bypass this
+-- entirely — see is_module_enabled() below). Defaulting enabled_modules to every gateable module
+-- means every pre-existing org keeps working unchanged until a platform admin deliberately narrows it.
+alter table organizations add column if not exists billing_model text not null default 'model_1' check (billing_model in ('model_1', 'model_2'));
+alter table organizations add column if not exists monthly_fee_inr numeric not null default 0;
+alter table organizations add column if not exists enabled_modules text[] not null default array['directory', 'quotes', 'accounting'];
+
 create table if not exists memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -217,6 +225,25 @@ create index if not exists audit_log_org_id_idx on audit_log (org_id);
 create index if not exists audit_log_record_idx on audit_log (table_name, record_id);
 alter table audit_log enable row level security;
 
+-- platform_revenue_ledger (ADR-0013): simulated FinTech Slice rake ledger for Model 2 orgs.
+-- "Simulated" is not a euphemism here — no real funds ever move via this table, it only records
+-- what the platform would charge. Same "zero client-reachable path" shape as audit_log: no RLS
+-- policy, no grant to `authenticated` — the only reader is list_platform_revenue() (platform-admin
+-- only). Writers are the invoices fx_spread trigger below and the two opt-in RPCs.
+create table if not exists platform_revenue_ledger (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  invoice_id uuid references invoices (id) on delete set null,
+  shipment_cost_id uuid references shipment_costs (id) on delete set null,
+  rake_type text not null check (rake_type in ('fx_spread', 'cargo_insurance', 'instant_payout')),
+  rate_pct numeric not null,
+  base_amount_inr numeric not null,
+  rake_amount_inr numeric not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists platform_revenue_ledger_org_id_idx on platform_revenue_ledger (org_id);
+alter table platform_revenue_ledger enable row level security;
+
 -- ─────────────────────────────────────────────────────────────
 -- Row Level Security
 -- ─────────────────────────────────────────────────────────────
@@ -261,6 +288,23 @@ stable
 set search_path = public
 as $$
   select exists (select 1 from platform_admins where user_id = auth.uid());
+$$;
+
+-- is_module_enabled (ADR-0012): Model 2 orgs ("all modules unlocked") always return true.
+-- Model 1 orgs are gated to whichever modules a platform admin has enabled for them.
+create or replace function is_module_enabled(p_org_id uuid, p_module text)
+returns boolean
+language plpgsql
+security definer
+stable
+set search_path = public
+as $$
+declare
+  v_org organizations;
+begin
+  select * into v_org from organizations where id = p_org_id;
+  return v_org.billing_model = 'model_2' or p_module = any(v_org.enabled_modules);
+end;
 $$;
 
 -- organizations: readable only by members. No direct insert policy —
@@ -328,7 +372,7 @@ create policy "members can view org tariffs"
 drop policy if exists "members can insert org tariffs" on tariffs;
 create policy "members can insert org tariffs"
   on tariffs for insert
-  with check (is_org_member(org_id) and created_by = auth.uid());
+  with check (is_org_member(org_id) and created_by = auth.uid() and is_module_enabled(org_id, 'quotes'));
 
 drop policy if exists "members can update org tariffs" on tariffs;
 create policy "members can update org tariffs"
@@ -345,7 +389,7 @@ create policy "members can view org quotes"
 drop policy if exists "members can insert org quotes" on quotes;
 create policy "members can insert org quotes"
   on quotes for insert
-  with check (is_org_member(org_id) and created_by = auth.uid());
+  with check (is_org_member(org_id) and created_by = auth.uid() and is_module_enabled(org_id, 'quotes'));
 
 drop policy if exists "members can update org quotes" on quotes;
 create policy "members can update org quotes"
@@ -362,7 +406,7 @@ create policy "members can view org invoices"
 drop policy if exists "members can insert org invoices" on invoices;
 create policy "members can insert org invoices"
   on invoices for insert
-  with check (is_org_member(org_id) and created_by = auth.uid());
+  with check (is_org_member(org_id) and created_by = auth.uid() and is_module_enabled(org_id, 'accounting'));
 
 drop policy if exists "members can update org invoices" on invoices;
 create policy "members can update org invoices"
@@ -682,8 +726,17 @@ security definer
 set search_path = public
 as $$
 declare
-  v_org_id uuid := case when tg_op = 'DELETE' then old.org_id else new.org_id end;
+  v_org_id uuid;
 begin
+  -- organizations is its own org (id, not org_id) — every other audited table has a real org_id
+  -- column. Branching on tg_table_name avoids evaluating the field access that doesn't exist for
+  -- whichever shape the current row isn't.
+  if tg_table_name = 'organizations' then
+    v_org_id := coalesce(new.id, old.id);
+  else
+    v_org_id := case when tg_op = 'DELETE' then old.org_id else new.org_id end;
+  end if;
+
   insert into audit_log (org_id, table_name, record_id, operation, changed_by, old_data, new_data)
   values (
     v_org_id, tg_table_name, coalesce(new.id, old.id), lower(tg_op), auth.uid(),
@@ -733,6 +786,188 @@ begin
 end;
 $$;
 
+-- organizations_audit (ADR-0012): reuses the same generic trigger as contacts/memberships/
+-- invoices/shipment_costs — Meter-Flip history (billing_model changes) comes for free through
+-- the existing audit_log/list_audit_log/AuditLogPage infrastructure, no new history table needed.
+-- update only: org creation is already covered by create_organization()'s own flow.
+drop trigger if exists organizations_audit on organizations;
+create trigger organizations_audit after update on organizations
+  for each row execute function log_audit_event();
+
+-- fx_spread ledger trigger (ADR-0013): only fires for Model 2 orgs on a non-INR invoice, mirroring
+-- the real currency conversion that already happens via fetchFxRateToInr (ADR-0007). 2% is a
+-- fixed simulated rate — no real settlement occurs, this only records what the platform would take.
+create or replace function log_fx_spread_revenue()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org organizations;
+begin
+  select * into v_org from organizations where id = new.org_id;
+  if v_org.billing_model = 'model_2' and new.currency <> 'INR' then
+    insert into platform_revenue_ledger (org_id, invoice_id, rake_type, rate_pct, base_amount_inr, rake_amount_inr)
+    values (new.org_id, new.id, 'fx_spread', 2, new.amount_inr, round(new.amount_inr * 0.02, 2));
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists invoices_fx_spread_revenue on invoices;
+create trigger invoices_fx_spread_revenue after insert on invoices
+  for each row execute function log_fx_spread_revenue();
+
+-- list_all_organizations / set_org_billing_model / set_org_config / list_platform_revenue
+-- (ADR-0012): the platform-wide admin RPCs ADR-0005 anticipated but deliberately deferred
+-- ("e.g. 'list all organizations' — none of that exists yet"). All four are platform-admin-only.
+create or replace function list_all_organizations()
+returns table (id uuid, name text, billing_model text, monthly_fee_inr numeric, enabled_modules text[], created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_platform_admin() then
+    raise exception 'Not authorized';
+  end if;
+  return query
+    select o.id, o.name, o.billing_model, o.monthly_fee_inr, o.enabled_modules, o.created_at
+    from organizations o
+    order by o.created_at desc;
+end;
+$$;
+
+create or replace function set_org_billing_model(p_org_id uuid, p_model text)
+returns organizations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org organizations;
+begin
+  if not is_platform_admin() then
+    raise exception 'Not authorized';
+  end if;
+  if p_model not in ('model_1', 'model_2') then
+    raise exception 'Invalid billing model';
+  end if;
+  update organizations set billing_model = p_model where id = p_org_id returning * into v_org;
+  return v_org;
+end;
+$$;
+
+create or replace function set_org_config(p_org_id uuid, p_monthly_fee_inr numeric, p_enabled_modules text[])
+returns organizations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org organizations;
+begin
+  if not is_platform_admin() then
+    raise exception 'Not authorized';
+  end if;
+  update organizations
+    set monthly_fee_inr = p_monthly_fee_inr, enabled_modules = p_enabled_modules
+    where id = p_org_id
+    returning * into v_org;
+  return v_org;
+end;
+$$;
+
+-- list_platform_revenue: p_org_id = null is the platform-wide view (platform-admin only).
+-- A non-null p_org_id also allows that org's own Owner/Admin to see it — resolving the source
+-- doc's own open question ("expose Model 2 revenue back to the org?") in favor of yes, scoped to
+-- admins only, matching this app's existing Owner/Admin-gated transparency convention
+-- (list_audit_log). See ADR-0013.
+create or replace function list_platform_revenue(p_org_id uuid default null)
+returns table (id uuid, org_id uuid, org_name text, invoice_id uuid, shipment_cost_id uuid, rake_type text, rate_pct numeric, base_amount_inr numeric, rake_amount_inr numeric, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_org_id is null then
+    if not is_platform_admin() then
+      raise exception 'Not authorized';
+    end if;
+  elsif not (is_org_admin(p_org_id) or is_platform_admin()) then
+    raise exception 'Not authorized';
+  end if;
+  return query
+    select l.id, l.org_id, o.name, l.invoice_id, l.shipment_cost_id, l.rake_type, l.rate_pct, l.base_amount_inr, l.rake_amount_inr, l.created_at
+    from platform_revenue_ledger l
+    join organizations o on o.id = l.org_id
+    where p_org_id is null or l.org_id = p_org_id
+    order by l.created_at desc;
+end;
+$$;
+
+-- opt_in_cargo_insurance / mark_cost_instant_payout (ADR-0013): opt-in, per-record simulated
+-- rakes — deliberate user actions, not automatic side effects like fx_spread above. No-ops
+-- (return without inserting a ledger row) for Model 1 orgs, which have no rake-based monetization.
+create or replace function opt_in_cargo_insurance(p_shipment_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_shipment shipments;
+  v_org organizations;
+  v_total numeric;
+begin
+  select * into v_shipment from shipments where id = p_shipment_id;
+  if v_shipment.id is null then
+    raise exception 'Shipment not found';
+  end if;
+  if not is_org_member(v_shipment.org_id) then
+    raise exception 'Not authorized for this shipment';
+  end if;
+
+  select * into v_org from organizations where id = v_shipment.org_id;
+  if v_org.billing_model <> 'model_2' then
+    return;
+  end if;
+
+  select coalesce(sum(amount_inr), 0) into v_total from invoices where shipment_id = p_shipment_id;
+  insert into platform_revenue_ledger (org_id, invoice_id, rake_type, rate_pct, base_amount_inr, rake_amount_inr)
+  values (v_shipment.org_id, null, 'cargo_insurance', 0.8, v_total, round(v_total * 0.008, 2));
+end;
+$$;
+
+create or replace function mark_cost_instant_payout(p_shipment_cost_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_cost shipment_costs;
+  v_org organizations;
+begin
+  select * into v_cost from shipment_costs where id = p_shipment_cost_id;
+  if v_cost.id is null then
+    raise exception 'Shipment cost not found';
+  end if;
+  if not is_org_member(v_cost.org_id) then
+    raise exception 'Not authorized for this cost';
+  end if;
+
+  select * into v_org from organizations where id = v_cost.org_id;
+  if v_org.billing_model <> 'model_2' then
+    return;
+  end if;
+
+  insert into platform_revenue_ledger (org_id, shipment_cost_id, rake_type, rate_pct, base_amount_inr, rake_amount_inr)
+  values (v_cost.org_id, p_shipment_cost_id, 'instant_payout', 1, v_cost.amount, round(v_cost.amount * 0.01, 2));
+end;
+$$;
+
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
@@ -745,6 +980,12 @@ grant execute on function advance_shipment_status(uuid) to authenticated;
 grant execute on function list_shipment_status_history(uuid) to authenticated;
 grant execute on function get_public_shipment_tracking(uuid) to anon, authenticated;
 grant execute on function list_audit_log(uuid, text, uuid, int) to authenticated;
+grant execute on function list_all_organizations() to authenticated;
+grant execute on function set_org_billing_model(uuid, text) to authenticated;
+grant execute on function set_org_config(uuid, numeric, text[]) to authenticated;
+grant execute on function list_platform_revenue(uuid) to authenticated;
+grant execute on function opt_in_cargo_insurance(uuid) to authenticated;
+grant execute on function mark_cost_instant_payout(uuid) to authenticated;
 
 grant select on organizations to authenticated;
 grant select on memberships to authenticated;

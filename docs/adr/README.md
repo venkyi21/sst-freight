@@ -29,5 +29,7 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0009](0009-query-param-public-routing.md) | Public/no-auth routes use a query parameter, not a path segment | Accepted |
 | [0010](0010-generic-audit-ledger-via-trigger.md) | Generic audit ledger via a SECURITY DEFINER trigger, admin-only reads | Accepted |
 | [0011](0011-client-error-capture-deferred-vendor.md) | Client error capture ships now; the log vendor is deferred behind an env var | Accepted |
+| [0012](0012-platform-monetization-module-gating.md) | Platform monetization: module-gated Model 1 vs. rake-based Model 2, enforced server-side | Accepted |
+| [0013](0013-simulated-fintech-slice-ledger.md) | FinTech Slice rakes are simulated ledger entries; float yield is not built | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.
