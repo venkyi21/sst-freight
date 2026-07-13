@@ -147,7 +147,7 @@ export const PLATFORM_RAKE_META: Record<PlatformRakeType, { label: string }> = {
 }
 
 export type AuditOperation = 'insert' | 'update' | 'delete'
-export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations' | 'customs_filings'
+export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations' | 'customs_filings' | 'shipment_documents'
 
 export interface AuditLogEntry {
   id: string
@@ -167,6 +167,7 @@ export const AUDIT_TABLE_META: Record<AuditTableName, { label: string }> = {
   shipment_costs: { label: 'Shipment Costs' },
   organizations: { label: 'Billing Plan' },
   customs_filings: { label: 'Customs Filings' },
+  shipment_documents: { label: 'Shipment Documents' },
 }
 
 export const AUDIT_OPERATION_META: Record<AuditOperation, { label: string; color: string; background: string }> = {
@@ -329,6 +330,37 @@ export interface CustomsFiling {
   created_at: string
 }
 
+export type ShipmentDocumentType = 'bill_of_lading' | 'packing_list' | 'certificate_of_origin' | 'commercial_invoice' | 'other'
+export type ShipmentDocumentSource = 'generated' | 'uploaded'
+
+export const SHIPMENT_DOCUMENT_TYPE_META: Record<ShipmentDocumentType, { label: string }> = {
+  bill_of_lading: { label: 'Bill of Lading' },
+  packing_list: { label: 'Packing List' },
+  certificate_of_origin: { label: 'Certificate of Origin' },
+  commercial_invoice: { label: 'Commercial Invoice' },
+  other: { label: 'Other' },
+}
+
+export const GENERATED_DOCUMENT_TYPES: ShipmentDocumentType[] = [
+  'bill_of_lading',
+  'packing_list',
+  'certificate_of_origin',
+  'commercial_invoice',
+]
+
+export interface ShipmentDocument {
+  id: string
+  org_id: string
+  shipment_id: string
+  document_type: ShipmentDocumentType
+  source: ShipmentDocumentSource
+  ref: string | null
+  file_name: string | null
+  storage_path: string | null
+  created_by: string | null
+  created_at: string
+}
+
 export interface PublicTrackingData {
   ref: string
   mode: ShipmentMode
@@ -346,4 +378,5 @@ export interface PublicTrackingData {
     status: InvoiceStatus
     due_date: string | null
   }[]
+  documents: { document_type: ShipmentDocumentType; ref: string | null; created_at: string }[]
 }

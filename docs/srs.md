@@ -238,6 +238,35 @@ built.
     `hs_codes` is a periodic, manually-refreshed reference snapshot, not synced to CBIC tariff
     notifications; HS code coverage is representative (~22 codes), not exhaustive.
 
+### FR-13: Document Management
+
+- **US-13.1** — As a Member, I can generate a Bill of Lading, Packing List, Certificate of Origin,
+  or Commercial Invoice for a shipment, populated from that shipment's own shipper/consignee/
+  route/cargo data instead of re-typing it — directly targeting the sourced #1 pain point
+  (cross-document data inconsistency, e.g. a mismatched packing list vs. commercial invoice
+  triggering a real CBP customs hold).
+  - AC: Verified end-to-end in a real browser — generating each of the 4 document types for a real
+    shipment produces a rendered view whose shipper/consignee/route/cargo fields match that
+    shipment's actual data, not blank or re-typed fields.
+  - AC: A generated document is rendered live from current data on every view, not a stored
+    snapshot (ADR-0017) — verified that editing the underlying shipment/contact data changes what
+    a previously-generated document shows on next view.
+- **US-13.2** — As a Member, I can attach a real file (e.g. a scanned signed BOL, a customer's own
+  Certificate of Origin) to a shipment and download it later.
+  - AC: Verified with a real file upload to Supabase Storage and a real signed-URL download,
+    not a mock.
+  - AC: A member of a different organization cannot read or upload another organization's shipment
+    documents or Storage objects — verified directly (RLS on both `shipment_documents` and
+    `storage.objects`), not just hidden in the UI.
+- **US-13.3** — As a customer viewing the public tracking portal (Week 7), I can see which
+  documents exist for my shipment and when they were issued — directly targeting the sourced
+  "customer portal visibility gap" pain point (existing forwarder portals lack real-time document
+  visibility).
+  - AC: Verified the public tracking page shows the real document checklist for a shipment with
+    generated/uploaded documents.
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — the public portal shows
+    visibility only; full document render and uploaded-file download remain behind org login.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

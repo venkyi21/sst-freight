@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import InfoTooltip from './InfoTooltip'
+import ShipmentDocumentsPanel from './ShipmentDocumentsPanel'
 import { MODE_META, STATUS_SEQUENCE, statusMeta, type BillingModel, type Shipment, type StatusHistoryEntry } from '../types'
 
 interface ShipmentDetailModalProps {
@@ -226,6 +227,8 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
             })}
           </div>
         </div>
+
+        <ShipmentDocumentsPanel shipment={shipment} />
 
         <div style={{ marginBottom: 22 }}>
           <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>

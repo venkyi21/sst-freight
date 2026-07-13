@@ -281,6 +281,38 @@ create table if not exists customs_filings (
 create index if not exists customs_filings_org_id_idx on customs_filings (org_id);
 alter table customs_filings enable row level security;
 
+-- shipment_documents (Week 11, ADR-0017): a log of shipping documents against a shipment —
+-- Bill of Lading, Packing List, Certificate of Origin, Commercial Invoice, or other. A
+-- `generated` row is NOT a file snapshot: the document is rendered live from the shipment's own
+-- current data (shipment/contacts/quotes/invoices/customs_filings) on every view, so it always
+-- reflects the latest corrected data instead of risking a stale copy — this row is just a log
+-- entry that the document was issued (type, ref, when, by whom). An `uploaded` row is a real file
+-- in the `shipment-documents` Storage bucket (see below), addressed by storage_path/file_name.
+create table if not exists shipment_documents (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  shipment_id uuid not null references shipments (id) on delete cascade,
+  document_type text not null check (document_type in ('bill_of_lading', 'packing_list', 'certificate_of_origin', 'commercial_invoice', 'other')),
+  source text not null check (source in ('generated', 'uploaded')),
+  ref text,
+  file_name text,
+  storage_path text,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists shipment_documents_org_id_idx on shipment_documents (org_id);
+create index if not exists shipment_documents_shipment_id_idx on shipment_documents (shipment_id);
+alter table shipment_documents enable row level security;
+
+-- shipment-documents Storage bucket (Week 11, ADR-0017): the first use of Supabase Storage in
+-- this app — private bucket, 10MB cap. Objects are stored at `{org_id}/{shipment_id}/{uuid}-
+-- {filename}`; the RLS policies below extract the org_id path segment and check it with the same
+-- is_org_member() every Postgres RLS policy in this app already uses — Storage RLS is not a
+-- different security model, just applied to storage.objects instead of an app table.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('shipment-documents', 'shipment-documents', false, 10485760)
+on conflict (id) do nothing;
+
 -- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
 -- No RLS policy is defined for this table and no grants are given to `authenticated` —
 -- it is unreachable from the client entirely. The only way in is a manual insert via the
@@ -541,6 +573,34 @@ drop policy if exists "members can update org customs filings" on customs_filing
 create policy "members can update org customs filings"
   on customs_filings for update
   using (is_org_member(org_id));
+
+-- shipment_documents: scoped strictly to org membership, same shape as customs_filings. No
+-- update/delete grant this pass — a mistaken upload gets a new row rather than editing/deleting
+-- the old one (see docs/tech-debt.md), avoiding an orphaned Storage object from a partial delete.
+drop policy if exists "members can view org shipment documents" on shipment_documents;
+create policy "members can view org shipment documents"
+  on shipment_documents for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org shipment documents" on shipment_documents;
+create policy "members can insert org shipment documents"
+  on shipment_documents for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+-- storage.objects (shipment-documents bucket): path convention is {org_id}/{shipment_id}/
+-- {uuid}-{filename} — (storage.foldername(name))[1] is the org_id segment, checked with the
+-- same is_org_member() every other RLS policy in this app uses.
+drop policy if exists "members can view org shipment document files" on storage.objects;
+create policy "members can view org shipment document files"
+  on storage.objects for select
+  to authenticated
+  using (bucket_id = 'shipment-documents' and is_org_member((storage.foldername(name))[1]::uuid));
+
+drop policy if exists "members can upload org shipment document files" on storage.objects;
+create policy "members can upload org shipment document files"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'shipment-documents' and is_org_member((storage.foldername(name))[1]::uuid));
 
 -- ─────────────────────────────────────────────────────────────
 -- RPCs (SECURITY DEFINER — the only way to create an org or join one)
@@ -819,6 +879,14 @@ begin
         'amount_inr', i.amount_inr, 'status', i.status, 'due_date', i.due_date
       ) order by i.created_at asc), '[]'::jsonb)
       from invoices i where i.shipment_id = v_shipment.id
+    ),
+    -- Week 11 (ADR-0017): visibility only — type/ref/date, never file_name/storage_path, so an
+    -- uploaded file is never reachable through this anon-facing payload.
+    'documents', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'document_type', d.document_type, 'ref', d.ref, 'created_at', d.created_at
+      ) order by d.created_at asc), '[]'::jsonb)
+      from shipment_documents d where d.shipment_id = v_shipment.id
     )
   ) into v_result;
 
@@ -874,6 +942,9 @@ create trigger shipment_costs_audit after insert or update or delete on shipment
   for each row execute function log_audit_event();
 drop trigger if exists customs_filings_audit on customs_filings;
 create trigger customs_filings_audit after insert or update or delete on customs_filings
+  for each row execute function log_audit_event();
+drop trigger if exists shipment_documents_audit on shipment_documents;
+create trigger shipment_documents_audit after insert or update or delete on shipment_documents
   for each row execute function log_audit_event();
 
 -- list_audit_log: the only reader of audit_log. Gated to Owner/Admin (or platform admin) —
@@ -1195,3 +1266,4 @@ grant select, insert, update on invoices to authenticated;
 grant select, insert, update on shipment_costs to authenticated;
 grant select on hs_codes to authenticated;
 grant select, insert, update on customs_filings to authenticated;
+grant select, insert on shipment_documents to authenticated;

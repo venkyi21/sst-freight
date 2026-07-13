@@ -79,11 +79,13 @@ erDiagram
   organizations ||--o{ audit_log : "owns"
   organizations ||--o{ platform_revenue_ledger : "owns"
   organizations ||--o{ customs_filings : "owns"
+  organizations ||--o{ shipment_documents : "owns"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
   shipments ||--o{ shipment_costs : "costed via"
   shipments ||--o{ customs_filings : "filed via (nullable FK)"
+  shipments ||--o{ shipment_documents : "documented via"
   shipments }o--o| contacts : "shipper / consignee (nullable FK)"
 
   quotes }o--o| contacts : "shipper / consignee (nullable FK)"
@@ -123,6 +125,15 @@ using (true)` for `select` only, deliberately different from every `is_org_membe
 elsewhere; no insert/update/delete grant exists, since the only writer is the seed data in
 `schema.sql` itself. Not drawn as owned by `organizations` above precisely because it isn't.
 
+**Week 11 (ADR-0017)**: `shipment_documents` is org-scoped like every table above, but a
+`generated` row is a log entry only (type, ref, who, when) — the document itself is rendered live
+from current shipment/contact/invoice/customs_filing data on every view, never persisted, so it
+can never drift out of sync with the records it's built from. An `uploaded` row instead points at
+a real file in the new `shipment-documents` **Supabase Storage** bucket — the first Storage usage
+in this app. Storage isn't a separate security model: RLS policies on `storage.objects` extract
+the org_id segment from the object's path (`{org_id}/{shipment_id}/{uuid}-{filename}`) and check
+it with the same `is_org_member()` every Postgres RLS policy already uses.
+
 **Week 8 (ADR-0012/ADR-0013)**: `organizations` gained `billing_model`, `monthly_fee_inr`, and
 `enabled_modules` — the platform-monetization config described in §5. `platform_revenue_ledger`
 is the simulated FinTech Slice rake ledger — no real funds move through it (ADR-0013); its
@@ -134,9 +145,13 @@ per-invoice or per-cost).
 ## 4. Request patterns
 
 **Pattern A — plain RLS-gated table access** (contacts, tariffs, most of quotes/invoices/costs,
-customs_filings): the client calls `.select()`/`.insert()`/`.update()` directly; Postgres's RLS
-policy decides per-row visibility. `hs_codes` is a read-only variant of this same pattern — no
-insert/update path exists at all, and its `using (true)` policy has no org dimension to check.
+customs_filings, shipment_documents): the client calls `.select()`/`.insert()`/`.update()`
+directly; Postgres's RLS policy decides per-row visibility. `hs_codes` is a read-only variant of
+this same pattern — no insert/update path exists at all, and its `using (true)` policy has no org
+dimension to check. `storage.objects` (the `shipment-documents` bucket, Week 11) is the same
+pattern applied to Supabase Storage instead of an app table — the client calls
+`.storage.from(...).upload()`/`.createSignedUrl()` directly; RLS on `storage.objects` decides
+access the same way, just keyed off the object's path instead of an `org_id` column.
 
 ```mermaid
 sequenceDiagram

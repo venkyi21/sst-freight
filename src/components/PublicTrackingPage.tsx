@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
-import { MODE_META, STATUS_SEQUENCE, statusMeta, type PublicTrackingData } from '../types'
+import { MODE_META, SHIPMENT_DOCUMENT_TYPE_META, STATUS_SEQUENCE, statusMeta, type PublicTrackingData } from '../types'
 
 interface PublicTrackingPageProps {
   token: string
@@ -150,6 +150,25 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
           ))}
         </div>
       </div>
+
+      {data.documents.length > 0 && (
+        <div style={{ marginTop: 24 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Documents
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {data.documents.map((d, i) => (
+              <div key={i} style={{ fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <span>
+                  {SHIPMENT_DOCUMENT_TYPE_META[d.document_type].label}
+                  {d.ref && <span style={{ color: '#5b6b82' }}> · {d.ref}</span>}
+                </span>
+                <span style={{ color: '#5b6b82', whiteSpace: 'nowrap' }}>{new Date(d.created_at).toLocaleDateString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {data.invoices.length > 0 && (
         <div style={{ marginTop: 24 }}>

@@ -184,11 +184,11 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–9 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8, an inline-validation/tooltip UX pass inserted ahead of Week 10, and Week 10's Customs Filing Simulator.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–10 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking, customs filing simulator) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8, an inline-validation/tooltip UX pass inserted ahead of Week 10, and Week 11's Document Management.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">15</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking, customs filing simulator)</div></div>
-          <div class="cell"><div class="num info">2</div><div class="lbl">weeks remaining<br>Week 11 → Week 12</div></div>
+          <div class="cell"><div class="num ok">16</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking, customs filing simulator, document management)</div></div>
+          <div class="cell"><div class="num info">1</div><div class="lbl">week remaining<br>Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
@@ -294,10 +294,10 @@
               </tr>
               <tr>
                 <td class="week">11</td>
-                <td><strong>Document management</strong> <span class="tag ok">new</span></td>
-                <td>General shipping documents — Bill of Lading, packing lists, Certificate of Origin — generated and attached across the shipment lifecycle, not just at customs filing</td>
+                <td><strong>Document Management</strong> <span class="tag ok">scoped</span></td>
+                <td>Bill of Lading, Packing List, Certificate of Origin, and Commercial Invoice — generated and attached across the shipment lifecycle. <strong>Differentiator</strong>: generated documents are rendered <em>live</em> from the shipment's own existing data (shipper, consignee, cargo, linked Week 10 customs filing) rather than persisted/re-typed — directly targeting the sourced #1 industry pain point (cross-document data inconsistency; a single mismatched packing list vs. commercial invoice can trigger a real CBP customs hold costing $2,000&ndash;4,000 in demurrage). Real file attachments via the app's first-ever Supabase Storage bucket (ADR-0017), with the same org-isolation RLS pattern as every Postgres table. The public tracking portal (Week 7) now shows a real-time document checklist, answering the sourced "customer portal visibility gap" finding. <strong>Scope cut, stated plainly</strong>: the public portal shows document visibility only, not full render/download of uploaded files — that needs a token-gated Storage-access design deferred to a later pass (`docs/tech-debt.md`).</td>
                 <td><span class="tag">Shipthis</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
               </tr>
               <tr>
                 <td class="week">12</td>

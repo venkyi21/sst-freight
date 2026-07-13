@@ -153,6 +153,31 @@ is a near-term coding task, and none of it should be attempted without that infr
   security boundary, but worth revisiting if a future workflow needs to guarantee filings can't be
   un-filed.
 
+## Document management (Week 11, ADR-0017)
+
+- **No delete/replace flow for `shipment_documents` rows or uploaded files.** A mistaken upload or
+  an accidental "Generate" click can't be removed — it requires a new row rather than editing or
+  deleting the old one. Deliberate, to avoid orphaning a Storage object from a partial delete;
+  revisit if this becomes a real usability complaint.
+- **The public tracking portal shows document visibility only** (type, ref, date) — not full
+  render or uploaded-file download. Real ADR-0017 scope cut: exposing uploaded-file download
+  publicly needs a token-gated Storage-access design that doesn't exist yet (Storage RLS has no
+  concept of "does this anon caller hold a valid tracking token").
+- **No virus/malware scanning of uploaded files.** Acceptable for now — same-tenant business
+  users, not a public upload surface — but worth a real scan step if this ever opens to
+  less-trusted uploaders.
+- **PDF output is via browser print-to-PDF (`window.print()` + `@media print` CSS), not a
+  dedicated PDF-rendering library.** No custom visual layout beyond what print CSS offers (no
+  logo/letterhead template, no multi-page pagination control). Revisit only if visual fidelity
+  becomes a real requirement — see ADR-0017's alternatives-considered section.
+- **Generated-document field coverage depends on what's already been entered elsewhere** — e.g. a
+  Certificate of Origin's HS code is blank unless a Week 10 customs filing already exists for that
+  shipment; goods description falls back to a generic "General Cargo" otherwise. This is the
+  correct behavior (never invents data), but means document completeness is only as good as the
+  shipment's own data entry.
+- **10MB file size cap** on uploads (Storage bucket `file_size_limit`) — a real, deliberate limit,
+  not yet configurable per-org.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because

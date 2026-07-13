@@ -147,9 +147,17 @@ see ADR-0008), and returns a single JSON object:
   ],
   "invoices": [
     { "ref": "INV-2026-739", "currency": "INR", "amount": 50000, "amount_inr": 50000, "status": "unpaid", "due_date": null }
+  ],
+  "documents": [
+    { "document_type": "bill_of_lading", "ref": "BOL-2026-483", "created_at": "2026-07-14T02:10:00.000000+00:00" }
   ]
 }
 ```
+
+`documents` (Week 11, ADR-0017) is deliberately **visibility only** — `document_type`/`ref`/
+`created_at`, never `file_name`/`storage_path`. An uploaded file's actual content is never
+reachable through this anon-facing payload; full document render and file download stay behind
+org login (see `docs/tech-debt.md`).
 
 Raises `Tracking link not found` for any token with no match — deliberately generic, to avoid
 distinguishing "wrong token" from "token exists but something else went wrong" in a way that
