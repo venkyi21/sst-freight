@@ -13,9 +13,18 @@ document, in the same commit as the code change, every time:
 | Make an architectural decision worth a future contributor knowing the *why* of (a new table shape, a new RLS/RPC pattern, choosing one library/approach over another, a security or hosting constraint that shaped the design) | Add a new ADR in `docs/adr/` (copy `docs/adr/0000-template.md`, next sequential number, add it to the index table in `docs/adr/README.md`). **Never edit a merged ADR** — if a decision changes, write a new ADR that supersedes it. |
 | Add, remove, or change the signature/grants of a `supabase.rpc()`-callable function | Run `node scripts/generate-api-reference.js` to refresh the auto-generated signature table, then update the hand-written prose section for that function in `docs/api-reference.md` (what it does, auth rules, example). |
 | Ship something with a known shortcut, deferred edge case, or accepted limitation (deliberately, to keep scope tight — not a bug you're planning to fix immediately) | Add an entry to `docs/tech-debt.md` under the right section, including what closing it would take. |
+| Ship a new user-facing feature or change the behavior of an existing one | Add/update the corresponding user story + acceptance criteria in `docs/srs.md`. Acceptance criteria must be quantifiable and, wherever possible, actually verified (a real test run, not a guess) rather than aspirational — say so explicitly if something is a target, not a measured fact. |
+| Add a new table, change how components/environments talk to each other, or change which request pattern (plain RLS-gated grant vs. `SECURITY DEFINER` RPC) a feature uses | Update the relevant diagram in `docs/sdd.md` (validate any Mermaid diagram change actually renders — e.g. via `npx @mermaid-js/mermaid-cli` — before committing it; a diagram that fails to render is worse than no diagram). |
+| Change how `supabase/schema.sql` is actually applied, add a migration with a real rollback path, or learn something new about backup/recovery status | Update `docs/migration-runbook.md`. Don't state an operational fact (backup status, atomicity of an apply method) without having actually verified it — this file exists specifically to be trustworthy during a real incident. |
 | Complete a roadmap week/feature | Update its status chip and the "where things stand" scorecard in `docs/roadmap.html` — this project's existing convention, unaffected by the above. |
 
 Rationale and full context: `docs/tech-debt.md`'s intro, and ADR-0002 (`docs/adr/0002-rpc-only-privileged-mutations.md`) for why RPCs get this level of documentation rigor in the first place.
+
+**Note on enforcement**: only the ADR/tech-debt/API-reference row above is backed by the hard
+pre-commit/CI gate (`scripts/check-docs-sync.js`), because `supabase/schema.sql` changing is a
+clean, unambiguous trigger to detect mechanically. The SRS/SDD/migration-runbook rows rely on this
+standing instruction being followed, not a file-diff check — there's no equally clean signal
+("new user-facing feature" isn't a single file) to gate on automatically.
 
 ## One-time local setup
 

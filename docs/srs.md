@@ -1,0 +1,154 @@
+# Software Requirements Specification
+
+**Owner:** Product Owner · **Status:** Living document — reflects Weeks 1–7 as shipped, updated
+in the same commit as any new user-facing feature (see `CLAUDE.md`).
+
+This SRS documents what SST Freight actually does today, as verifiable user stories with
+quantifiable acceptance criteria — not aspirational copy. Where a criterion was never actually
+measured (e.g. load testing), that's stated explicitly rather than guessed at. Future features
+(Weeks 8–12) live in [`docs/roadmap.html`](roadmap.html), not here — this file only covers what's
+built.
+
+## 1. Actors
+
+| Actor | Definition |
+| --- | --- |
+| **Member** | Any authenticated user belonging to an organization. Default role on joining via invite code. |
+| **Admin** | A member who can also manage team membership (promote/demote/remove other members, except Owners). |
+| **Owner** | The member who created the organization. Cannot be demoted or removed by an Admin — only by another Owner. |
+| **Platform Super-Admin** | Manually provisioned, cross-org read access. No self-service path exists (ADR-0005). |
+| **Consignee (external)** | Not an app user — receives a read-only tracking link, no account or login. |
+
+## 2. Functional Requirements
+
+### FR-1: Authentication & Organizations
+
+- **US-1.1** — As a new user, I can sign up with email/password and either create a new
+  organization (becoming its Owner) or join an existing one via an 8-character invite code.
+  - AC: A duplicate signup with an already-registered email is rejected with "User already
+    registered," not a silent failure or generic error.
+  - AC: A wrong password on sign-in is rejected with "Invalid login credentials"; a subsequent
+    correct-password attempt succeeds without requiring a page reload.
+  - AC: An invalid invite code is rejected with a visible error; the user remains on the org
+    picker screen, not redirected or logged out.
+- **US-1.2** — As a Member, my organization's data (shipments, contacts, quotes, invoices, costs,
+  tariffs) is never visible to a user in a different organization, under any circumstance,
+  including a user who is a member of a third org entirely unrelated to either.
+  - AC: Verified directly with a 3-user, 2-org automated test: Org B's dashboard shows exactly 0
+    shipments and an empty Directory when Org A has real data: a user who joins Org A via its
+    invite code correctly sees Org A's existing shipments and contacts.
+  - AC: Enforced at the database layer (Postgres RLS, ADR-0001) — not only hidden by the UI.
+
+### FR-2: Booking (Ocean / Air / Truck)
+
+- **US-2.1** — As a Member, I can create a booking in any of 3 modes (Ocean, Air, Truck), each
+  with mode-specific fields (Ocean: FCL/LCL, container size, vessel/voyage; Air: dimensions and
+  gross weight; Truck: vehicle type, driver phone).
+  - AC: Every booking gets a unique, auto-generated tracking reference per mode (`BKG-YYYY-NNN`
+    Ocean, `AWB-YYYY-NNN` Air, `TRK-YYYY-NNN` Truck); a reference collision is retried
+    automatically (up to 5 attempts) rather than surfacing an error to the user.
+  - AC: Air freight's volumetric weight is computed as `(L×W×H)/6000` (IATA standard divisor);
+    chargeable weight is `max(gross, volumetric)` — verified with a concrete case (100×80×60cm,
+    120kg gross → 80.0kg volumetric, 120.0kg chargeable, gross wins).
+  - AC: All 3 modes default to `'Booked'` status at creation (unified in Week 4 — Truck
+    previously had a separate `'Loading'` default; ADR-0004).
+- **US-2.2** — As a Member, I can search and filter the shipment list by mode and by free-text
+  match across ref/client/origin/destination.
+
+### FR-3: Directory (Contacts)
+
+- **US-3.1** — As a Member, I can maintain a directory of shipper, consignee, overseas-agent, and
+  vendor contacts (vendor further split into trucking-company / CFS-agent), searchable by
+  name/email/phone/city and filterable by kind.
+- **US-3.2** — As a Member booking a shipment or generating a quote, typing a shipper/consignee
+  name autocompletes against existing Directory contacts (case-insensitive substring match); an
+  unmatched name is automatically added to the Directory rather than blocking the booking.
+  - AC: Typing an exact existing contact's name and submitting without selecting the dropdown
+    suggestion still resolves to the existing contact (not a duplicate) — enforced with a
+    submit-time server-side re-check, not only client-side matching, closing a real race
+    condition found during Week 2 verification.
+
+### FR-4: Roles & Team Management
+
+- **US-4.1** — As an Owner or Admin, I can view my organization's full member list and
+  promote/demote a Member↔Admin, or remove a member entirely.
+  - AC: An Admin cannot demote or remove an Owner — verified by directly calling the underlying
+    RPC (bypassing the UI) and confirming server-side rejection, not just a hidden button.
+  - AC: A Member cannot self-promote to Admin — same direct-RPC verification.
+  - AC: No path exists, UI or RPC, that grants the `'owner'` role to anyone after org creation.
+- **US-4.2** — As any Member, day-to-day work (booking, Directory, quoting, invoicing) is
+  unaffected by role — this app does not gate ordinary business actions by role, only team
+  management itself.
+
+### FR-5: Shipment Status Workflow
+
+- **US-5.1** — As a Member, I can advance a shipment through a fixed 5-stage sequence: Booked →
+  Docs → Cleared → In Transit → Delivered, one stage at a time, with every transition logged
+  (who, from what, to what, when).
+  - AC: The status cannot be set to any value outside the 5 defined stages (DB check
+    constraint) or advanced out of sequence (enforced by `advance_shipment_status`, the only
+    permitted write path — direct table `UPDATE` is revoked from the client entirely, ADR-0004).
+  - AC: Once `'Delivered'`, no further advancement is possible; the action is not offered in the
+    UI and the underlying RPC rejects the call if attempted directly.
+
+### FR-6: Rate Management & Quoting
+
+- **US-6.1** — As a Member, I can maintain a tariff rate card (mode + lane + rate) and generate a
+  quote by optionally loading a tariff to prefill route/rate (still editable — a quote's
+  negotiated rate can differ from the card), specifying quantity, and getting a live-computed
+  total.
+- **US-6.2** — As a Member, I can convert a draft quote into a real booking with one action; the
+  quote then shows "Converted" plus the resulting booking's real reference.
+  - AC: A converted quote's booking has the correct mode-prefixed reference, the quote's
+    shipper/consignee carried over, and status `'Booked'`.
+  - AC: **Known gap** (see `docs/tech-debt.md`) — converting a quote twice in rapid succession
+    (double-click / two tabs) is not guarded against; this is not yet closed.
+
+### FR-7: Accounting
+
+- **US-7.1** — As a Member, I can generate an invoice from a shipment in any of 7 currencies
+  (INR, USD, EUR, GBP, AED, SGD, CNY), with the INR exchange rate auto-fetched from a live
+  source at creation time.
+  - AC: Only an Owner or Admin can edit the fetched FX rate — enforced by a database trigger, not
+    only a disabled form field; verified by a plain Member's direct RPC call being rejected while
+    an Owner's identical call succeeds.
+- **US-7.2** — As a Member, I can mark an invoice paid/unpaid and see, at a glance, which unpaid
+  invoices are overdue and by how much.
+  - AC: Overdue invoices are bucketed into 0–30 / 31–60 / 61+ days, computed from `due_date` vs.
+    the current date, with distinct visual severity per bucket.
+- **US-7.3** — As a Member, I can record a cost against a shipment (vendor + amount +
+  description) and see organization-wide Total Revenue / Total Cost / Profit.
+  - AC: Profit = sum of all invoiced `amount_inr` minus sum of all recorded costs. **Known
+    limitation**: totals are organization-wide only; no per-shipment profitability breakdown
+    exists yet (`docs/tech-debt.md`).
+
+### FR-8: Customer Tracking Portal
+
+- **US-8.1** — As a consignee (external, no account), I can view my shipment's status and
+  payment status via a link, with no login or signup required at any point.
+  - AC: Verified in a browser context with zero prior session/cookies — the page never touches
+    the sign-in screen.
+  - AC: The page shows a visual timeline (not just a status word) and, if invoices exist for the
+    shipment, their amount/currency/paid-or-unpaid state.
+  - AC: The underlying data payload contains **no** staff email, no FX rate, no vendor/cost data,
+    and no internal database id — verified by inspecting the raw network response directly, not
+    only the rendered page.
+  - AC: An invalid/guessed link shows a plain "not found" message; no SQL or stack trace text is
+    ever shown, and no other shipment's data is returned.
+
+## 3. Non-Functional Requirements
+
+| Category | Requirement | Status |
+| --- | --- | --- |
+| **Tenant isolation** | No organization can ever read or write another organization's data, under any client-reachable code path. | ✅ Verified — automated multi-org test suite, re-run after every subsequent feature to confirm no regression. |
+| **Availability** | No formal SLA is defined or contracted. Uptime is bounded by GitHub Pages' and Supabase's own platform availability (both third-party, both outside this project's control). | Not measured — inherited, not engineered. |
+| **Performance** | No load testing has been performed. No claim is made about response time under concurrent load. | ⚠️ Not measured — do not assume a specific number without testing first. |
+| **Backup / recovery** | See `docs/migration-runbook.md` — as of the last check, the dev Supabase project's dashboard showed "No backups" under its free tier. Reconfirm current backup status directly in Supabase before relying on it. | ⚠️ Not guaranteed — verify before trusting. |
+| **Browser support** | No explicit browser matrix defined; built and manually verified against Chromium (headless, via automated QA passes each week). | Untested outside Chromium-based browsers. |
+
+## 4. Explicitly out of scope (this SRS's boundary)
+
+GST/tax handling, itemized multi-line quotes, per-shipment P&L, a "leave organization" self-
+service flow, and ownership transfer are all deliberately not requirements today — see
+`docs/tech-debt.md` for what's a shipped shortcut vs. `docs/roadmap.html` §3 for what's a
+not-yet-built competitive gap.

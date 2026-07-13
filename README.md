@@ -126,6 +126,10 @@ git push -u origin dev
 
 ## Further documentation
 
+- [`docs/srs.md`](docs/srs.md) — Software Requirements Specification: what the app actually does
+  today, as verifiable user stories with quantifiable acceptance criteria.
+- [`docs/sdd.md`](docs/sdd.md) — System Design Document: architecture diagrams (component/
+  deployment, data model, request patterns) showing how the pieces fit together.
 - [`docs/adr/`](docs/adr/) — Architecture Decision Records: the significant technical decisions
   made in this project and why, so later work doesn't accidentally contradict one.
 - [`docs/tech-debt.md`](docs/tech-debt.md) — known, deliberate shortcuts in shipped code and what
@@ -133,6 +137,8 @@ git push -u origin dev
 - [`docs/api-reference.md`](docs/api-reference.md) — reference for every Supabase RPC function
   the frontend calls (this app has no separate backend API beyond these). Its signature table is
   auto-generated — run `npm run docs:gen-api` after any change to `supabase/schema.sql`.
+- [`docs/migration-runbook.md`](docs/migration-runbook.md) — how schema changes are actually
+  applied, what rolls back automatically (not much) and what doesn't, and current backup status.
 - [`docs/roadmap.html`](docs/roadmap.html) — the feature roadmap and competitive gap tracker.
 - [`CLAUDE.md`](CLAUDE.md) — which of the above to update for which kind of change, and this
   project's standing architectural conventions.
