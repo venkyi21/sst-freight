@@ -95,6 +95,10 @@ export interface Shipment {
   shipper_contact_id: string | null
   consignee_contact_id: string | null
   tracking_token: string
+  carrier_scac: string | null
+  carrier_request_number: string | null
+  carrier_tracking_request_id: string | null
+  carrier_tracking_registered_at: string | null
   created_by: string | null
   created_at: string
 }

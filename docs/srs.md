@@ -185,6 +185,26 @@ built.
     analytics, one-click competitor-billing migration, and a public webhook/SDK layer are all
     explicitly deferred, not built this pass.
 
+### FR-11: Carrier Tracking Registration
+
+- **US-11.1** — As a Member, I can register a shipment for tracking with a real ocean carrier
+  (Terminal49) directly from the shipment detail view, entering the carrier's SCAC and a
+  booking/BL/container number, instead of visiting that carrier's own website separately.
+  - AC: Verified against the real Terminal49 API, not a mock — a registration call receives a
+    real `201 Created` response and a real `tracking_request` id, which is stored on the
+    shipment; re-registering the same shipment recovers the existing id via Terminal49's own
+    `duplicate` response rather than failing.
+  - AC: A member of a different organization is rejected from registering tracking on a shipment
+    they don't belong to (direct RPC call, not just a hidden button).
+  - AC: **Known limitation, stated explicitly in the UI itself, not hidden**: live tracking status
+    (current location, ETA, vessel) cannot be displayed in-app — Terminal49's free plan is
+    write-only via API (confirmed live: read/GET requests are rejected). The UI links to
+    Terminal49's own dashboard for the actual status instead of showing nothing or fabricating a
+    display.
+  - AC: **Explicitly not implemented** — real rate-fetch and e-booking (the roadmap's original,
+    broader wording) remain entirely unbuilt; no free API path exists for either (see
+    `docs/tech-debt.md`).
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

@@ -31,5 +31,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0011](0011-client-error-capture-deferred-vendor.md) | Client error capture ships now; the log vendor is deferred behind an env var | Accepted |
 | [0012](0012-platform-monetization-module-gating.md) | Platform monetization: module-gated Model 1 vs. rake-based Model 2, enforced server-side | Accepted |
 | [0013](0013-simulated-fintech-slice-ledger.md) | FinTech Slice rakes are simulated ledger entries; float yield is not built | Accepted |
+| [0014](0014-carrier-tracking-via-postgres-http-extension.md) | Carrier tracking calls Terminal49 from inside a Postgres RPC, key stored in Vault | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

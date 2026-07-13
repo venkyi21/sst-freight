@@ -55,6 +55,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `list_platform_revenue(p_org_id uuid default null)` | `table (id uuid, org_id uuid, org_name text, invoice_id uuid, shipment_cost_id uuid, rake_type text, rate_pct numeric, base_amount_inr numeric, rake_amount_inr numeric, created_at timestamptz)` | `authenticated` |
 | `opt_in_cargo_insurance(p_shipment_id uuid)` | `void` | `authenticated` |
 | `mark_cost_instant_payout(p_shipment_cost_id uuid)` | `void` | `authenticated` |
+| `register_carrier_tracking(p_shipment_id uuid, p_scac text, p_request_number text)` | `shipments` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -229,3 +230,25 @@ monetization.
 
 Any org member. Records a simulated 1% instant-vendor-payout rake against a shipment cost — same
 Model 1 no-op behavior as above.
+
+## Carrier tracking
+
+Introduced Week 9 (ADR-0014). The **only** RPC in this app that calls a third-party API with its
+own account and request quota (Terminal49) — the API key lives in Supabase Vault, looked up at
+runtime, never in this file or `schema.sql`.
+
+### `register_carrier_tracking(p_shipment_id uuid, p_scac text, p_request_number text) → shipments`
+
+Any org member. Registers the shipment for tracking with Terminal49 via a real server-side HTTPS
+call (the Postgres `http` extension) — the returned `tracking_request` id is stored on the
+shipment (`carrier_tracking_request_id`, plus `carrier_scac`/`carrier_request_number`/
+`carrier_tracking_registered_at`). Recovers gracefully from a `duplicate` response (re-registering
+an already-tracked shipment reuses the existing `tracking_request_id` instead of failing).
+**There is no corresponding "refresh"/"get status" RPC** — Terminal49's free plan is write-only
+(confirmed live: a GET call returns `401` — "no permissions... except for creating tracking
+requests"). Viewing the actual tracking status happens on Terminal49's own dashboard, not in this
+app.
+
+```ts
+const { data, error } = await supabase.rpc('register_carrier_tracking', { p_shipment_id: shipmentId, p_scac: 'HLCU', p_request_number: 'HLCUIT1251213429' })
+```

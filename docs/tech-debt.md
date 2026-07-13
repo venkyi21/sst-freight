@@ -98,6 +98,25 @@ is a near-term coding task, and none of it should be attempted without that infr
   their own org's simulated rakes), but the source doc raised this as a genuine open product
   question ("may invite renegotiation") that hasn't been revisited with real customer feedback.
 
+## Carrier/EDI integration (Week 9, ADR-0014)
+
+- **No real rate-fetch or e-booking exists, and there is no free path to either.** Researched
+  directly (not assumed): Freightify, SeaRates, FreightRight, and Signal Ocean all require a
+  paid/enterprise account for live rate or booking data. Closing this needs a real commercial
+  contract with a carrier or freight-data aggregator — not a coding task.
+- **No live carrier tracking status is readable in-app.** Terminal49's free developer plan can
+  *create* a tracking request (real, working — verified live) but cannot read status back via API
+  at all (confirmed live: GET requests return `401`, webhooks are paid-only). The UI is explicit
+  about this and links to Terminal49's own dashboard instead of showing fake or stale data.
+  Closing this needs upgrading the Terminal49 plan (a real recurring cost) or switching to a
+  different provider whose free tier includes read access — neither has been arranged.
+- **Only one carrier integration exists** (Terminal49). The roadmap's "at least one" is satisfied
+  literally, but genuine multi-provider redundancy (in case Terminal49 changes its free-tier
+  terms) doesn't exist.
+- **The Week 7 public tracking portal was not extended** with carrier status, since there is no
+  readable carrier data to extend it with — revisit if/when a read-capable tier or provider is in
+  place.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because

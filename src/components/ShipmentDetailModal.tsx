@@ -18,6 +18,10 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
   const [linkCopied, setLinkCopied] = useState(false)
   const [insuranceBusy, setInsuranceBusy] = useState(false)
   const [insured, setInsured] = useState(false)
+  const [scacInput, setScacInput] = useState('')
+  const [requestNumberInput, setRequestNumberInput] = useState('')
+  const [trackingBusy, setTrackingBusy] = useState(false)
+  const [trackingError, setTrackingError] = useState<string | null>(null)
 
   const currentIndex = STATUS_SEQUENCE.indexOf(shipment.status)
   const nextStatus = STATUS_SEQUENCE[currentIndex + 1]
@@ -60,6 +64,25 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
     const { error } = await supabase.rpc('opt_in_cargo_insurance', { p_shipment_id: shipment.id })
     if (!error) setInsured(true)
     setInsuranceBusy(false)
+  }
+
+  async function handleRegisterTracking() {
+    if (!scacInput.trim() || !requestNumberInput.trim()) {
+      setTrackingError('Enter both a carrier SCAC and a booking/BL/container number')
+      return
+    }
+    setTrackingBusy(true)
+    setTrackingError(null)
+    const { data, error } = await supabase
+      .rpc('register_carrier_tracking', { p_shipment_id: shipment.id, p_scac: scacInput.trim().toUpperCase(), p_request_number: requestNumberInput.trim() })
+      .single()
+    if (error || !data) {
+      setTrackingError(error?.message ?? 'Could not register tracking')
+      setTrackingBusy(false)
+      return
+    }
+    onUpdated(data as Shipment)
+    setTrackingBusy(false)
   }
 
   async function handleCopyTrackingLink() {
@@ -200,6 +223,69 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
               )
             })}
           </div>
+        </div>
+
+        <div style={{ marginBottom: 22 }}>
+          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Carrier Tracking
+          </div>
+          {shipment.carrier_tracking_request_id ? (
+            <div style={{ fontSize: 12.5, color: '#94a3b8' }}>
+              <div style={{ color: '#4ade80', fontWeight: 600, marginBottom: 4 }}>
+                ● Registered — {shipment.carrier_scac} / {shipment.carrier_request_number}
+              </div>
+              <div style={{ marginBottom: 8 }}>
+                Live status isn't readable in-app on Terminal49's free plan (write-only API access)
+                — view it on their dashboard directly.
+              </div>
+              <a
+                href="https://app.terminal49.com"
+                target="_blank"
+                rel="noreferrer"
+                style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600 }}
+              >
+                Open Terminal49 dashboard ↗
+              </a>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  value={scacInput}
+                  onChange={(e) => setScacInput(e.target.value)}
+                  placeholder="Carrier SCAC (e.g. HLCU)"
+                  style={{ flex: 1, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 6, padding: '7px 10px', color: '#e2e8f0', fontSize: 12.5 }}
+                />
+                <input
+                  type="text"
+                  value={requestNumberInput}
+                  onChange={(e) => setRequestNumberInput(e.target.value)}
+                  placeholder="Booking / BL / container #"
+                  style={{ flex: 1.5, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 6, padding: '7px 10px', color: '#e2e8f0', fontSize: 12.5 }}
+                />
+              </div>
+              {trackingError && <div style={{ fontSize: 12, color: '#fb7185' }}>{trackingError}</div>}
+              <button
+                type="button"
+                disabled={trackingBusy}
+                onClick={() => void handleRegisterTracking()}
+                style={{
+                  alignSelf: 'flex-start',
+                  background: 'transparent',
+                  border: '1px solid #1e293b',
+                  borderRadius: 6,
+                  padding: '6px 12px',
+                  color: '#94a3b8',
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: trackingBusy ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {trackingBusy ? 'Registering…' : 'Track via Carrier'}
+              </button>
+            </div>
+          )}
         </div>
 
         {actionError && (

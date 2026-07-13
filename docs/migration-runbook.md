@@ -52,6 +52,23 @@ If you need real atomicity guarantees for a specific migration and you're using 
 wrap the script yourself in an explicit `begin;` / `commit;` (or test the failure case on dev
 first, exactly as this runbook was itself verified).
 
+### Secrets in Supabase Vault (Week 9, ADR-0014)
+
+Some RPCs (currently: `register_carrier_tracking`) call a third-party API needing a secret key.
+**The key is never in `schema.sql`** — it lives in Supabase Vault, set up with a one-time,
+**not-committed** SQL call run directly in the SQL Editor:
+
+```sql
+select vault.create_secret('<the real key>', '<name the function looks up>', '<description>');
+```
+
+This is **not part of applying `schema.sql`** and does not need to be re-run when `schema.sql` is
+re-applied (Vault entries persist independently — re-running `schema.sql` only recreates the
+function that *looks up* the secret by name, never the secret itself). When setting up a new
+Supabase project (a fresh prod project, for instance) from scratch, **this step must be done
+separately** for every secret-dependent function, or that function will fail at runtime with
+"not configured in Vault" — a real, easy-to-forget step when standing up a new environment.
+
 ### Order
 
 1. Apply to the **dev** Supabase project.

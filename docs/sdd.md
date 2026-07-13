@@ -32,12 +32,17 @@ flowchart LR
   D -. "auth.uid() available to RLS policies" .-> C
 ```
 
-**Consequence of this shape**: there is no place to hide a server-side secret, run a scheduled
-job, or do anything that requires long-running compute. Every feature in this project has had to
-fit that constraint — e.g. the FX rate lookup (ADR-0007) is a direct client-side `fetch()` to a
-public, no-key API rather than a server-side integration, and the customer tracking link
-(ADR-0009) uses a query parameter rather than a router, because there's no server to configure a
-rewrite rule on.
+**Consequence of this shape**: there is no place to run a scheduled job or do anything requiring
+long-running compute. Every feature in this project has had to fit that constraint — e.g. the FX
+rate lookup (ADR-0007) is a direct client-side `fetch()` to a public, no-key API rather than a
+server-side integration, and the customer tracking link (ADR-0009) uses a query parameter rather
+than a router, because there's no server to configure a rewrite rule on. **One narrow exception,
+added Week 9 (ADR-0014)**: a `SECURITY DEFINER` Postgres function can make an outbound HTTPS call
+via the `http` extension, with a secret pulled from Supabase Vault at runtime — this is the one
+way this architecture *can* hide a secret (inside the database, not a server), used exactly once
+so far, for the carrier-tracking integration. It is not a general-purpose backend; it's a single
+extension call from within the same all-Postgres-RPC pattern every other privileged mutation in
+this app already uses.
 
 ## 2. Two environments, two Supabase projects
 
@@ -177,8 +182,10 @@ belong to my org."
 
 ## 6. Known architectural constraints
 
-- No backend/server-side compute — see §1. Anything needing a secret, a scheduled job, or
-  long-running work does not fit this architecture as-is.
+- No backend/server-side compute — see §1. Anything needing a scheduled job or long-running work
+  does not fit this architecture as-is. A secret can be hidden narrowly (Postgres Vault + the
+  `http` extension inside a single `SECURITY DEFINER` RPC, ADR-0014) but this is not a general
+  backend — no request routing, no long-running processes, no arbitrary server-side logic.
 - No client-side router — a single query-parameter special case in `App.tsx` handles the one
   public route that exists today (ADR-0009). A second public route, or any deep-linkable
   authenticated route, should prompt reconsidering this rather than adding another special case.

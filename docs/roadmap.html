@@ -184,11 +184,11 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–8 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–9 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">13</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization)</div></div>
-          <div class="cell"><div class="num info">4</div><div class="lbl">weeks remaining<br>Week 9 → Week 12</div></div>
+          <div class="cell"><div class="num ok">14</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking)</div></div>
+          <div class="cell"><div class="num info">3</div><div class="lbl">weeks remaining<br>Week 10 → Week 12</div></div>
           <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
@@ -273,10 +273,10 @@
               </tr>
               <tr>
                 <td class="week">09</td>
-                <td><strong>Carrier / EDI integration</strong></td>
-                <td>At least one live ocean or air carrier/aggregator connection for rate-fetch or e-booking</td>
+                <td><strong>Carrier / EDI integration</strong> <span class="tag ok">scoped</span></td>
+                <td>Real, live tracking registration with Terminal49 (100+ ocean carriers, one unified API) directly from the shipment detail view — one click instead of visiting a separate carrier site per shipment. Server-side key storage via Supabase Vault + the Postgres <code>http</code> extension, since this app has no backend to hide a secret in otherwise. <strong>Narrower than the original wording</strong>: no free API exists anywhere for live rate-fetch or e-booking (researched directly, not assumed) — only tracking has a real free tier, and even that free tier is write-only (can register tracking, cannot read status back via API), so live status is viewed on Terminal49's own dashboard, not in-app. Both gaps stated plainly in <code>docs/tech-debt.md</code>, not silently substituted.</td>
                 <td><span class="tag">GoFreight</span> <span class="tag risk">highest execution risk</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
               </tr>
               <tr>
                 <td class="week">10</td>

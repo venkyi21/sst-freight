@@ -3,6 +3,10 @@
 -- Safe to re-run: guarded with "if not exists" / "or replace" where possible.
 
 create extension if not exists pgcrypto;
+-- http (ADR-0014): lets a SECURITY DEFINER function make an outbound HTTPS call (Terminal49's
+-- carrier-tracking API) from inside Postgres, keeping the API key server-side — this app has no
+-- other backend to hide a secret in (ADR-0001).
+create extension if not exists http;
 
 -- ─────────────────────────────────────────────────────────────
 -- Tables
@@ -87,6 +91,15 @@ alter table shipments add column if not exists consignee_contact_id uuid referen
 -- public URL. `default gen_random_uuid()` is volatile, so Postgres computes a distinct value per
 -- existing row during this ALTER, not one shared value.
 alter table shipments add column if not exists tracking_token uuid not null default gen_random_uuid() unique;
+
+-- Week 9 (ADR-0014): carrier tracking registration via Terminal49. The free API plan is
+-- write-only (can create a tracking request, cannot read status back — no webhooks, no GET
+-- access) — confirmed with a real API call, not assumed. These columns record that registration
+-- happened; there is no live status field because the plan genuinely cannot retrieve one.
+alter table shipments add column if not exists carrier_scac text;
+alter table shipments add column if not exists carrier_request_number text;
+alter table shipments add column if not exists carrier_tracking_request_id text;
+alter table shipments add column if not exists carrier_tracking_registered_at timestamptz;
 
 -- Normalize any pre-existing status values (e.g. Truck's old 'Loading' default) onto the
 -- 5-state machine before the check constraint below is added.
@@ -968,6 +981,82 @@ begin
 end;
 $$;
 
+-- register_carrier_tracking (ADR-0014): registers a shipment for tracking with Terminal49 via a
+-- real outbound HTTPS call from inside this SECURITY DEFINER function (the http extension) — the
+-- API key never reaches the client. Write-only by design: the free Terminal49 plan cannot read
+-- status back via API (confirmed with a real call — GET requests are rejected with "no
+-- permissions... except for creating tracking requests"), so this only records that registration
+-- happened; there is no matching "refresh" RPC because there is nothing it could fetch.
+-- Handles the 'duplicate' case (already registered) by recovering the existing tracking_request_id
+-- instead of failing, since re-registering the same shipment is a normal, expected action.
+create or replace function register_carrier_tracking(p_shipment_id uuid, p_scac text, p_request_number text)
+returns shipments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_shipment shipments;
+  v_response http_response;
+  v_body jsonb;
+  v_tracking_request_id text;
+  v_api_key text;
+begin
+  select * into v_shipment from shipments where id = p_shipment_id;
+  if v_shipment.id is null then
+    raise exception 'Shipment not found';
+  end if;
+  if not is_org_member(v_shipment.org_id) then
+    raise exception 'Not authorized for this shipment';
+  end if;
+
+  -- The API key lives in Supabase Vault, not in this committed file — see the one-time setup
+  -- step in docs/migration-runbook.md. Never hardcode a real secret into schema.sql; it would be
+  -- permanently visible in git history the moment this file is committed.
+  select decrypted_secret into v_api_key from vault.decrypted_secrets where name = 'terminal49_api_key';
+  if v_api_key is null then
+    raise exception 'terminal49_api_key is not configured in Supabase Vault';
+  end if;
+
+  select * into v_response from http((
+    'POST',
+    'https://api.terminal49.com/v2/tracking_requests',
+    ARRAY[http_header('Authorization', 'Token ' || v_api_key)],
+    'application/vnd.api+json',
+    jsonb_build_object(
+      'data', jsonb_build_object(
+        'type', 'tracking_request',
+        'attributes', jsonb_build_object(
+          'request_type', 'bill_of_lading',
+          'request_number', p_request_number,
+          'scac', p_scac
+        )
+      )
+    )::text
+  )::http_request);
+
+  v_body := v_response.content::jsonb;
+
+  if v_response.status = 201 then
+    v_tracking_request_id := v_body -> 'data' ->> 'id';
+  elsif v_response.status = 422 and v_body -> 'errors' -> 0 ->> 'code' = 'duplicate' then
+    v_tracking_request_id := v_body -> 'errors' -> 0 -> 'meta' ->> 'tracking_request_id';
+  else
+    raise exception 'Terminal49 request failed (status %): %', v_response.status, v_response.content;
+  end if;
+
+  update shipments
+    set carrier_scac = p_scac,
+        carrier_request_number = p_request_number,
+        carrier_tracking_request_id = v_tracking_request_id,
+        carrier_tracking_registered_at = now()
+    where id = p_shipment_id
+    returning * into v_shipment;
+
+  return v_shipment;
+end;
+$$;
+
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
@@ -986,6 +1075,7 @@ grant execute on function set_org_config(uuid, numeric, text[]) to authenticated
 grant execute on function list_platform_revenue(uuid) to authenticated;
 grant execute on function opt_in_cargo_insurance(uuid) to authenticated;
 grant execute on function mark_cost_instant_payout(uuid) to authenticated;
+grant execute on function register_carrier_tracking(uuid, text, text) to authenticated;
 
 grant select on organizations to authenticated;
 grant select on memberships to authenticated;
