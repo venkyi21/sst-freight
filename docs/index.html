@@ -173,7 +173,9 @@
         <li><a href="#api">4. API Reference</a></li>
         <li><a href="#techdebt">5. Tech Debt Registry</a></li>
         <li><a href="#runbook">6. Migration Runbook</a></li>
-        <li><a href="#repo">7. Repository Essentials</a></li>
+        <li><a href="#qa">7. QA Testing</a></li>
+        <li><a href="#uat">8. User Acceptance Testing</a></li>
+        <li><a href="#repo">9. Repository Essentials</a></li>
       </ol>
     </nav>
 
@@ -352,9 +354,39 @@
         </div>
       </section>
 
-      <!-- 7. REPO ESSENTIALS -->
-      <section class="chapter" id="repo">
+      <!-- 7. QA TESTING -->
+      <section class="chapter" id="qa">
         <div class="chapter-num">07</div>
+        <h2>QA Testing</h2>
+        <p class="chapter-sub">Technical/RLS/edge-case verification, run against the real dev Supabase project — not inferred from reading the code. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/qa-testing.md">docs/qa-testing.md</a></p>
+
+        <div class="prose">
+          <p>Two distinct test tenants ("Client A," Model 1; "Client B," Model 2), six role identities (Owner/Admin/Member × 2 orgs, plus a separate Platform Admin), exercised with direct Postgres/RPC calls that bypass the UI entirely — so a passing check proves server-side enforcement, not just that a button is hidden.</p>
+        </div>
+
+        <div class="note ok">
+          <b>38/38 checks passed</b> across Weeks 1–8 plus the audit-trail/error-logging module (2026-07-13): cross-org isolation, role-escalation blocks, the forward-only status machine, module-gating on Quotes/Accounting, FX-rate edit restrictions, the public tracking portal's zero-session guarantee, and the Week 8 rake-ledger math, all checked directly against the database — not assumed from the UI.
+        </div>
+      </section>
+
+      <!-- 8. UAT -->
+      <section class="chapter" id="uat">
+        <div class="chapter-num">08</div>
+        <h2>User Acceptance Testing</h2>
+        <p class="chapter-sub">Persona-based, real-browser user journeys — does a real person doing their real job get what they need from the screen in front of them. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/uat.md">docs/uat.md</a></p>
+
+        <div class="prose">
+          <p>Seven personas — an Owner, an Admin, and a Member each at a Model 1 and a Model 2 organization, a Platform Admin, and an anonymous consignee with no account at all — each walked through their own real workflow in a live Chromium browser.</p>
+        </div>
+
+        <div class="note ok">
+          <b>20/20 scenarios accepted</b> (2026-07-13), including confirming that restricted screens (Audit Log for a plain Member, Platform Admin for anyone but the platform operator) correctly show nothing, not just that permitted screens work for the roles who should see them.
+        </div>
+      </section>
+
+      <!-- 9. REPO ESSENTIALS -->
+      <section class="chapter" id="repo">
+        <div class="chapter-num">09</div>
         <h2>Repository Essentials</h2>
         <p class="chapter-sub">The two blueprint items that are just standard project files, not something built specifically for this initiative.</p>
 

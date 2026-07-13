@@ -18,6 +18,7 @@ document, in the same commit as the code change, every time:
 | Change how `supabase/schema.sql` is actually applied, add a migration with a real rollback path, or learn something new about backup/recovery status | Update `docs/migration-runbook.md`. Don't state an operational fact (backup status, atomicity of an apply method) without having actually verified it — this file exists specifically to be trustworthy during a real incident. |
 | Complete a roadmap week/feature | Update its status chip and the "where things stand" scorecard in `docs/roadmap.html` — this project's existing convention, unaffected by the above. |
 | Add, remove, or bump the version of a `package.json` dependency | Update the pinned version in `package.json` to the exact version actually tested (no caret ranges — see ADR context in `docs/dependency-manifest.md`), then re-run `npx license-checker --production --json` and `npm audit` and update `docs/dependency-manifest.md` accordingly. |
+| Complete a QA testing or UAT pass | Update `docs/qa-testing.md` (technical/RLS/edge-case results, per scenario) and/or `docs/uat.md` (persona/user-journey acceptance results) with the scenarios *actually run* and their real pass/fail outcome — never aspirational, never inferred from reading the code without running it. |
 
 Rationale and full context: `docs/tech-debt.md`'s intro, and ADR-0002 (`docs/adr/0002-rpc-only-privileged-mutations.md`) for why RPCs get this level of documentation rigor in the first place.
 

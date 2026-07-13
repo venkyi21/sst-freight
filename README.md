@@ -141,6 +141,10 @@ git push -u origin dev
   auto-generated — run `npm run docs:gen-api` after any change to `supabase/schema.sql`.
 - [`docs/migration-runbook.md`](docs/migration-runbook.md) — how schema changes are actually
   applied, what rolls back automatically (not much) and what doesn't, and current backup status.
+- [`docs/qa-testing.md`](docs/qa-testing.md) — technical/RLS/edge-case test results, run against
+  the real dev project, not inferred from the code.
+- [`docs/uat.md`](docs/uat.md) — persona-based user-journey acceptance results, walked through in
+  a real browser as each role.
 - [`docs/roadmap.html`](docs/roadmap.html) — the feature roadmap and competitive gap tracker.
 - [`CLAUDE.md`](CLAUDE.md) — which of the above to update for which kind of change, and this
   project's standing architectural conventions.
