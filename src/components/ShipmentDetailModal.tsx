@@ -14,6 +14,7 @@ export default function ShipmentDetailModal({ shipment, onClose, onUpdated }: Sh
   const [historyError, setHistoryError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [linkCopied, setLinkCopied] = useState(false)
 
   const currentIndex = STATUS_SEQUENCE.indexOf(shipment.status)
   const nextStatus = STATUS_SEQUENCE[currentIndex + 1]
@@ -49,6 +50,13 @@ export default function ShipmentDetailModal({ shipment, onClose, onUpdated }: Sh
     }
     onUpdated(data as Shipment)
     setBusy(false)
+  }
+
+  async function handleCopyTrackingLink() {
+    const url = `${window.location.origin}${window.location.pathname}?track=${shipment.tracking_token}`
+    await navigator.clipboard.writeText(url)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
   }
 
   const mode = MODE_META[shipment.mode]
@@ -93,7 +101,25 @@ export default function ShipmentDetailModal({ shipment, onClose, onUpdated }: Sh
             ×
           </button>
         </div>
-        <div style={{ fontSize: 12.5, color: mode.color, fontWeight: 600, marginBottom: 18 }}>{mode.label}</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
+          <div style={{ fontSize: 12.5, color: mode.color, fontWeight: 600 }}>{mode.label}</div>
+          <button
+            type="button"
+            onClick={() => void handleCopyTrackingLink()}
+            style={{
+              background: 'transparent',
+              border: '1px solid #1e293b',
+              borderRadius: 6,
+              padding: '5px 10px',
+              color: linkCopied ? '#4ade80' : '#94a3b8',
+              fontSize: 11.5,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {linkCopied ? 'Copied!' : 'Copy Tracking Link'}
+          </button>
+        </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 22, fontSize: 13 }}>
           <div>

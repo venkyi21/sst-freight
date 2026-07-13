@@ -74,6 +74,12 @@ create index if not exists contacts_org_id_idx on contacts (org_id);
 alter table shipments add column if not exists shipper_contact_id uuid references contacts (id) on delete set null;
 alter table shipments add column if not exists consignee_contact_id uuid references contacts (id) on delete set null;
 
+-- tracking_token: a dedicated public identifier for the customer tracking portal, distinct from
+-- the shipment's own id — revocable independently, doesn't leak the internal PK format into a
+-- public URL. `default gen_random_uuid()` is volatile, so Postgres computes a distinct value per
+-- existing row during this ALTER, not one shared value.
+alter table shipments add column if not exists tracking_token uuid not null default gen_random_uuid() unique;
+
 -- Normalize any pre-existing status values (e.g. Truck's old 'Loading' default) onto the
 -- 5-state machine before the check constraint below is added.
 update shipments set status = 'Booked' where status not in ('Booked', 'Docs', 'Cleared', 'In Transit', 'Delivered');
@@ -594,6 +600,54 @@ create trigger invoices_protect_fx_rate
   before update on invoices
   for each row execute function protect_invoice_fx_rate();
 
+-- get_public_shipment_tracking: the sole public, no-auth entry point for the customer tracking
+-- portal (Week 7). Callable by `anon` — the only thing standing between a stranger and this data
+-- is the tracking_token itself, so the returned payload is deliberately minimal: no staff email,
+-- no fx_rate, no vendor/cost data, no internal shipment id. No RLS policy changes are needed on
+-- shipments/shipment_status_history/invoices for this — SECURITY DEFINER bypasses RLS here the
+-- same way every other RPC in this app already does.
+create or replace function get_public_shipment_tracking(p_token uuid)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_shipment shipments;
+  v_result jsonb;
+begin
+  select * into v_shipment from shipments where tracking_token = p_token;
+  if v_shipment.id is null then
+    raise exception 'Tracking link not found';
+  end if;
+
+  select jsonb_build_object(
+    'ref', v_shipment.ref,
+    'mode', v_shipment.mode,
+    'origin', v_shipment.origin,
+    'destination', v_shipment.destination,
+    'status', v_shipment.status,
+    'client_name', v_shipment.client,
+    'created_at', v_shipment.created_at,
+    'history', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'from_status', h.from_status, 'to_status', h.to_status, 'created_at', h.created_at
+      ) order by h.created_at asc), '[]'::jsonb)
+      from shipment_status_history h where h.shipment_id = v_shipment.id
+    ),
+    'invoices', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'ref', i.ref, 'currency', i.currency, 'amount', i.amount,
+        'amount_inr', i.amount_inr, 'status', i.status, 'due_date', i.due_date
+      ) order by i.created_at asc), '[]'::jsonb)
+      from invoices i where i.shipment_id = v_shipment.id
+    )
+  ) into v_result;
+
+  return v_result;
+end;
+$$;
+
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
@@ -604,6 +658,7 @@ grant execute on function update_member_role(uuid, text) to authenticated;
 grant execute on function remove_member(uuid) to authenticated;
 grant execute on function advance_shipment_status(uuid) to authenticated;
 grant execute on function list_shipment_status_history(uuid) to authenticated;
+grant execute on function get_public_shipment_tracking(uuid) to anon, authenticated;
 
 grant select on organizations to authenticated;
 grant select on memberships to authenticated;

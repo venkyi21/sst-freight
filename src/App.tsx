@@ -3,6 +3,7 @@ import { supabaseConfigured } from './lib/supabaseClient'
 import AuthScreen from './components/AuthScreen'
 import OrgPicker from './components/OrgPicker'
 import DashboardPage from './pages/DashboardPage'
+import PublicTrackingPage from './components/PublicTrackingPage'
 
 function ConfigWarning() {
   return (
@@ -57,6 +58,9 @@ function AppShell() {
 
 export default function App() {
   if (!supabaseConfigured) return <ConfigWarning />
+
+  const trackingToken = new URLSearchParams(window.location.search).get('track')
+  if (trackingToken) return <PublicTrackingPage token={trackingToken} />
 
   return (
     <AuthProvider>

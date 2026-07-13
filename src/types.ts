@@ -88,6 +88,7 @@ export interface Shipment {
   driver_phone: string | null
   shipper_contact_id: string | null
   consignee_contact_id: string | null
+  tracking_token: string
   created_by: string | null
   created_at: string
 }
@@ -201,3 +202,22 @@ export interface ShipmentCost {
 }
 
 export const INVOICE_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CNY']
+
+export interface PublicTrackingData {
+  ref: string
+  mode: ShipmentMode
+  origin: string
+  destination: string
+  status: ShipmentStatus
+  client_name: string
+  created_at: string
+  history: { from_status: ShipmentStatus | null; to_status: ShipmentStatus; created_at: string }[]
+  invoices: {
+    ref: string
+    currency: string
+    amount: number
+    amount_inr: number
+    status: InvoiceStatus
+    due_date: string | null
+  }[]
+}
