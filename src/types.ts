@@ -92,7 +92,7 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'customs'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs'
 
 export const MODE_META: Record<ShipmentMode, { label: string; color: string }> = {
   ocean: { label: 'Ocean', color: '#38bdf8' },
@@ -167,3 +167,37 @@ export interface StatusHistoryEntry {
 }
 
 export const TENANT_COLORS = ['#2563eb', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4']
+
+export type InvoiceStatus = 'unpaid' | 'paid'
+
+export interface Invoice {
+  id: string
+  org_id: string
+  ref: string
+  shipment_id: string
+  client_contact_id: string | null
+  client_name: string
+  currency: string
+  fx_rate: number
+  amount: number
+  amount_inr: number
+  status: InvoiceStatus
+  due_date: string | null
+  paid_at: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export interface ShipmentCost {
+  id: string
+  org_id: string
+  shipment_id: string
+  vendor_contact_id: string | null
+  vendor_name: string | null
+  description: string
+  amount: number
+  created_by: string | null
+  created_at: string
+}
+
+export const INVOICE_CURRENCIES = ['INR', 'USD', 'EUR', 'GBP', 'AED', 'SGD', 'CNY']

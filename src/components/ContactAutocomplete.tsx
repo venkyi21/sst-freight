@@ -8,7 +8,7 @@ interface ContactOption {
 
 interface ContactAutocompleteProps {
   orgId: string
-  kind: 'shipper' | 'consignee'
+  kind: 'shipper' | 'consignee' | 'vendor'
   value: string
   onChange: (name: string) => void
   onSelectContact: (id: string | null) => void

@@ -105,6 +105,10 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg }: Sideb
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Quotes
           </button>
+          <button type="button" onClick={() => onNavigate('accounting')} style={navButtonStyle(navPage === 'accounting')}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+            Accounting
+          </button>
           <button type="button" onClick={() => onNavigate('customs')} style={navButtonStyle(navPage === 'customs')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Customs Filings

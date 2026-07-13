@@ -140,6 +140,45 @@ create table if not exists quotes (
 create index if not exists quotes_org_id_idx on quotes (org_id);
 alter table quotes enable row level security;
 
+-- invoices: generated from a shipment. client_contact_id/client_name follow the same FK +
+-- denormalized-name pattern as quotes.consignee_*. amount_inr is stored (not computed on read)
+-- so P&L totals never need a currency-conversion join.
+create table if not exists invoices (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  ref text not null,
+  shipment_id uuid not null references shipments (id) on delete cascade,
+  client_contact_id uuid references contacts (id) on delete set null,
+  client_name text not null,
+  currency text not null default 'INR',
+  fx_rate numeric not null default 1 check (fx_rate > 0),
+  amount numeric not null check (amount > 0),
+  amount_inr numeric not null,
+  status text not null default 'unpaid' check (status in ('unpaid', 'paid')),
+  due_date date,
+  paid_at timestamptz,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  unique (org_id, ref)
+);
+create index if not exists invoices_org_id_idx on invoices (org_id);
+alter table invoices enable row level security;
+
+-- shipment_costs: the P&L cost side, reusing vendor contacts from Week 2.
+create table if not exists shipment_costs (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  shipment_id uuid not null references shipments (id) on delete cascade,
+  vendor_contact_id uuid references contacts (id) on delete set null,
+  vendor_name text,
+  description text not null,
+  amount numeric not null check (amount > 0),
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists shipment_costs_org_id_idx on shipment_costs (org_id);
+alter table shipment_costs enable row level security;
+
 -- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
 -- No RLS policy is defined for this table and no grants are given to `authenticated` —
 -- it is unreachable from the client entirely. The only way in is a manual insert via the
@@ -284,6 +323,39 @@ create policy "members can insert org quotes"
 drop policy if exists "members can update org quotes" on quotes;
 create policy "members can update org quotes"
   on quotes for update
+  using (is_org_member(org_id));
+
+-- invoices: scoped strictly to org membership, same shape as quotes. Any member can mark an
+-- invoice paid/unpaid; the FX rate is additionally protected by a trigger below.
+drop policy if exists "members can view org invoices" on invoices;
+create policy "members can view org invoices"
+  on invoices for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org invoices" on invoices;
+create policy "members can insert org invoices"
+  on invoices for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org invoices" on invoices;
+create policy "members can update org invoices"
+  on invoices for update
+  using (is_org_member(org_id));
+
+-- shipment_costs: scoped strictly to org membership, same shape as contacts.
+drop policy if exists "members can view org shipment costs" on shipment_costs;
+create policy "members can view org shipment costs"
+  on shipment_costs for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org shipment costs" on shipment_costs;
+create policy "members can insert org shipment costs"
+  on shipment_costs for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org shipment costs" on shipment_costs;
+create policy "members can update org shipment costs"
+  on shipment_costs for update
   using (is_org_member(org_id));
 
 -- ─────────────────────────────────────────────────────────────
@@ -503,6 +575,25 @@ begin
 end;
 $$;
 
+create or replace function protect_invoice_fx_rate()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.fx_rate is distinct from old.fx_rate and not is_org_admin(old.org_id) then
+    raise exception 'Only an Owner/Admin can edit the FX rate';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists invoices_protect_fx_rate on invoices;
+create trigger invoices_protect_fx_rate
+  before update on invoices
+  for each row execute function protect_invoice_fx_rate();
+
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
@@ -525,3 +616,5 @@ grant select, insert, update on contacts to authenticated;
 grant select on shipment_status_history to authenticated;
 grant select, insert, update on tariffs to authenticated;
 grant select, insert, update on quotes to authenticated;
+grant select, insert, update on invoices to authenticated;
+grant select, insert, update on shipment_costs to authenticated;
