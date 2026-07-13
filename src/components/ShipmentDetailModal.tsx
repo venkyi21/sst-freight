@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabaseClient'
+import InfoTooltip from './InfoTooltip'
 import { MODE_META, STATUS_SEQUENCE, statusMeta, type BillingModel, type Shipment, type StatusHistoryEntry } from '../types'
 
 interface ShipmentDetailModalProps {
@@ -174,6 +175,7 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
             >
               {insured ? '● Insured (simulated)' : 'Insure this shipment (0.8%, simulated)'}
             </button>
+            <InfoTooltip text="0.8% of this shipment's total invoiced amount, recorded as a simulated platform-revenue entry. No real insurance policy exists and no funds move (ADR-0013)." />
           </div>
         )}
 

@@ -1,6 +1,10 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import type { PostgrestError } from '@supabase/supabase-js'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
+import FieldError from './FieldError'
+import InfoTooltip from './InfoTooltip'
+import { isCheckViolation } from '../lib/formErrors'
 import { generateRef } from '../lib/refGenerator'
 import { fetchFxRateToInr } from '../lib/fxRates'
 import { INVOICE_CURRENCIES, type Invoice, type MembershipRole, type Shipment } from '../types'
@@ -44,6 +48,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
   const [dueDate, setDueDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ shipmentId?: string; amount?: string; fxRate?: string }>({})
 
   useEffect(() => {
     let cancelled = false
@@ -91,9 +96,18 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || !user) return
-    setBusy(true)
     setError(null)
+    if (!valid) {
+      setFieldErrors({
+        shipmentId: shipmentId ? undefined : 'Select a shipment',
+        amount: amountN > 0 ? undefined : 'Amount must be greater than 0',
+        fxRate: rateN > 0 ? undefined : 'FX rate must be greater than 0',
+      })
+      return
+    }
+    if (!user) return
+    setFieldErrors({})
+    setBusy(true)
 
     const shipment = shipments.find((s) => s.id === shipmentId)
     if (!shipment) {
@@ -116,7 +130,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       created_by: user.id,
     }
 
-    let lastError: string | null = null
+    let lastError: PostgrestError | null = null
     for (let attempt = 0; attempt < 5; attempt++) {
       const { data, error: insertError } = await supabase
         .from('invoices')
@@ -130,11 +144,17 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
         return
       }
 
-      lastError = insertError?.message ?? 'Could not create invoice'
+      lastError = insertError
       if (insertError?.code !== '23505') break
     }
 
-    setError(lastError)
+    if (lastError && isCheckViolation(lastError, 'invoices_amount_check')) {
+      setFieldErrors({ amount: 'Amount must be greater than 0' })
+    } else if (lastError && isCheckViolation(lastError, 'invoices_fx_rate_check')) {
+      setFieldErrors({ fxRate: 'FX rate must be greater than 0' })
+    } else {
+      setError(lastError?.message ?? 'Could not create invoice')
+    }
     setBusy(false)
   }
 
@@ -189,6 +209,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
                 </option>
               ))}
             </select>
+            <FieldError message={fieldErrors.shipmentId} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
@@ -203,7 +224,10 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               </select>
             </div>
             <div>
-              <label style={labelStyle}>FX Rate (→ INR)</label>
+              <label style={labelStyle}>
+                FX Rate (→ INR)
+                <InfoTooltip text="Live-fetched from a public exchange-rate API the moment you pick a non-INR currency. Only an Owner or Admin can edit it, and only at creation — it's locked afterward (ADR-0007)." />
+              </label>
               <input
                 type="number"
                 min="0"
@@ -214,10 +238,12 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
                 disabled={currency === 'INR' || fxFetching || !canEditRate}
                 style={{ ...inputStyle, opacity: currency === 'INR' || !canEditRate ? 0.6 : 1 }}
               />
+              <FieldError message={fieldErrors.fxRate} />
             </div>
             <div>
               <label style={labelStyle}>Amount ({currency})</label>
               <input type="number" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} style={inputStyle} />
+              <FieldError message={fieldErrors.amount} />
             </div>
             <div>
               <label style={labelStyle}>Due Date</label>
@@ -246,7 +272,10 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               marginBottom: 14,
             }}
           >
-            <div style={{ fontSize: 11, color: '#64748b' }}>Amount in INR</div>
+            <div style={{ fontSize: 11, color: '#64748b' }}>
+              Amount in INR
+              <InfoTooltip text="Amount × FX Rate, calculated live as you type and stored on the invoice at creation — never recomputed later, even if the FX rate is edited afterward." />
+            </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
               ₹{amountInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </div>
@@ -289,17 +318,17 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
             </button>
             <button
               type="submit"
-              disabled={!valid || busy}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: valid && !busy ? '#2563eb' : '#1e293b',
+                background: !busy ? '#2563eb' : '#1e293b',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: valid && !busy ? 'pointer' : 'not-allowed',
+                cursor: !busy ? 'pointer' : 'not-allowed',
               }}
             >
               {busy ? 'Creating…' : 'Create Invoice'}

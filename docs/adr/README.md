@@ -32,5 +32,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0012](0012-platform-monetization-module-gating.md) | Platform monetization: module-gated Model 1 vs. rake-based Model 2, enforced server-side | Accepted |
 | [0013](0013-simulated-fintech-slice-ledger.md) | FinTech Slice rakes are simulated ledger entries; float yield is not built | Accepted |
 | [0014](0014-carrier-tracking-via-postgres-http-extension.md) | Carrier tracking calls Terminal49 from inside a Postgres RPC, key stored in Vault | Accepted |
+| [0015](0015-wizard-pattern-reserved-for-complex-forms.md) | Multi-step wizards are reserved for genuinely complex forms (Week 10+), not retrofitted onto today's 5–8-field forms | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

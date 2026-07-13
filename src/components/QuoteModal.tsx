@@ -1,7 +1,10 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
+import type { PostgrestError } from '@supabase/supabase-js'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import ContactAutocomplete from './ContactAutocomplete'
+import FieldError from './FieldError'
+import { isCheckViolation } from '../lib/formErrors'
 import { generateRef } from '../lib/refGenerator'
 import { RATE_BASIS_META, type Quote, type ShipmentMode, type Tariff } from '../types'
 
@@ -46,6 +49,14 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
   const [consigneeContactId, setConsigneeContactId] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{
+    origin?: string
+    destination?: string
+    rate?: string
+    quantity?: string
+    shipper?: string
+    consignee?: string
+  }>({})
 
   useEffect(() => {
     let cancelled = false
@@ -105,9 +116,21 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || !user) return
-    setBusy(true)
     setError(null)
+    if (!valid) {
+      setFieldErrors({
+        origin: origin.trim() ? undefined : 'Origin is required',
+        destination: destination.trim() ? undefined : 'Destination is required',
+        rate: rateN > 0 ? undefined : 'Rate must be greater than 0',
+        quantity: quantityN > 0 ? undefined : 'Quantity must be greater than 0',
+        shipper: shipper.trim() ? undefined : 'Shipper is required',
+        consignee: consignee.trim() ? undefined : 'Consignee is required',
+      })
+      return
+    }
+    if (!user) return
+    setFieldErrors({})
+    setBusy(true)
 
     const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
     const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
@@ -129,7 +152,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
       created_by: user.id,
     }
 
-    let lastError: string | null = null
+    let lastError: PostgrestError | null = null
     for (let attempt = 0; attempt < 5; attempt++) {
       const { data, error: insertError } = await supabase
         .from('quotes')
@@ -143,11 +166,15 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
         return
       }
 
-      lastError = insertError?.message ?? 'Could not create quote'
+      lastError = insertError
       if (insertError?.code !== '23505') break
     }
 
-    setError(lastError)
+    if (lastError && isCheckViolation(lastError, 'quotes_quantity_check')) {
+      setFieldErrors({ quantity: 'Quantity must be greater than 0' })
+    } else {
+      setError(lastError?.message ?? 'Could not create quote')
+    }
     setBusy(false)
   }
 
@@ -260,6 +287,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
                 placeholder="Shipper name"
                 inputStyle={inputStyle}
               />
+              <FieldError message={fieldErrors.shipper} />
             </div>
             <div>
               <label style={labelStyle}>Consignee</label>
@@ -272,22 +300,27 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
                 placeholder="Consignee name"
                 inputStyle={inputStyle}
               />
+              <FieldError message={fieldErrors.consignee} />
             </div>
             <div>
               <label style={labelStyle}>Origin</label>
               <input type="text" value={origin} onChange={(e) => setOrigin(e.target.value)} placeholder="e.g. Chennai Port (INMAA)" style={inputStyle} />
+              <FieldError message={fieldErrors.origin} />
             </div>
             <div>
               <label style={labelStyle}>Destination</label>
               <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="e.g. Rotterdam (NLRTM)" style={inputStyle} />
+              <FieldError message={fieldErrors.destination} />
             </div>
             <div>
               <label style={labelStyle}>Rate (INR / {RATE_BASIS_META[mode].unit})</label>
               <input type="number" min="0" step="any" value={rate} onChange={(e) => setRate(e.target.value)} style={inputStyle} />
+              <FieldError message={fieldErrors.rate} />
             </div>
             <div>
               <label style={labelStyle}>Quantity ({RATE_BASIS_META[mode].unit})</label>
               <input type="number" min="0" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} />
+              <FieldError message={fieldErrors.quantity} />
             </div>
           </div>
 
@@ -346,17 +379,17 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
             </button>
             <button
               type="submit"
-              disabled={!valid || busy}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: valid && !busy ? '#2563eb' : '#1e293b',
+                background: !busy ? '#2563eb' : '#1e293b',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: valid && !busy ? 'pointer' : 'not-allowed',
+                cursor: !busy ? 'pointer' : 'not-allowed',
               }}
             >
               {busy ? 'Saving…' : 'Save Draft'}

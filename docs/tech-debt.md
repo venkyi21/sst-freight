@@ -117,6 +117,20 @@ is a near-term coding task, and none of it should be attempted without that infr
   readable carrier data to extend it with — revisit if/when a read-capable tier or provider is in
   place.
 
+## Inline validation UX (pre-Week-10 pass, ADR-0015)
+
+- **Field-error mapping only covers errors this app's own schema can actually produce.** Each of
+  the 6 core forms (`BookingModal`, `ContactModal`, `TariffModal`, `QuoteModal`, `InvoiceModal`,
+  `CostModal`) maps a small, hand-enumerated list of known Postgres `check`-constraint/RPC-error
+  patterns to specific fields — this is a deliberate scope boundary, not exhaustive Postgres-error
+  parsing. A genuinely unexpected error (one not in a form's known list) still falls back to the
+  original generic banner rather than showing something misleading or crashing.
+- **`PlatformAdminPage.tsx`'s inline editors were not converted** — they remain on the original
+  single-banner pattern. Lower priority: platform-admin actions are rare, operator-only, and not
+  part of the day-to-day forms the competitor-analysis pain points were about.
+- **Wizards were deliberately not built for existing forms** — see ADR-0015. This is a scope
+  decision, not an oversight; revisit only if a form's field count genuinely grows.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because

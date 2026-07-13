@@ -2,6 +2,8 @@ import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import ContactAutocomplete from './ContactAutocomplete'
+import FieldError from './FieldError'
+import { isCheckViolation } from '../lib/formErrors'
 import type { Shipment, ShipmentCost } from '../types'
 
 interface CostModalProps {
@@ -38,6 +40,7 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
   const [amount, setAmount] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ shipmentId?: string; description?: string; amount?: string }>({})
 
   useEffect(() => {
     let cancelled = false
@@ -59,9 +62,18 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || !user) return
-    setBusy(true)
     setError(null)
+    if (!valid) {
+      setFieldErrors({
+        shipmentId: shipmentId ? undefined : 'Select a shipment',
+        description: description.trim() ? undefined : 'Description is required',
+        amount: amountN > 0 ? undefined : 'Amount must be greater than 0',
+      })
+      return
+    }
+    if (!user) return
+    setFieldErrors({})
+    setBusy(true)
 
     const { data, error: insertError } = await supabase
       .from('shipment_costs')
@@ -78,7 +90,11 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
       .single()
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'Could not add cost')
+      if (isCheckViolation(insertError!, 'shipment_costs_amount_check')) {
+        setFieldErrors({ amount: 'Amount must be greater than 0' })
+      } else {
+        setError(insertError?.message ?? 'Could not add cost')
+      }
       setBusy(false)
       return
     }
@@ -138,6 +154,7 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
                 </option>
               ))}
             </select>
+            <FieldError message={fieldErrors.shipmentId} />
           </div>
 
           <div style={{ marginBottom: 14 }}>
@@ -157,10 +174,12 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Description</label>
               <input type="text" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Trucking charges" style={inputStyle} />
+              <FieldError message={fieldErrors.description} />
             </div>
             <div>
               <label style={labelStyle}>Amount (INR)</label>
               <input type="number" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} style={inputStyle} />
+              <FieldError message={fieldErrors.amount} />
             </div>
           </div>
 
@@ -201,17 +220,17 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
             </button>
             <button
               type="submit"
-              disabled={!valid || busy}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: valid && !busy ? '#2563eb' : '#1e293b',
+                background: !busy ? '#2563eb' : '#1e293b',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: valid && !busy ? 'pointer' : 'not-allowed',
+                cursor: !busy ? 'pointer' : 'not-allowed',
               }}
             >
               {busy ? 'Saving…' : 'Add Cost'}

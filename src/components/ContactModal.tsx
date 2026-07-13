@@ -1,6 +1,7 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
+import FieldError from './FieldError'
 import { CONTACT_KIND_META, VENDOR_TYPE_META, type Contact, type ContactKind, type VendorType } from '../types'
 
 interface ContactModalProps {
@@ -43,14 +44,20 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
   const [notes, setNotes] = useState(contact?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [nameError, setNameError] = useState<string | undefined>(undefined)
 
   const valid = name.trim().length > 0
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || !user) return
-    setBusy(true)
     setError(null)
+    if (!valid) {
+      setNameError('Name is required')
+      return
+    }
+    if (!user) return
+    setNameError(undefined)
+    setBusy(true)
 
     const payload = {
       org_id: orgId,
@@ -193,6 +200,7 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Name</label>
               <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Contact / company name" style={inputStyle} />
+              <FieldError message={nameError} />
             </div>
             <div>
               <label style={labelStyle}>Email</label>
@@ -254,17 +262,17 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
             </button>
             <button
               type="submit"
-              disabled={!valid || busy}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: valid && !busy ? '#2563eb' : '#1e293b',
+                background: !busy ? '#2563eb' : '#1e293b',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: valid && !busy ? 'pointer' : 'not-allowed',
+                cursor: !busy ? 'pointer' : 'not-allowed',
               }}
             >
               {busy ? 'Saving…' : contact ? 'Save Changes' : 'Add Contact'}

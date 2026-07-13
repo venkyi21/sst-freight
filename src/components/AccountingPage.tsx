@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'reac
 import { supabase } from '../lib/supabaseClient'
 import InvoiceModal from './InvoiceModal'
 import CostModal from './CostModal'
+import InfoTooltip from './InfoTooltip'
 import {
   PLATFORM_RAKE_META,
   type AuditLogEntry,
@@ -330,7 +331,10 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                                   {inv.currency} {inv.amount.toLocaleString('en-IN')} @ fx {inv.fx_rate} = {fmt(inv.amount_inr)}
                                 </div>
                                 <div>
-                                  <div style={{ color: '#64748b', marginBottom: 4 }}>Platform rake breakdown (simulated)</div>
+                                  <div style={{ color: '#64748b', marginBottom: 4 }}>
+                                    Platform rake breakdown (simulated)
+                                    <InfoTooltip text="Model 2 orgs only. Each rake is a fixed % computed from a real amount on this invoice/shipment (e.g. 2% FX spread) — no real funds move (ADR-0013)." />
+                                  </div>
                                   {dnaRakes.length === 0 ? (
                                     <div style={{ color: '#475569' }}>No platform rake recorded for this invoice.</div>
                                   ) : (
@@ -400,7 +404,12 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                     <th style={headStyle}>Description</th>
                     <th style={headStyle}>Amount</th>
                     <th style={headStyle}>Added</th>
-                    {billingModel === 'model_2' && <th style={headStyle}>Instant Payout</th>}
+                    {billingModel === 'model_2' && (
+                      <th style={headStyle}>
+                        Instant Payout
+                        <InfoTooltip text="1% of this cost's amount, recorded as a simulated platform-revenue entry for settling a vendor faster than normal terms. No real payout rail exists and no funds move (ADR-0013)." />
+                      </th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>

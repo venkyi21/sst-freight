@@ -279,6 +279,13 @@
                 <td><span class="chip status-complete">Complete (scoped)</span></td>
               </tr>
               <tr>
+                <td class="week">—</td>
+                <td><strong>Inline Validation &amp; Contextual Tooltips</strong> <span class="tag ok">inserted ahead of Week 10</span></td>
+                <td>Competitor-analysis-driven UX pass (GoFreight, Logitude World, Magaya, Shipthis all treat this as core strategy): all 6 core forms (Booking, Contact, Tariff, Quote, Invoice, Cost) now show validation errors under the specific field, sourced from real Postgres errors already enforced server-side — not a new frontend validation layer. Contextual tooltips added on every calculation field (volumetric weight, FX rate, the Week 8 rake breakdowns). <strong>Wizards deliberately not retrofitted</strong> onto these forms (ADR-0015) — an audit found them 5–8 fields each, not the complex multi-section documents the pattern is meant for; that design is reserved for Week 10's Customs Filing screens instead.</td>
+                <td><span class="tag ok">Competitor parity (UX layer) — not a feature gap</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
                 <td class="week">10</td>
                 <td><strong>Customs Filing</strong></td>
                 <td>Bill of Entry / Shipping Bill workflows via ICEGATE (India)</td>

@@ -3,6 +3,8 @@ import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import { chargeableWeightKg, volumetricWeightKg } from '../lib/volumetric'
 import ContactAutocomplete from './ContactAutocomplete'
+import FieldError from './FieldError'
+import InfoTooltip from './InfoTooltip'
 import { generateRef, shipmentRefPrefix } from '../lib/refGenerator'
 import type { Shipment, ShipmentMode } from '../types'
 
@@ -52,6 +54,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
   const [driverPhone, setDriverPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ shipper?: string; consignee?: string; origin?: string; destination?: string }>({})
 
   const lengthN = Math.max(0, parseFloat(lengthCm) || 0)
   const widthN = Math.max(0, parseFloat(widthCm) || 0)
@@ -94,9 +97,19 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || !user) return
-    setBusy(true)
     setError(null)
+    if (!valid) {
+      setFieldErrors({
+        shipper: shipper.trim() ? undefined : 'Shipper is required',
+        consignee: consignee.trim() ? undefined : 'Consignee is required',
+        origin: origin.trim() ? undefined : 'Origin is required',
+        destination: destination.trim() ? undefined : 'Destination is required',
+      })
+      return
+    }
+    if (!user) return
+    setFieldErrors({})
+    setBusy(true)
 
     const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
     const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
@@ -242,6 +255,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 placeholder="Shipper name"
                 inputStyle={inputStyle}
               />
+              <FieldError message={fieldErrors.shipper} />
             </div>
             <div>
               <label style={labelStyle}>Consignee</label>
@@ -254,6 +268,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 placeholder="Consignee name"
                 inputStyle={inputStyle}
               />
+              <FieldError message={fieldErrors.consignee} />
             </div>
             <div>
               <label style={labelStyle}>Origin</label>
@@ -264,6 +279,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 placeholder="e.g. Chennai Port (INMAA)"
                 style={inputStyle}
               />
+              <FieldError message={fieldErrors.origin} />
             </div>
             <div>
               <label style={labelStyle}>Destination</label>
@@ -274,6 +290,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 placeholder="e.g. Rotterdam (NLRTM)"
                 style={inputStyle}
               />
+              <FieldError message={fieldErrors.destination} />
             </div>
           </div>
 
@@ -344,13 +361,19 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
               </div>
               <div style={{ display: 'flex', gap: 10, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 8, padding: '11px 14px' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>Volumetric Weight</div>
+                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>
+                    Volumetric Weight
+                    <InfoTooltip text="IATA formula: (Length × Width × Height in cm) ÷ 6000." />
+                  </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#c4b5fd', fontFamily: "'IBM Plex Mono', monospace" }}>
                     {volumetric.toFixed(1)} kg
                   </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>Chargeable Weight</div>
+                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>
+                    Chargeable Weight
+                    <InfoTooltip text="Whichever is higher: gross weight or volumetric weight — the standard air-freight billing basis." />
+                  </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
                     {chargeable.toFixed(1)} kg
                   </div>
@@ -421,17 +444,17 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             </button>
             <button
               type="submit"
-              disabled={!valid || busy}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: valid && !busy ? '#2563eb' : '#1e293b',
+                background: !busy ? '#2563eb' : '#1e293b',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: valid && !busy ? 'pointer' : 'not-allowed',
+                cursor: !busy ? 'pointer' : 'not-allowed',
               }}
             >
               {busy ? 'Creating…' : 'Create Booking'}
