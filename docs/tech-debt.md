@@ -178,6 +178,29 @@ is a near-term coding task, and none of it should be attempted without that infr
 - **10MB file size cap** on uploads (Storage bucket `file_size_limit`) — a real, deliberate limit,
   not yet configurable per-org.
 
+## Reporting & dashboards (Week 12, ADR-0018)
+
+- **Widget reordering (drag-and-drop) is not built** — only show/hide toggles. The
+  `dashboard_preferences.sort_order` column exists for future use but nothing writes to it yet.
+- **Average transit time only counts shipments that have actually reached `Delivered`.** An
+  in-flight shipment (Booked/Docs/Cleared/In Transit) contributes nothing to the average — stated
+  plainly, not hidden; this means the metric is a lagging indicator of completed shipments, not a
+  live ETA prediction.
+- **Per-customer/per-route profitability groups by denormalized text** (`invoices.client_name`,
+  `shipments.origin`/`destination`) **, not a normalized customer/route id.** Two invoices with
+  slightly different client-name spellings for the same real customer show as two separate rows —
+  a real limitation of this app's existing snapshot-name pattern (ADR-0003), not something new
+  introduced this week.
+- **Charts are plain styled `<div>` bars, not a charting library.** No true multi-series line
+  chart, no hover crosshair/tooltip layer, no animated transitions — sufficient for the
+  magnitude/volume/trend views this dashboard needs today (see ADR-0018's alternatives). Revisit
+  if a future report genuinely needs a chart type this can't express.
+- **The existing `MODE_META`/`STATUS_META` categorical colors fail the `dataviz` skill's strict
+  categorical lightness-band check** for a dark surface (confirmed by running the validator, not
+  assumed) — mitigated by direct value labels on every bar, per the validator's own stated
+  exception, rather than redesigning colors used consistently since Week 1. A future full
+  design-system pass could revisit this from scratch.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because

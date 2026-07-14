@@ -313,6 +313,24 @@ insert into storage.buckets (id, name, public, file_size_limit)
 values ('shipment-documents', 'shipment-documents', false, 10485760)
 on conflict (id) do nothing;
 
+-- dashboard_preferences (Week 12, ADR-0018): "configurable dashboards per user" is literally
+-- per-user, not per-org — the first table in this schema whose RLS checks auth.uid() = user_id
+-- in addition to org membership, so a teammate in the same org can never see or change another
+-- member's own dashboard layout. Reordering (drag-and-drop) is out of scope this pass; sort_order
+-- exists for future use but v1 only ever writes/reads visibility toggles.
+create table if not exists dashboard_preferences (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  widget_key text not null,
+  visible boolean not null default true,
+  sort_order int not null default 0,
+  created_at timestamptz not null default now(),
+  unique (org_id, user_id, widget_key)
+);
+create index if not exists dashboard_preferences_org_user_idx on dashboard_preferences (org_id, user_id);
+alter table dashboard_preferences enable row level security;
+
 -- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
 -- No RLS policy is defined for this table and no grants are given to `authenticated` —
 -- it is unreachable from the client entirely. The only way in is a manual insert via the
@@ -601,6 +619,24 @@ create policy "members can upload org shipment document files"
   on storage.objects for insert
   to authenticated
   with check (bucket_id = 'shipment-documents' and is_org_member((storage.foldername(name))[1]::uuid));
+
+-- dashboard_preferences: the first policy in this schema that checks auth.uid() = user_id in
+-- addition to org membership — a plain "is_org_member" policy would let any teammate read/edit
+-- another member's personal dashboard layout, which is not the intent of "per user".
+drop policy if exists "users can view their own dashboard preferences" on dashboard_preferences;
+create policy "users can view their own dashboard preferences"
+  on dashboard_preferences for select
+  using (auth.uid() = user_id and is_org_member(org_id));
+
+drop policy if exists "users can insert their own dashboard preferences" on dashboard_preferences;
+create policy "users can insert their own dashboard preferences"
+  on dashboard_preferences for insert
+  with check (auth.uid() = user_id and is_org_member(org_id));
+
+drop policy if exists "users can update their own dashboard preferences" on dashboard_preferences;
+create policy "users can update their own dashboard preferences"
+  on dashboard_preferences for update
+  using (auth.uid() = user_id and is_org_member(org_id));
 
 -- ─────────────────────────────────────────────────────────────
 -- RPCs (SECURITY DEFINER — the only way to create an org or join one)
@@ -1267,3 +1303,4 @@ grant select, insert, update on shipment_costs to authenticated;
 grant select on hs_codes to authenticated;
 grant select, insert, update on customs_filings to authenticated;
 grant select, insert on shipment_documents to authenticated;
+grant select, insert, update on dashboard_preferences to authenticated;

@@ -80,6 +80,7 @@ erDiagram
   organizations ||--o{ platform_revenue_ledger : "owns"
   organizations ||--o{ customs_filings : "owns"
   organizations ||--o{ shipment_documents : "owns"
+  organizations ||--o{ dashboard_preferences : "owns"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
@@ -133,6 +134,15 @@ a real file in the new `shipment-documents` **Supabase Storage** bucket — the 
 in this app. Storage isn't a separate security model: RLS policies on `storage.objects` extract
 the org_id segment from the object's path (`{org_id}/{shipment_id}/{uuid}-{filename}`) and check
 it with the same `is_org_member()` every Postgres RLS policy already uses.
+
+**Week 12 (ADR-0018)**: `dashboard_preferences` is the first table in this schema whose RLS checks
+`auth.uid() = user_id` in addition to `is_org_member(org_id)` — every other tenant-scoped table
+lets any org member see/write any row belonging to their org, which is wrong for a genuinely
+personal, per-user dashboard layout. No new RPC was needed for Week 12's reporting views at
+all — every KPI/chart/profitability number is computed client-side from tables that already exist
+(`shipments`, `invoices`, `shipment_costs`, `shipment_status_history`, `customs_filings`,
+`shipment_documents`), the same "plain RLS-gated read, aggregate in the client" shape
+`AccountingPage.tsx`'s P&L view already used since Week 6.
 
 **Week 8 (ADR-0012/ADR-0013)**: `organizations` gained `billing_model`, `monthly_fee_inr`, and
 `enabled_modules` — the platform-monetization config described in §5. `platform_revenue_ledger`

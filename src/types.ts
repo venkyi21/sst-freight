@@ -103,7 +103,7 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'auditlog' | 'platformadmin'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'auditlog' | 'platformadmin'
 
 export const PLATFORM_MODULE_META: Record<PlatformModule, { label: string }> = {
   directory: { label: 'Directory' },
@@ -358,6 +358,42 @@ export interface ShipmentDocument {
   file_name: string | null
   storage_path: string | null
   created_by: string | null
+  created_at: string
+}
+
+export type DashboardWidgetKey =
+  | 'kpi_tiles'
+  | 'volume_by_mode'
+  | 'shipments_by_status'
+  | 'revenue_trend'
+  | 'customer_profitability'
+  | 'route_profitability'
+
+export const DASHBOARD_WIDGET_META: Record<DashboardWidgetKey, { label: string }> = {
+  kpi_tiles: { label: 'KPI Summary' },
+  volume_by_mode: { label: 'Volume by Mode' },
+  shipments_by_status: { label: 'Shipments by Status' },
+  revenue_trend: { label: 'Revenue Trend (6 months)' },
+  customer_profitability: { label: 'Customer Profitability' },
+  route_profitability: { label: 'Route Profitability' },
+}
+
+export const DASHBOARD_WIDGET_ORDER: DashboardWidgetKey[] = [
+  'kpi_tiles',
+  'volume_by_mode',
+  'shipments_by_status',
+  'revenue_trend',
+  'customer_profitability',
+  'route_profitability',
+]
+
+export interface DashboardPreference {
+  id: string
+  org_id: string
+  user_id: string
+  widget_key: DashboardWidgetKey
+  visible: boolean
+  sort_order: number
   created_at: string
 }
 

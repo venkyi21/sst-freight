@@ -35,5 +35,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0015](0015-wizard-pattern-reserved-for-complex-forms.md) | Multi-step wizards are reserved for genuinely complex forms (Week 10+), not retrofitted onto today's 5–8-field forms | Accepted |
 | [0016](0016-customs-filing-simulator-and-global-reference-table.md) | Customs Filing is a genuine simulator, and `hs_codes` is the first global (non-org-scoped) reference table | Accepted |
 | [0017](0017-supabase-storage-and-live-generated-documents.md) | Supabase Storage introduced for file attachments; generated documents are rendered live, not persisted | Accepted |
+| [0018](0018-per-user-dashboard-rls-and-reused-brand-palette.md) | Dashboard preferences are the first user-scoped RLS policy; charts reuse the existing brand palette, no new dependency | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

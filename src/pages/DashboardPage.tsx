@@ -12,6 +12,7 @@ import AccountingPage from '../components/AccountingPage'
 import AuditLogPage from '../components/AuditLogPage'
 import PlatformAdminPage from '../components/PlatformAdminPage'
 import CustomsFilingsPage from '../components/CustomsFilingsPage'
+import ReportingPage from '../components/ReportingPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
 
@@ -270,6 +271,8 @@ export default function DashboardPage() {
         {navPage === 'platformadmin' && <PlatformAdminPage isPlatformAdmin={isPlatformAdmin} />}
 
         {navPage === 'customs' && <CustomsFilingsPage orgId={currentOrg.id} />}
+
+        {navPage === 'reporting' && <ReportingPage orgId={currentOrg.id} />}
       </main>
 
       {bookingOpen && (

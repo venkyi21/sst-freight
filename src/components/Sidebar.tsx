@@ -114,6 +114,10 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg, isPlatf
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Customs Filings
           </button>
+          <button type="button" onClick={() => onNavigate('reporting')} style={navButtonStyle(navPage === 'reporting')}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+            Reporting
+          </button>
           <button type="button" onClick={() => onNavigate('auditlog')} style={navButtonStyle(navPage === 'auditlog')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Audit Log

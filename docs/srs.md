@@ -267,6 +267,34 @@ built.
   - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — the public portal shows
     visibility only; full document render and uploaded-file download remain behind org login.
 
+### FR-14: Reporting & Custom Dashboards
+
+- **US-14.1** — As a Member, I can see KPI tiles (shipment count, revenue, outstanding amount,
+  average transit time, active customs filings, documents generated), volume-by-mode and
+  shipments-by-status breakdowns, and a 6-month revenue trend, all queried live — directly
+  targeting the sourced "dashboards reflect yesterday's data" and "three weeks later" P&L
+  pain points.
+  - AC: Verified the reporting page's numbers match a direct query against the same org's data at
+    the same moment, not a cached/batched figure.
+- **US-14.2** — As a Member, I can click any customer or route in a profitability breakdown and
+  see the real shipments/invoices/costs behind that total — directly targeting the sourced "can't
+  see shipment details behind a summary number" pain point (Magaya).
+  - AC: Verified end-to-end in a real browser — expanding a customer/route row shows shipment
+    refs, invoice refs/amounts, and cost line items that genuinely belong to that customer/route,
+    cross-checked against a direct query.
+- **US-14.3** — As a Member, I can show/hide which dashboard widgets I see, and my choice persists
+  across sessions without affecting any teammate's own view — the "configurable... per user"
+  requirement, and the first RLS policy in this app scoped by user in addition to org (ADR-0018).
+  - AC: Verified directly (not just UI-hidden) — a different user in the same org cannot read or
+    change another member's `dashboard_preferences` rows; hiding a widget and reloading the page
+    keeps it hidden for that user only.
+- **US-14.4** — As a Member, I can export the customer or route profitability table as a real CSV
+  file.
+  - AC: Verified a real file downloads with the visible rows and correct revenue/cost/margin
+    figures.
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — widget drag-and-drop reordering;
+    a true multi-series/interactive charting layer beyond styled bar `<div>`s.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

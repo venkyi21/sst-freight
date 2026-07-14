@@ -184,12 +184,12 @@
       <section class="chapter" id="state">
         <div class="chapter-num">01</div>
         <h2>Where things stand today</h2>
-        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–10 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking, customs filing simulator) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8, an inline-validation/tooltip UX pass inserted ahead of Week 10, and Week 11's Document Management.</p>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–11 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking, customs filing simulator, document management) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8, an inline-validation/tooltip UX pass inserted ahead of Week 10, and Week 12's Reporting &amp; Custom Dashboards — the roadmap's last committed week.</p>
 
         <div class="scorecard">
-          <div class="cell"><div class="num ok">16</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking, customs filing simulator, document management)</div></div>
-          <div class="cell"><div class="num info">1</div><div class="lbl">week remaining<br>Week 12</div></div>
-          <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors after Week 12</div></div>
+          <div class="cell"><div class="num ok">17</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking, customs filing simulator, document management, reporting &amp; dashboards)</div></div>
+          <div class="cell"><div class="num ok">0</div><div class="lbl">weeks remaining<br>all 12 committed weeks shipped</div></div>
+          <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors (see §3)</div></div>
           <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
         </div>
 
@@ -301,10 +301,10 @@
               </tr>
               <tr>
                 <td class="week">12</td>
-                <td><strong>Reporting &amp; custom dashboards</strong> <span class="tag ok">new</span></td>
-                <td>Volume, revenue, and performance reporting beyond the raw shipment list; configurable dashboards per user</td>
-                <td><span class="tag">Logitude</span> <span class="tag risk">needs data from Wks 4/6/9 to be meaningful — placed last on purpose</span></td>
-                <td><span class="chip status-not-started">Not started</span></td>
+                <td><strong>Reporting &amp; Custom Dashboards</strong> <span class="tag ok">scoped</span></td>
+                <td>KPI tiles, volume/status breakdowns, and a 6-month revenue trend, all queried live (no batch sync anywhere in this app), plus per-customer and per-route profitability. <strong>Differentiator</strong>: every profitability row expands in place to the real underlying shipments/invoices/costs — directly targeting the sourced pain point that existing dashboards (Magaya) "cannot see the details of every shipment" behind a summary number, and that forwarders otherwise get a shipment's real P&amp;L "three weeks later" once it's too late to act. Dashboards are genuinely configurable <em>per user</em> (ADR-0018 — the first RLS policy in this app scoped by user, not just org), with real CSV export. <strong>Scope cut, stated plainly</strong>: widget reordering (drag-and-drop) not built, only show/hide; charts are styled bars, not a charting library (`docs/tech-debt.md`).</td>
+                <td><span class="tag">Logitude</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
               </tr>
             </tbody>
           </table>
