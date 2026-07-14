@@ -35,6 +35,7 @@ export default function ContactAutocomplete({
       .select('id, name')
       .eq('org_id', orgId)
       .eq('kind', kind)
+      .eq('archived', false)
       .then(({ data }) => {
         if (!cancelled && data) setOptions(data as ContactOption[])
       })

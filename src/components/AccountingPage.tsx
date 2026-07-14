@@ -68,6 +68,8 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
   const [invoicesError, setInvoicesError] = useState<string | null>(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
+  const [archivingInvoiceId, setArchivingInvoiceId] = useState<string | null>(null)
+  const [showArchivedInvoices, setShowArchivedInvoices] = useState(false)
 
   const [costs, setCosts] = useState<ShipmentCost[]>([])
   const [costsLoading, setCostsLoading] = useState(true)
@@ -194,6 +196,11 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
       .sort((a, b) => a.margin - b.margin)
   }, [invoices, costs, shipmentRefs])
 
+  // Week 15 (ADR-0022): archived invoices still count toward aging/P&L/profitability above —
+  // archiving is a "hide from the working list" UX concept, not "this revenue didn't happen."
+  // Only the visible table rows are filtered.
+  const visibleInvoices = invoices.filter((i) => showArchivedInvoices || !i.archived)
+
   function handleInvoiceCreated(invoice: Invoice) {
     setInvoices((prev) => [invoice, ...prev])
     setInvoiceModalOpen(false)
@@ -216,6 +223,17 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
       setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? (data as Invoice) : i)))
     }
     setMarkingPaidId(null)
+  }
+
+  // Week 15 (ADR-0022): plain client update, same shape as handleMarkPaid above — archive is
+  // just a flag flip, not a privileged/ordering concern, so no RPC.
+  async function handleArchiveToggle(invoice: Invoice) {
+    setArchivingInvoiceId(invoice.id)
+    const { data, error } = await supabase.from('invoices').update({ archived: !invoice.archived }).eq('id', invoice.id).select().single()
+    if (!error && data) {
+      setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? (data as Invoice) : i)))
+    }
+    setArchivingInvoiceId(null)
   }
 
   async function handleInstantPayout(cost: ShipmentCost) {
@@ -273,6 +291,12 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
 
       {tab === 'invoices' && (
         <>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#94a3b8', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showArchivedInvoices} onChange={(e) => setShowArchivedInvoices(e.target.checked)} />
+              Show archived
+            </label>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
             <div style={statCardStyle}>
               <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Total Outstanding</div>
@@ -309,15 +333,16 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                     <th style={headStyle}>Due</th>
                     <th style={headStyle}>Status</th>
                     <th style={headStyle}>Revenue DNA</th>
+                    <th style={headStyle}>Archive</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {invoices.map((inv) => {
+                  {visibleInvoices.map((inv) => {
                     const overdue = inv.status === 'unpaid' ? daysOverdue(inv.due_date) : null
                     const dnaOpen = dnaInvoiceId === inv.id
                     return (
                       <Fragment key={inv.id}>
-                      <tr style={{ borderBottom: '1px solid #172033' }}>
+                      <tr style={{ borderBottom: '1px solid #172033', opacity: inv.archived ? 0.55 : 1 }}>
                         <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{inv.ref}</td>
                         <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{inv.client_name}</td>
                         <td style={{ ...cellStyle, fontSize: 13, color: '#e2e8f0' }}>
@@ -362,10 +387,20 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                             {dnaOpen ? 'Hide' : 'Trace'}
                           </button>
                         </td>
+                        <td style={cellStyle}>
+                          <button
+                            type="button"
+                            disabled={archivingInvoiceId === inv.id}
+                            onClick={() => void handleArchiveToggle(inv)}
+                            style={dnaButtonStyle}
+                          >
+                            {inv.archived ? 'Unarchive' : 'Archive'}
+                          </button>
+                        </td>
                       </tr>
                       {dnaOpen && (
                         <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
-                          <td colSpan={7} style={{ padding: '10px 20px 16px' }}>
+                          <td colSpan={8} style={{ padding: '10px 20px 16px' }}>
                             {dnaLoading ? (
                               <div style={{ fontSize: 12, color: '#5b6b82' }}>Loading trace…</div>
                             ) : (
@@ -413,7 +448,7 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                   })}
                 </tbody>
               </table>
-              {!invoicesLoading && invoices.length === 0 && <EmptyState label="No invoices yet." />}
+              {!invoicesLoading && visibleInvoices.length === 0 && <EmptyState label="No invoices yet." />}
               {invoicesLoading && <EmptyState label="Loading invoices…" />}
             </div>
           )}

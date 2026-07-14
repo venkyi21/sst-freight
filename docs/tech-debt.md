@@ -11,12 +11,13 @@ fast otherwise.
 
 ## Data model
 
-- **No delete/archive anywhere.** `contacts`, `tariffs`, `quotes`, `invoices`, `shipment_costs`,
-  and `shipments` all have `select`/`insert`/`update` grants only — there is no delete path for
-  any of them, and no `archived` flag either. A bad contact or a duplicate cost entry can be
-  edited but never removed. Closing this needs a scoped decision per table (hard delete vs.
-  soft-delete flag vs. admin-only delete) — see the Week 2 planning discussion for the original
-  trade-off (`archived` flag was considered and deferred).
+- ~~No delete/archive anywhere~~ **Closed for `contacts`/`quotes`/`invoices`, Week 15
+  (ADR-0022)**: all three got a plain, client-updatable `archived boolean` column — reversible,
+  audit-logged (ADR-0010), decided as archive-not-hard-delete specifically because these are
+  financial/compliance-relevant records. **Still open**: `tariffs` and `shipment_costs` have no
+  delete/archive path at all; `shipments` explicitly can't get this same plain-column treatment
+  without first revisiting ADR-0004 (its `UPDATE` grant is fully revoked, forcing every mutation
+  through `advance_shipment_status()` — a status-only RPC, not a general-purpose update path).
 - **Converted bookings don't carry Ocean/Air/Truck-specific fields.** `RatesQuotesPage.tsx`'s
   quote→booking conversion only sets mode/route/client/shipper/consignee/status
   (`container_size`, `vessel_name`, `voyage_no`, dimensions, `vehicle_type`, `driver_phone` are
@@ -40,18 +41,23 @@ fast otherwise.
   rows), additive alongside the original `rate`/`quantity`/`total` columns. **Still open**: line
   items can't be edited after creation — no quote/invoice editing UI exists at all, itemized or
   not, so this isn't a new gap so much as the existing one extended to the new tables.
-- **Quotes have no `sent`/`accepted`/`rejected` states** — only `draft` → `converted`. A quote
-  that a customer declined looks identical to one nobody has looked at yet. Reserved for Week 15
-  ("Quote lifecycle + record housekeeping," `docs/competitor-dashboard.html` §10) — deliberately
-  not touched in Week 14 to keep that pass to itemization/GST/profitability only.
-- **Quote-to-booking conversion has a real, unguarded double-submit race** (see ADR-0006): the
-  client update that flips `quotes.status` to `'converted'` filters only on `id`, not `id AND
-  status = 'draft'`. Two near-simultaneous conversion attempts (double-click, two open tabs) can
-  each independently insert a shipment before either update lands, producing two shipments for
-  one quote with the second write silently winning the `converted_shipment_id` value. Low
-  likelihood, low blast radius (no data loss, just an orphaned extra shipment) — fix is a
-  one-line `.eq('status', 'draft')` added to that update call, or moving conversion into an RPC
-  that does the check-and-set atomically.
+- ~~Quotes have no `sent`/`accepted`/`rejected` states~~ **Closed Week 15 (ADR-0022)**: the status
+  set is now `draft`/`sent`/`accepted`/`rejected`/`converted`, enforced server-side by the new
+  `validate_quote_status_transition()` trigger (not just a loose `check` on allowed values — the
+  allowed *sequence* is enforced too). Rejecting a quote can optionally capture a
+  `rejection_reason`. A pipeline stat strip on `RatesQuotesPage.tsx` shows live counts per stage.
+- **Quote-to-booking conversion's double-submit race is improved, not fully closed** (Week 15,
+  ADR-0022 — updates the ADR-0006 entry this replaces): a second near-simultaneous "Convert" click
+  now gets a **visible rejection** instead of silently overwriting `converted_shipment_id`. Note
+  the mechanism precisely, since a first attempt at this got it wrong (caught by direct testing,
+  corrected same day): it is **not** the status-transition check — both racing clicks target the
+  same `'converted'` value, so that check's no-op branch (needed for archiving) lets the second one
+  through. The actual fix is a separate guard making `converted_shipment_id` **immutable once
+  set** — the second update is rejected for trying to change it, independent of `status`.
+  **Still open**: the second attempt's `shipments` insert itself isn't prevented — it still creates
+  an orphan booking row, just no longer a silently-mislinked quote. Fully closing this needs
+  shipment creation moved inside a transactional RPC together with the status flip, a larger
+  change than Week 15's scope.
 - ~~No GST/tax handling anywhere in Accounting~~ **Closed Week 14 (ADR-0021)**: invoice line items
   carry `sac_code`/`gst_rate`, and CGST+SGST-vs-IGST is auto-computed by comparing
   `organizations.gst_state` to the billed contact's `contacts.state`. **Still open**: (1) real

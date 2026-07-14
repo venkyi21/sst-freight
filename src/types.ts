@@ -60,6 +60,7 @@ export interface Contact {
   country: string | null
   state: string | null
   notes: string | null
+  archived: boolean
   created_by: string | null
   created_at: string
 }
@@ -249,7 +250,18 @@ export interface Tariff {
   created_at: string
 }
 
-export type QuoteStatus = 'draft' | 'converted'
+// Week 15 (ADR-0022): draft -> sent -> accepted/rejected, plus a direct draft/sent/accepted ->
+// converted shortcut. Enforced server-side by the validate_quote_status_transition() trigger, not
+// just this client-side type — see docs/adr/0022-....md for the exact allowed-pairs set.
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted'
+
+export const QUOTE_STATUS_META: Record<QuoteStatus, { label: string; color: string; bg: string }> = {
+  draft: { label: 'Draft', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
+  sent: { label: 'Sent', color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
+  accepted: { label: 'Accepted', color: '#4ade80', bg: 'rgba(34,197,94,0.12)' },
+  rejected: { label: 'Rejected', color: '#fb7185', bg: 'rgba(244,63,94,0.12)' },
+  converted: { label: 'Converted', color: '#4ade80', bg: 'rgba(34,197,94,0.12)' },
+}
 
 export interface Quote {
   id: string
@@ -268,6 +280,8 @@ export interface Quote {
   currency: string
   total: number
   status: QuoteStatus
+  rejection_reason: string | null
+  archived: boolean
   converted_shipment_id: string | null
   created_by: string | null
   created_at: string
@@ -330,6 +344,7 @@ export interface Invoice {
   status: InvoiceStatus
   due_date: string | null
   paid_at: string | null
+  archived: boolean
   created_by: string | null
   created_at: string
 }

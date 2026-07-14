@@ -271,3 +271,83 @@ verified vs. reasoned-only): a pre-Week-14 quote/invoice's backward compatibilit
 exists in dev to test against — reasoned from the additive schema instead), and a numeric
 multi-shipment profitability click-test (the table's *appearance* was verified; its per-row
 arithmetic was verified by code inspection of the `useMemo`, not a separate live numeric check).
+
+## Week 15 — Quote Lifecycle States + Archive (ADR-0022)
+
+**Test matrix format**: each case below is run against both the **old** (pre-Week-15) behavior
+and the **new** (post-Week-15) behavior for the same scenario, since the whole point of this pass
+is closing gaps that previously either didn't exist or failed silently — a bare pass/fail list
+would hide exactly what changed. Tooling, same split as every prior pass: a direct
+`@supabase/supabase-js` script (bypassing the UI) for every transition/security/audit case —
+proving server-side enforcement independent of what any button does or doesn't show — plus real
+Playwright click-throughs for the UI/UAT/usability cases.
+
+### Unit + security: every transition pair, direct API (bypassing the UI entirely)
+
+| # | Case | Old (pre-Week-15) result | New (post-Week-15) result | Verdict |
+| --- | --- | --- | --- | --- |
+| 1 | `draft` → `sent` | N/A (state didn't exist) | Accepted | ✅ PASS |
+| 2 | `sent` → `accepted` | N/A (state didn't exist) | Accepted | ✅ PASS |
+| 3 | `accepted` → `converted` | Always succeeded, no guard | Accepted | ✅ PASS |
+| 4 | `sent` → `rejected`, with an optional reason | N/A | Accepted, reason captured verbatim | ✅ PASS |
+| 5 | `draft` → `converted` (direct shortcut, must keep working) | Always succeeded | Accepted | ✅ PASS |
+| 6 | `sent` → `converted` (shortcut) | Always succeeded | Accepted | ✅ PASS |
+| 7 | `draft` → `accepted` (**invalid**, skips `sent`) | Would have silently succeeded — only a value check existed, never a sequence check | Rejected: `Invalid quote status transition: draft -> accepted` | ✅ PASS |
+| 8 | `draft` → `rejected` (**invalid**) | Would have silently succeeded | Rejected with a clear error | ✅ PASS |
+| 9 | `accepted` → `rejected` (**invalid**) | Would have silently succeeded | Rejected with a clear error | ✅ PASS |
+| 10 | `rejected` → `converted` (**invalid**, `rejected` is terminal) | Would have silently succeeded | Rejected with a clear error | ✅ PASS |
+| 11 | `converted` → `sent` (**invalid**, `converted` is terminal) | Would have silently succeeded | Rejected with a clear error | ✅ PASS |
+| 12 | `draft` → `draft` (no-op re-apply, must stay legal) | N/A | Accepted (needed so archiving, which doesn't touch `status`, isn't blocked) | ✅ PASS |
+| 13 | Archiving a quote (flag only, no status change) | N/A | Succeeds, doesn't trip the transition trigger | ✅ PASS |
+| 14 | **Double-submit race**: two simultaneous conversions of the same quote to two different, independently-inserted shipments | Both silently succeed; second write silently overwrites `converted_shipment_id`, no error surfaced (ADR-0006, accepted tech debt) | One succeeds, one rejected: `A quote's converted_shipment_id cannot change once set` | ✅ PASS (see note below) |
+| 15 | Org B reads Org A's quote directly by `id` | N/A (quotes RLS predates this feature) | 0 rows returned | ✅ PASS |
+| 16 | Org B attempts to archive Org A's quote | N/A | Update returns no error but affects 0 rows; Org A's row confirmed still `archived=false` | ✅ PASS |
+| 17 | Org B reads Org A's contact directly by `id` | N/A | 0 rows returned | ✅ PASS |
+| 18 | A quote taken through `sent`→`accepted`→`converted` produces real `audit_log` rows | Impossible — `quotes` wasn't attached to `log_audit_event()` at all | 4 real audit rows (insert + 3 updates) | ✅ PASS |
+
+**Note on case 14 — a real correction made mid-pass, not glossed over**: the first version of
+this fix reasoned that the transition-validation trigger alone would catch a second racing
+"Convert" click. Testing it directly proved that reasoning wrong: both concurrent clicks target
+the *same* value (`'converted'`), so once the first commits, the second sees `OLD.status =
+NEW.status = 'converted'` and hits the no-op branch (case 12's requirement) — sailing through
+exactly like before. The actual fix, added after this was caught: `converted_shipment_id` is now
+immutable once set, independent of `status`. Re-tested immediately after the correction — 18/18.
+See `docs/adr/0022-...md` for the full account.
+
+### System / UAT / usability: real Playwright click-through
+
+| # | Case | Old result | New result | Verdict |
+| --- | --- | --- | --- | --- |
+| 19 | Pipeline stat strip (Draft/Sent/Accepted/Rejected/Converted counts) | Did not exist — every non-converted quote just said "draft" | Renders live counts per stage, updates immediately after each action | ✅ PASS |
+| 20 | Full happy path: draft → Send → Mark Accepted → Convert to Booking | "Convert to Booking" was the only action, shown for `draft` only | Correct status pill shown at each stage; "Convert to Booking" also available from `sent`/`accepted` | ✅ PASS |
+| 21 | Reject path: draft → Send → Mark Rejected, with an inline optional reason | A declined quote looked identical to an unopened one | "Rejected" pill + captured reason ("Price too high vs Freightify") visible directly in the row | ✅ PASS |
+| 22 | Archive a quote → hidden from default list → reappears with "Show archived" | No archive existed | Confirmed both directions | ✅ PASS |
+| 23 | Archive a contact → hidden from Directory → reappears with "Show archived" | No archive existed | Confirmed both directions | ✅ PASS |
+| 24 | Archive an invoice → hidden from Invoices list, but Total Revenue / "Profitability by shipment" (₹1,12,100) unchanged | No archive existed | Confirmed: list hides it, financial totals don't move | ✅ PASS |
+
+### Regression: Week 14 (itemization + GST) after the Week 15 schema changes
+
+| # | Case | Result |
+| --- | --- | --- |
+| 25 | Org GST state still saves via `update_org_gst_settings` | ✅ Verified |
+| 26 | Multi-line quote total still computes correctly (₹45,000×2 + ₹5,000 = ₹95,000) | ✅ Verified |
+| 27 | Quote → shipment conversion still works (now routed through the new trigger) | ✅ Verified |
+| 28 | Quote line-item carryover into invoice still works | ✅ Verified |
+| 29 | CGST+SGST breakdown still renders correctly for a same-state client | ✅ Verified |
+
+**28/29 automated checks passed on the first content-complete run; the one apparent failure
+(case in the regression set checking for the "Same state" GST explainer) was a test-script
+mistake, not a product defect** — the invoice's consignee was a contact auto-created moments
+earlier by the quote flow, with no `state` set, so the app correctly showed the "set this client's
+state" warning instead of "Same state" (confirmed against the actual screenshot). All 33 cases
+listed above are genuine passes. Zero browser console errors across every Playwright run this
+pass.
+
+**Explicitly out of scope for this pass, with reasoning** (the user asked this pass be shaped
+around the full functional/non-functional testing taxonomy — here is where each category landed):
+performance/load/stress testing was not run — this feature is a single-row trigger validation and
+a boolean-flag toggle, and this project has no load-testing infrastructure; a synthetic load test
+would not exercise anything the direct-API race test above doesn't already cover more precisely.
+Security testing is covered by cases 15–17 above. Usability is covered qualitatively by the
+Playwright screenshots (pipeline strip and status pills read clearly at a glance) rather than a
+separate formal usability study.

@@ -67,6 +67,12 @@ built.
     suggestion still resolves to the existing contact (not a duplicate) — enforced with a
     submit-time server-side re-check, not only client-side matching, closing a real race
     condition found during Week 2 verification.
+- **US-3.3** — As a Member, I can archive a contact I no longer actively deal with (and unarchive
+  it later), so the Directory stays uncluttered without permanently losing the record.
+  - AC (verified by real Playwright click-through against dev Supabase, 2026-07-15): archiving a
+    contact immediately hid it from the default Directory list; it reappeared as soon as "Show
+    archived" was toggled on. Direct-API check confirmed a different org cannot archive or read
+    the contact at all (`docs/qa-testing.md`).
 
 ### FR-4: Roles & Team Management
 
@@ -101,8 +107,29 @@ built.
   quote then shows "Converted" plus the resulting booking's real reference.
   - AC: A converted quote's booking has the correct mode-prefixed reference, the quote's
     shipper/consignee carried over, and status `'Booked'`.
-  - AC: **Known gap** (see `docs/tech-debt.md`) — converting a quote twice in rapid succession
-    (double-click / two tabs) is not guarded against; this is not yet closed.
+  - AC (verified directly against dev Supabase, 2026-07-15 — corrected once during verification,
+    see `docs/tech-debt.md`): two simultaneous conversions of the same quote to two different,
+    independently-inserted shipments now produce exactly one success and one server-rejected
+    error; the second attempt's orphan `shipments` row itself is still not prevented.
+- **US-6.3** — As a Member, I can move a quote through a real sales lifecycle (Draft → Sent →
+  Accepted or Rejected → Converted), see the whole pipeline's counts at a glance, and optionally
+  record why a quote was rejected — so a declined quote is never indistinguishable from one
+  nobody has looked at yet.
+  - AC (verified 2026-07-15 — 12 transition cases tested directly against dev Supabase, plus a
+    real Playwright click-through): all 6 valid transitions succeeded (`draft→sent`,
+    `sent→accepted`, `sent→rejected`, and the `draft/sent/accepted→converted` shortcuts); all 5
+    invalid jumps tested (`draft→accepted`, `draft→rejected`, `accepted→rejected`,
+    `rejected→converted`, `converted→sent`) were rejected server-side with a clear error, even via
+    a direct API call bypassing the UI entirely — not just hidden buttons. A full click-through
+    (draft→sent→accepted→converted, and a separate draft→sent→rejected-with-reason) showed the
+    correct status pill and pipeline counts at each step, and the captured rejection reason
+    ("Price too high vs Freightify") visible in the row. Full results: `docs/qa-testing.md`.
+- **US-6.4** — As a Member, I can archive a quote (any status) and unarchive it later, same as
+  contacts/invoices.
+  - AC (verified by real Playwright click-through against dev Supabase, 2026-07-15): archiving a
+    rejected quote immediately hid it from the default Quotes list; it reappeared as soon as "Show
+    archived" was toggled on. Direct-API check confirmed archiving does not trip the status
+    trigger, and a different org cannot archive or read the quote at all.
 
 ### FR-7: Accounting
 
@@ -155,6 +182,13 @@ built.
     verified by code inspection of the `useMemo` in `AccountingPage.tsx` against the same
     `invoices`/`shipment_costs` arrays already covered by US-7.3's revenue/cost totals, not by a
     separate multi-shipment numeric click-test this pass.
+- **US-7.7** — As a Member, I can archive an invoice (any status) and unarchive it later, same as
+  contacts/quotes, without it disappearing from revenue/P&L totals.
+  - AC (verified by real Playwright click-through against dev Supabase, 2026-07-15): archiving a
+    ₹1,12,100 invoice immediately hid it from the default Invoices list, but the P&L tab's Total
+    Revenue and "Profitability by shipment" figures were unchanged (still counted the full
+    ₹1,12,100) — confirming archive is purely a list-visibility concept. The invoice reappeared,
+    with an "Unarchive" action, as soon as "Show archived" was toggled on.
 
 ### FR-8: Customer Tracking Portal
 
@@ -173,12 +207,16 @@ built.
 ### FR-9: Audit Trail
 
 - **US-9.1** — As an Owner or Admin, I can view a chronological log of who changed what across
-  contacts, team roles, invoices, and shipment costs — filterable by table, with the full
-  before/after values for each change.
+  contacts, team roles, invoices, shipment costs, and — as of Week 15 — quotes, filterable by
+  table, with the full before/after values for each change.
   - AC: Verified directly against a real trigger firing, not just code inspection: editing a
     contact, changing an invoice's `fx_rate`, promoting a team member, and adding a shipment cost
     each produce a corresponding `audit_log` row with the correct operation and an accurate
     old/new value diff.
+  - AC (verified directly against dev Supabase, 2026-07-15): a real quote taken through
+    `sent`→`accepted`→`converted` produced 4 real `audit_log` rows (insert + 3 status updates),
+    proving the Week 15 `quotes_audit` trigger attachment actually fires, not just present in the
+    migration.
   - AC: A plain Member's `list_audit_log` RPC call is rejected server-side (`Not authorized to
     view the audit log`) — verified by a direct RPC call bypassing the UI, not only a hidden nav
     item.

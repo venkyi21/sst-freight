@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import ContactModal from './ContactModal'
 import { CONTACT_KIND_META, VENDOR_TYPE_META, type Contact, type ContactKind } from '../types'
@@ -51,6 +51,8 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
   const [search, setSearch] = useState('')
   const [modalContact, setModalContact] = useState<Contact | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [showArchived, setShowArchived] = useState(false)
+  const [archivingId, setArchivingId] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -89,6 +91,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     return contacts
+      .filter((c) => showArchived || !c.archived)
       .filter((c) => kindFilter === 'all' || c.kind === kindFilter)
       .filter(
         (c) =>
@@ -99,7 +102,19 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
             .toLowerCase()
             .includes(q),
       )
-  }, [contacts, kindFilter, search])
+  }, [contacts, kindFilter, search, showArchived])
+
+  // Week 15 (ADR-0022): archive is a plain client update (archived boolean), same shape as
+  // invoices' "mark paid/unpaid" — no RPC needed, contacts already has an update grant.
+  async function handleArchiveToggle(e: MouseEvent, contact: Contact) {
+    e.stopPropagation()
+    setArchivingId(contact.id)
+    const { data, error } = await supabase.from('contacts').update({ archived: !contact.archived }).eq('id', contact.id).select().single()
+    if (!error && data) {
+      setContacts((prev) => prev.map((c) => (c.id === contact.id ? (data as Contact) : c)))
+    }
+    setArchivingId(null)
+  }
 
   function openAdd() {
     setModalContact(null)
@@ -185,6 +200,10 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
             Vendor · {kindCounts.vendor}
           </button>
         </div>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#94a3b8', cursor: 'pointer' }}>
+          <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+          Show archived
+        </label>
       </div>
 
       {loadError ? (
@@ -226,6 +245,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                 <th style={headStyle}>Phone</th>
                 <th style={headStyle}>Location</th>
                 <th style={headStyle}>Added</th>
+                <th style={headStyle}>Archive</th>
               </tr>
             </thead>
             <tbody>
@@ -233,7 +253,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                 <tr
                   key={c.id}
                   onClick={() => openEdit(c)}
-                  style={{ borderBottom: '1px solid #172033', cursor: 'pointer' }}
+                  style={{ borderBottom: '1px solid #172033', cursor: 'pointer', opacity: c.archived ? 0.55 : 1 }}
                 >
                   <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{c.name}</td>
                   <td style={cellStyle}>
@@ -251,6 +271,25 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                   </td>
                   <td style={{ ...cellStyle, fontSize: 12, color: '#5b6b82' }}>
                     {new Date(c.created_at).toLocaleDateString()}
+                  </td>
+                  <td style={cellStyle}>
+                    <button
+                      type="button"
+                      disabled={archivingId === c.id}
+                      onClick={(e) => void handleArchiveToggle(e, c)}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: 6,
+                        border: '1px solid #1e293b',
+                        background: 'transparent',
+                        color: '#94a3b8',
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {c.archived ? 'Unarchive' : 'Archive'}
+                    </button>
                   </td>
                 </tr>
               ))}

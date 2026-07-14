@@ -5,7 +5,7 @@ import TariffModal from './TariffModal'
 import QuoteModal from './QuoteModal'
 import EsignPanel from './EsignPanel'
 import { fetchQuoteLineItems, renderQuoteHtml } from '../lib/documentHtml'
-import { MODE_META, type Quote, type Shipment, type Tariff } from '../types'
+import { MODE_META, QUOTE_STATUS_META, type Quote, type QuoteStatus, type Shipment, type Tariff } from '../types'
 
 type Tab = 'tariffs' | 'quotes'
 type QuoteWithShipmentRef = Quote & { converted_shipment: { ref: string } | null }
@@ -65,6 +65,10 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
   const [convertingId, setConvertingId] = useState<string | null>(null)
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null)
   const [convertError, setConvertError] = useState<string | null>(null)
+  const [statusBusyId, setStatusBusyId] = useState<string | null>(null)
+  const [rejectingId, setRejectingId] = useState<string | null>(null)
+  const [rejectionDraft, setRejectionDraft] = useState('')
+  const [showArchivedQuotes, setShowArchivedQuotes] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -185,6 +189,48 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
     setConvertingId(null)
   }
 
+  // Week 15 (ADR-0022): a plain client update — validate_quote_status_transition() on the DB
+  // side is the real enforcement (rejects anything not in the allowed-pairs set), so this stays a
+  // simple call with no client-side state-machine logic to keep in sync with the server.
+  async function handleStatusUpdate(quote: Quote, newStatus: QuoteStatus, rejectionReason?: string) {
+    setStatusBusyId(quote.id)
+    setConvertError(null)
+    const { data, error } = await supabase
+      .from('quotes')
+      .update({ status: newStatus, rejection_reason: rejectionReason ?? null })
+      .eq('id', quote.id)
+      .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
+      .single()
+    if (error || !data) {
+      setConvertError(error?.message ?? 'Could not update quote status')
+    } else {
+      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? (data as unknown as QuoteWithShipmentRef) : q)))
+      setRejectingId(null)
+      setRejectionDraft('')
+    }
+    setStatusBusyId(null)
+  }
+
+  async function handleArchiveToggle(quote: Quote) {
+    setStatusBusyId(quote.id)
+    const { data, error } = await supabase
+      .from('quotes')
+      .update({ archived: !quote.archived })
+      .eq('id', quote.id)
+      .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
+      .single()
+    if (!error && data) {
+      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? (data as unknown as QuoteWithShipmentRef) : q)))
+    }
+    setStatusBusyId(null)
+  }
+
+  const visibleQuotes = quotes.filter((q) => showArchivedQuotes || !q.archived)
+  const pipelineCounts = visibleQuotes.reduce(
+    (acc, q) => ({ ...acc, [q.status]: (acc[q.status] ?? 0) + 1 }),
+    {} as Partial<Record<QuoteStatus, number>>,
+  )
+
   return (
     <div style={{ padding: '28px 32px', flex: 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 14 }}>
@@ -263,6 +309,30 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
       {tab === 'quotes' && (
         <>
           {convertError && <ErrorBox message={convertError} />}
+
+          {/* Week 15 (ADR-0022): pipeline visibility — every non-terminal quote used to just say
+              "draft," this makes the whole funnel visible at a glance, computed client-side from
+              the quotes already fetched below, no new query. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
+            {(['draft', 'sent', 'accepted', 'rejected', 'converted'] as const).map((s) => (
+              <div key={s} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: '11px 14px' }}>
+                <div style={{ fontSize: 18, fontWeight: 700, color: QUOTE_STATUS_META[s].color, fontFamily: "'IBM Plex Mono', monospace" }}>
+                  {pipelineCounts[s] ?? 0}
+                </div>
+                <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {QUOTE_STATUS_META[s].label}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#94a3b8', cursor: 'pointer' }}>
+              <input type="checkbox" checked={showArchivedQuotes} onChange={(e) => setShowArchivedQuotes(e.target.checked)} />
+              Show archived
+            </label>
+          </div>
+
           {quotesError ? (
             <ErrorBox message={quotesError} />
           ) : (
@@ -276,12 +346,13 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
                     <th style={headStyle}>Total</th>
                     <th style={headStyle}>Status</th>
                     <th style={headStyle}>E-Signature</th>
+                    <th style={headStyle}>Archive</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {quotes.map((q) => (
+                  {visibleQuotes.map((q) => (
                     <Fragment key={q.id}>
-                      <tr style={{ borderBottom: '1px solid #172033' }}>
+                      <tr style={{ borderBottom: '1px solid #172033', opacity: q.archived ? 0.55 : 1 }}>
                         <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{q.ref}</td>
                         <td style={{ ...cellStyle, fontSize: 12 }}>
                           <div style={{ fontWeight: 600, color: '#cbd5e1' }}>{q.origin}</div>
@@ -292,19 +363,105 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
                           ₹{q.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </td>
                         <td style={cellStyle}>
-                          {q.status === 'draft' ? (
-                            <button
-                              type="button"
-                              disabled={convertingId === q.id}
-                              onClick={() => void handleConvert(q)}
-                              style={actionButtonStyle}
-                            >
-                              {convertingId === q.id ? 'Converting…' : 'Convert to Booking'}
-                            </button>
+                          {rejectingId === q.id ? (
+                            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                value={rejectionDraft}
+                                onChange={(e) => setRejectionDraft(e.target.value)}
+                                placeholder="Reason (optional)"
+                                style={{
+                                  background: '#0b1220',
+                                  border: '1px solid #1e293b',
+                                  borderRadius: 6,
+                                  padding: '5px 8px',
+                                  fontSize: 11.5,
+                                  color: '#e2e8f0',
+                                  width: 140,
+                                }}
+                              />
+                              <button
+                                type="button"
+                                disabled={statusBusyId === q.id}
+                                onClick={() => void handleStatusUpdate(q, 'rejected', rejectionDraft.trim() || undefined)}
+                                style={{ ...actionButtonStyle, color: '#fb7185', borderColor: 'rgba(244,63,94,0.3)' }}
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setRejectingId(null)
+                                  setRejectionDraft('')
+                                }}
+                                style={actionButtonStyle}
+                              >
+                                Cancel
+                              </button>
+                            </div>
                           ) : (
-                            <span style={{ fontSize: 11.5, color: '#4ade80', fontWeight: 600 }}>
-                              ● Converted{q.converted_shipment ? ` — ${q.converted_shipment.ref}` : ''}
-                            </span>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 5, alignItems: 'flex-start' }}>
+                              <span
+                                style={{
+                                  fontSize: 10.5,
+                                  fontWeight: 700,
+                                  color: QUOTE_STATUS_META[q.status].color,
+                                  background: QUOTE_STATUS_META[q.status].bg,
+                                  padding: '2px 8px',
+                                  borderRadius: 20,
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.04em',
+                                }}
+                              >
+                                {QUOTE_STATUS_META[q.status].label}
+                                {q.status === 'converted' && q.converted_shipment ? ` — ${q.converted_shipment.ref}` : ''}
+                              </span>
+                              {q.status === 'rejected' && q.rejection_reason && (
+                                <span style={{ fontSize: 10.5, color: '#64748b' }}>“{q.rejection_reason}”</span>
+                              )}
+                              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                                {q.status === 'draft' && (
+                                  <button
+                                    type="button"
+                                    disabled={statusBusyId === q.id}
+                                    onClick={() => void handleStatusUpdate(q, 'sent')}
+                                    style={actionButtonStyle}
+                                  >
+                                    Send
+                                  </button>
+                                )}
+                                {q.status === 'sent' && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      disabled={statusBusyId === q.id}
+                                      onClick={() => void handleStatusUpdate(q, 'accepted')}
+                                      style={{ ...actionButtonStyle, color: '#4ade80', borderColor: 'rgba(34,197,94,0.3)' }}
+                                    >
+                                      Mark Accepted
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={statusBusyId === q.id}
+                                      onClick={() => setRejectingId(q.id)}
+                                      style={{ ...actionButtonStyle, color: '#fb7185', borderColor: 'rgba(244,63,94,0.3)' }}
+                                    >
+                                      Mark Rejected
+                                    </button>
+                                  </>
+                                )}
+                                {(q.status === 'draft' || q.status === 'sent' || q.status === 'accepted') && (
+                                  <button
+                                    type="button"
+                                    disabled={convertingId === q.id}
+                                    onClick={() => void handleConvert(q)}
+                                    style={actionButtonStyle}
+                                  >
+                                    {convertingId === q.id ? 'Converting…' : 'Convert to Booking'}
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           )}
                         </td>
                         <td style={cellStyle}>
@@ -312,10 +469,20 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
                             {expandedQuoteId === q.id ? 'Hide' : 'E-Sign'}
                           </button>
                         </td>
+                        <td style={cellStyle}>
+                          <button
+                            type="button"
+                            disabled={statusBusyId === q.id}
+                            onClick={() => void handleArchiveToggle(q)}
+                            style={actionButtonStyle}
+                          >
+                            {q.archived ? 'Unarchive' : 'Archive'}
+                          </button>
+                        </td>
                       </tr>
                       {expandedQuoteId === q.id && (
                         <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
-                          <td colSpan={6} style={{ padding: '10px 20px 16px' }}>
+                          <td colSpan={7} style={{ padding: '10px 20px 16px' }}>
                             <EsignPanel
                               orgId={orgId}
                               documentType="quote"
@@ -332,7 +499,7 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
                   ))}
                 </tbody>
               </table>
-              {!quotesLoading && quotes.length === 0 && <EmptyState label="No quotes yet." />}
+              {!quotesLoading && visibleQuotes.length === 0 && <EmptyState label="No quotes yet." />}
               {quotesLoading && <EmptyState label="Loading quotes…" />}
             </div>
           )}

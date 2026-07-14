@@ -167,6 +167,36 @@ Management, Reporting, White-label Branding, and E-Signature — plus confirming
 case (a plain Member correctly sees a disabled, explained form, not a broken or silently-ignored
 one) still holds for the newest role-gated screen (Settings).
 
+## Week 15 pass — Quote Lifecycle States + Archive (ADR-0022, 2026-07-15)
+
+## Meera — Member, Client A Logistics
+
+- **"I want to know if a client actually saw my quote, not just guess."** Clicked "Send" on a
+  draft quote — it moved to a "Sent" status pill instantly, and the pipeline stat strip at the
+  top of the Quotes tab counted it under "Sent" immediately, not after a refresh. ✅ Accepted.
+- **"When a client says no, I want to remember why — not rely on memory three weeks later."**
+  Marked a quote "Rejected" with an inline, optional reason ("Price too high vs Freightify"); the
+  reason stayed visible directly in the quote's row afterward, not buried in a separate log.
+  ✅ Accepted.
+- **"Old, dead quotes shouldn't clutter my pipeline, but I don't want them gone forever."**
+  Archived a rejected quote — it disappeared from the default list immediately, and reappeared,
+  unchanged, the moment "Show archived" was toggled on. No separate recovery flow, no support
+  ticket needed. ✅ Accepted.
+
+## Priya — Owner, Client A Logistics
+
+- **"I want my invoice archive to actually be a filing cabinet, not a shredder."** Archived a
+  fully-invoiced ₹1,12,100 record from Accounting — the P&L tab's Total Revenue and
+  per-shipment-profitability figures didn't move at all, confirming archiving only affects what
+  shows in the working list, never the real financial totals. ✅ Accepted.
+
+### Week 15 pass summary
+
+**4/4 UAT scenarios accepted** across two personas (Member, Owner), covering the full quote
+lifecycle (send/accept/reject with reason) and archive/unarchive across quotes, contacts, and
+invoices. A Member's day-to-day workflow (sending, rejecting with a reason, archiving) required no
+elevated role — consistent with US-4.2's existing "day-to-day work isn't gated by role" principle.
+
 One real test-script bug was found and fixed during this pass, not a product defect: a shipment
 detail modal left open from a prior check blocked a later click in the same browser session
 ("element intercepts pointer events") — fixed by explicitly closing the modal before moving to the

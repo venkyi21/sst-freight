@@ -196,6 +196,16 @@ RPC), so `gst_state` needed its own new `update_org_gst_settings()` RPC, mirrori
 `update_org_branding()`'s exact `is_org_admin()`-gated shape but kept separate, since tax config
 and branding are unrelated concerns.
 
+**Week 15 (ADR-0022)**: `quotes.status` becomes a branching state machine (`draft`/`sent`/
+`accepted`/`rejected`/`converted`), enforced by a new `before update` trigger,
+`validate_quote_status_transition()` — the same shape as `invoices_protect_fx_rate` (ADR-0007:
+reject one column's change unless a condition holds), not ADR-0004's revoke-`UPDATE`-and-use-an-
+RPC pattern, since shipments' status is a single linear sequence and quotes' isn't. `contacts`/
+`quotes`/`invoices` all gained a plain `archived boolean` column (archive, not hard delete — a
+compliance-motivated choice for financial records, see ADR-0022) under their existing update
+policies, no RLS shape change. `quotes` is newly attached to `log_audit_event()` (ADR-0010) — it
+was the one of the five now-archivable/lifecycle-bearing tables that trigger didn't already cover.
+
 ## 4. Request patterns
 
 **Pattern A — plain RLS-gated table access** (contacts, tariffs, most of quotes/invoices/costs,

@@ -95,6 +95,12 @@ create table if not exists contacts (
 -- default to inter-state/IGST (the safer assumption) until someone fills this in.
 alter table contacts add column if not exists state text;
 
+-- Week 15 (ADR-0022): archive, not hard delete — a contact referenced by historical quotes/
+-- invoices keeps its FK intact (ADR-0003's nullable-FK-plus-snapshot pattern already tolerates
+-- this), just hidden from default lists/autocomplete. Plain client-updatable, same shape as
+-- invoices.status ("mark paid/unpaid" is already a plain update) — no RPC needed.
+alter table contacts add column if not exists archived boolean not null default false;
+
 create index if not exists contacts_org_id_idx on contacts (org_id);
 
 alter table shipments add column if not exists shipper_contact_id uuid references contacts (id) on delete set null;
@@ -181,7 +187,7 @@ create table if not exists quotes (
   rate numeric not null,
   currency text not null default 'INR',
   total numeric not null,
-  status text not null default 'draft' check (status in ('draft', 'converted')),
+  status text not null default 'draft' check (status in ('draft', 'sent', 'accepted', 'rejected', 'converted')),
   converted_shipment_id uuid references shipments (id) on delete set null,
   created_by uuid references auth.users (id),
   created_at timestamptz not null default now(),
@@ -189,6 +195,66 @@ create table if not exists quotes (
 );
 create index if not exists quotes_org_id_idx on quotes (org_id);
 alter table quotes enable row level security;
+
+-- Week 15 (ADR-0022): the fresh-install check constraint above already allows the wider status
+-- set, but `create table if not exists` is a no-op against a pre-existing dev table — this
+-- drop-then-add pair is what actually widens it there. Same for rejection_reason/archived below.
+alter table quotes drop constraint if exists quotes_status_check;
+alter table quotes add constraint quotes_status_check check (status in ('draft', 'sent', 'accepted', 'rejected', 'converted'));
+
+-- rejection_reason: nullable, optional at the moment a quote is marked 'rejected' — turns a dead
+-- quote into real win/loss signal instead of silence. archived: same plain-update shape as
+-- contacts.archived above.
+alter table quotes add column if not exists rejection_reason text;
+alter table quotes add column if not exists archived boolean not null default false;
+
+-- validate_quote_status_transition (ADR-0022): quotes' new lifecycle is a *branching* state
+-- machine (draft -> sent -> accepted/rejected, plus a direct draft/sent/accepted -> converted
+-- shortcut), unlike shipments' single linear sequence (ADR-0004's advance_shipment_status()
+-- RPC). The closer precedent already in this codebase is invoices_protect_fx_rate below/above —
+-- a `before update` trigger that rejects a specific column change unless a condition holds, not a
+-- new RPC (ADR-0002: no privileged/cross-role logic here, just an ordering rule). `rejected` and
+-- `converted` are terminal, no backward transitions — same "no go-back" stance ADR-0004 already
+-- took for shipments. A no-op whenever `status` itself isn't changing, so archiving or any other
+-- column update on a quote is never blocked by this trigger.
+create or replace function validate_quote_status_transition()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Real double-submit race, found by direct verification (2026-07-15), not just reasoned about:
+  -- two near-simultaneous "Convert" clicks each insert their OWN new shipment, then both race to
+  -- set status='converted' — the SAME target value both times. Postgres's row lock serializes the
+  -- two updates, but once the first commits, the second sees old.status already = 'converted' =
+  -- new.status, so the status no-op branch below (needed to let non-status-touching updates like
+  -- archiving through) would silently allow it too, defeating the whole point. Guarding
+  -- converted_shipment_id's immutability once set is what actually closes this: the first commit
+  -- locks in which shipment a quote converted to, and the second racing update is rejected for
+  -- trying to change it, regardless of what it does with status.
+  if old.converted_shipment_id is not null and new.converted_shipment_id is distinct from old.converted_shipment_id then
+    raise exception 'A quote''s converted_shipment_id cannot change once set (quote %)', old.id;
+  end if;
+
+  if new.status = old.status then
+    return new;
+  end if;
+  if (old.status, new.status) not in (
+    ('draft', 'sent'), ('draft', 'converted'),
+    ('sent', 'accepted'), ('sent', 'rejected'), ('sent', 'converted'),
+    ('accepted', 'converted')
+  ) then
+    raise exception 'Invalid quote status transition: % -> %', old.status, new.status;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists quotes_validate_status_transition on quotes;
+create trigger quotes_validate_status_transition
+  before update on quotes
+  for each row execute function validate_quote_status_transition();
 
 -- quote_line_items (Week 14, ADR-0021): itemized breakdown (freight/THC/documentation, etc.) as
 -- separate rows. Additive alongside quotes.rate/quantity/total, not a replacement — a quote with
@@ -236,6 +302,9 @@ create table if not exists invoices (
 );
 create index if not exists invoices_org_id_idx on invoices (org_id);
 alter table invoices enable row level security;
+
+-- Week 15 (ADR-0022): archive, same plain-update shape as contacts.archived above.
+alter table invoices add column if not exists archived boolean not null default false;
 
 -- invoice_line_items (Week 14, ADR-0021): same additive shape as quote_line_items, plus the GST
 -- breakup. taxable_value/cgst_amount/sgst_amount/igst_amount/line_total are all stored, not
@@ -1203,6 +1272,12 @@ create trigger memberships_audit after insert or update or delete on memberships
   for each row execute function log_audit_event();
 drop trigger if exists invoices_audit on invoices;
 create trigger invoices_audit after insert or update or delete on invoices
+  for each row execute function log_audit_event();
+-- Week 15 (ADR-0022): quotes wasn't audited before now — with a real branching lifecycle
+-- (validate_quote_status_transition above) worth having a history for, it joins the other
+-- five tables here.
+drop trigger if exists quotes_audit on quotes;
+create trigger quotes_audit after insert or update or delete on quotes
   for each row execute function log_audit_event();
 drop trigger if exists shipment_costs_audit on shipment_costs;
 create trigger shipment_costs_audit after insert or update or delete on shipment_costs
