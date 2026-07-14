@@ -172,13 +172,18 @@ export default function OrgPicker() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      overflow: 'hidden',
                       fontWeight: 700,
                       fontSize: 13,
                       color: '#fff',
-                      background: org.color,
+                      background: org.logo_url ? '#0b1220' : org.color,
                     }}
                   >
-                    {initialOf(org.name)}
+                    {org.logo_url ? (
+                      <img src={org.logo_url} alt={`${org.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      initialOf(org.name)
+                    )}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div

@@ -144,6 +144,14 @@ all — every KPI/chart/profitability number is computed client-side from tables
 `shipment_documents`), the same "plain RLS-gated read, aggregate in the client" shape
 `AccountingPage.tsx`'s P&L view already used since Week 6.
 
+**White-label branding (ADR-0019)**: `organizations` gained `logo_url`, editable only via the new
+`update_org_branding()` RPC (`is_org_admin()`-gated — an org's own Owner/Admin, not a platform
+admin). The logo file itself lives in **`org-logos`, the first *public* Storage bucket** in this
+app — a deliberate contrast with Week 11's private `shipment-documents` bucket: a company logo
+isn't sensitive the way a shipment's customs documents are, so `getPublicUrl()` is the right,
+simpler fit, with a fixed `{org_id}/logo` path (upsert on replace) rather than Week 11's
+uuid-per-upload immutable-log convention.
+
 **Week 8 (ADR-0012/ADR-0013)**: `organizations` gained `billing_model`, `monthly_fee_inr`, and
 `enabled_modules` — the platform-monetization config described in §5. `platform_revenue_ledger`
 is the simulated FinTech Slice rake ledger — no real funds move through it (ADR-0013); its

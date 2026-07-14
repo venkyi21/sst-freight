@@ -201,6 +201,21 @@ is a near-term coding task, and none of it should be attempted without that infr
   exception, rather than redesigning colors used consistently since Week 1. A future full
   design-system pass could revisit this from scratch.
 
+## White-label branding (ADR-0019)
+
+- **No logo removal flow** — only replace (`upsert`). An org can overwrite its logo but can't
+  clear it back to the letter-avatar fallback without contacting support to null the column
+  directly (no client-facing "remove logo" button).
+- **No image validation or resizing.** The Storage bucket's 2MB cap is the only real limit; a
+  non-image file, an extremely wide/tall image, or a broken upload isn't rejected or normalized
+  client-side beyond the browser's `accept="image/*"` file-picker hint (not a real validation).
+- **No live contrast/accessibility check** on the chosen brand color against this app's own dark
+  UI — a user could pick a color that's illegible against `#0f172a`/`#0b1220` surfaces; nothing
+  warns them.
+- **Per-org custom domain is explicitly out of scope** (ADR-0019) — this app is a single static
+  GitHub Pages site with no per-tenant routing layer; a real custom domain per org is a hosting/
+  DNS/TLS decision needing its own scoping conversation, not a code change.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because

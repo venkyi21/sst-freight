@@ -62,13 +62,18 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg, isPlatf
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
+              overflow: 'hidden',
               fontWeight: 700,
               fontSize: 15,
               color: '#fff',
-              background: org.color,
+              background: org.logo_url ? '#0b1220' : org.color,
             }}
           >
-            {org.name.trim().charAt(0).toUpperCase() || '?'}
+            {org.logo_url ? (
+              <img src={org.logo_url} alt={`${org.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              org.name.trim().charAt(0).toUpperCase() || '?'
+            )}
           </div>
           <div style={{ minWidth: 0 }}>
             <div
@@ -117,6 +122,10 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg, isPlatf
           <button type="button" onClick={() => onNavigate('reporting')} style={navButtonStyle(navPage === 'reporting')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Reporting
+          </button>
+          <button type="button" onClick={() => onNavigate('settings')} style={navButtonStyle(navPage === 'settings')}>
+            <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+            Settings
           </button>
           <button type="button" onClick={() => onNavigate('auditlog')} style={navButtonStyle(navPage === 'auditlog')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />

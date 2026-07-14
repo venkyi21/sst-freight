@@ -10,6 +10,7 @@ export interface Organization {
   name: string
   slug: string
   color: string
+  logo_url: string | null
   invite_code: string
   billing_model: BillingModel
   monthly_fee_inr: number
@@ -103,7 +104,7 @@ export interface Shipment {
   created_at: string
 }
 
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'auditlog' | 'platformadmin'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'settings' | 'auditlog' | 'platformadmin'
 
 export const PLATFORM_MODULE_META: Record<PlatformModule, { label: string }> = {
   directory: { label: 'Directory' },

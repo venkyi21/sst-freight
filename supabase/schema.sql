@@ -29,6 +29,10 @@ alter table organizations add column if not exists billing_model text not null d
 alter table organizations add column if not exists monthly_fee_inr numeric not null default 0;
 alter table organizations add column if not exists enabled_modules text[] not null default array['directory', 'quotes', 'accounting'];
 
+-- White-label branding: logo_url points into the org-logos Storage bucket (public — see below).
+-- Nullable — no logo means the existing letter-avatar-on-color fallback renders instead.
+alter table organizations add column if not exists logo_url text;
+
 create table if not exists memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -311,6 +315,17 @@ alter table shipment_documents enable row level security;
 -- different security model, just applied to storage.objects instead of an app table.
 insert into storage.buckets (id, name, public, file_size_limit)
 values ('shipment-documents', 'shipment-documents', false, 10485760)
+on conflict (id) do nothing;
+
+-- org-logos Storage bucket (white-label branding): the first *public* bucket in this app —
+-- contrast with shipment-documents above (private, signed URLs). A company logo isn't sensitive
+-- the way a shipment's customs documents are, so public + getPublicUrl() is the simpler right fit
+-- (no signed-URL expiry/re-fetch complexity for an <img> tag rendered on every page load). Path
+-- is `{org_id}/logo` — fixed, not uuid-per-upload, because a logo is current mutable state ("what
+-- is this org's logo right now"), not an immutable log entry like shipment_documents; uploading a
+-- new one overwrites the old one (`upsert: true`), there is no "logo history" concept. 2MB cap.
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('org-logos', 'org-logos', true, 2097152)
 on conflict (id) do nothing;
 
 -- dashboard_preferences (Week 12, ADR-0018): "configurable dashboards per user" is literally
@@ -620,6 +635,28 @@ create policy "members can upload org shipment document files"
   to authenticated
   with check (bucket_id = 'shipment-documents' and is_org_member((storage.foldername(name))[1]::uuid));
 
+-- org-logos: public bucket, so read is open to everyone (no role restriction) — the logo needs
+-- to render for every member, and it's not sensitive data. Writes are tighter than
+-- shipment-documents' any-member-insert: only that org's own Owner/Admin (is_org_admin) can
+-- replace a logo, and both insert and update are needed since re-uploading overwrites the same
+-- fixed `{org_id}/logo` path (upsert), unlike shipment-documents' uuid-per-upload convention.
+drop policy if exists "anyone can view org logos" on storage.objects;
+create policy "anyone can view org logos"
+  on storage.objects for select
+  using (bucket_id = 'org-logos');
+
+drop policy if exists "org admins can upload their org logo" on storage.objects;
+create policy "org admins can upload their org logo"
+  on storage.objects for insert
+  to authenticated
+  with check (bucket_id = 'org-logos' and is_org_admin((storage.foldername(name))[1]::uuid));
+
+drop policy if exists "org admins can replace their org logo" on storage.objects;
+create policy "org admins can replace their org logo"
+  on storage.objects for update
+  to authenticated
+  using (bucket_id = 'org-logos' and is_org_admin((storage.foldername(name))[1]::uuid));
+
 -- dashboard_preferences: the first policy in this schema that checks auth.uid() = user_id in
 -- addition to org membership — a plain "is_org_member" policy would let any teammate read/edit
 -- another member's personal dashboard layout, which is not the intent of "per user".
@@ -669,6 +706,35 @@ begin
 
   insert into memberships (user_id, org_id, role)
   values (auth.uid(), v_org.id, 'owner');
+
+  return v_org;
+end;
+$$;
+
+-- update_org_branding: white-label logo/color. No plain grant exists on `organizations` at all
+-- (every prior update path — set_org_billing_model/set_org_config — is platform-admin only) so
+-- self-service editing of an org's own identity fields needed its own RPC, gated to that org's
+-- own Owner/Admin (is_org_admin), not a platform admin.
+create or replace function update_org_branding(p_org_id uuid, p_color text, p_logo_url text default null)
+returns organizations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org organizations;
+begin
+  if not is_org_admin(p_org_id) then
+    raise exception 'Not authorized to update this organization''s branding';
+  end if;
+  if p_color !~ '^#[0-9a-fA-F]{6}$' then
+    raise exception 'Color must be a 6-digit hex value, e.g. #2563eb';
+  end if;
+
+  update organizations set color = p_color, logo_url = p_logo_url where id = p_org_id returning * into v_org;
+  if v_org.id is null then
+    raise exception 'Organization not found';
+  end if;
 
   return v_org;
 end;
@@ -1268,6 +1334,7 @@ end;
 $$;
 
 grant execute on function create_organization(text, text) to authenticated;
+grant execute on function update_org_branding(uuid, text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
 grant execute on function is_org_admin(uuid) to authenticated;

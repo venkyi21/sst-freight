@@ -295,6 +295,26 @@ built.
   - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — widget drag-and-drop reordering;
     a true multi-series/interactive charting layer beyond styled bar `<div>`s.
 
+### FR-15: White-Label Branding
+
+- **US-15.1** — As an Owner/Admin, I can upload a logo and choose a brand color for my
+  organization, shown in the sidebar and org switcher instead of the default letter avatar.
+  - AC: Verified end-to-end in a real browser — uploading a real image and saving renders that
+    image in both `Sidebar.tsx` and `OrgPicker.tsx` immediately (via `refreshOrganizations()`), not
+    just after a manual reload.
+  - AC: A plain Member sees the current logo/color but the edit controls are disabled with an
+    explanatory message, not a broken or silently-ignored form.
+- **US-15.2** — As a Member of a different organization, I cannot change another organization's
+  branding, but I *can* view its logo if I have the URL (it's a public asset, not tenant-private
+  data).
+  - AC: Verified directly (not just UI-hidden) — a plain Member (not Owner/Admin) calling
+    `update_org_branding` directly is rejected server-side; a user from Org B cannot upload into
+    Org A's `org-logos` Storage path, but reading Org A's logo URL from Org B's session succeeds
+    (proving the bucket's intentional public-read design, not an RLS gap).
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — no logo removal (replace only),
+    no image validation/resizing, no color-contrast check; per-org custom domain is out of scope
+    entirely (ADR-0019).
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted
