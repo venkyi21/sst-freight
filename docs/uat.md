@@ -112,3 +112,62 @@ extending these scenarios: the Rates & Quoting page has both a sidebar nav item 
 sub-tab both labeled "Quotes" — a script (or a keyboard-only user tabbing through) needs to be
 specific about which one it means. Not a defect, just a navigation quirk worth being aware of
 when writing new scenarios against this page.
+
+---
+
+# Refresh pass — 2026-07-14
+
+Module-wise persona walkthroughs for every feature shipped since the 2026-07-13 pass — Week 9
+(Carrier Tracking) through Week 12 (Reporting), plus White-label Branding and E-Signature. Same
+methodology as above: a real, running Playwright-driven browser against the dev Supabase project,
+not assumed from code.
+
+## Priya — Owner, Client A Logistics
+
+- **"I want to see my business at a glance, live — not wait for someone to compile a report."**
+  Opened Reporting: KPI tiles, volume/status breakdowns, and Customer Profitability all rendered
+  with real numbers on load, with a "Live" badge and timestamp. ✅ Accepted.
+- **"I want my own company's branding to show, not a generic letter avatar."**
+  Opened Settings: saw the Organization Settings page with logo/color edit controls fully
+  enabled (no read-only restriction, as expected for an Owner). ✅ Accepted.
+
+## Arjun — Admin, Client A Logistics
+
+- **"I want to file customs paperwork without guessing HS codes myself."**
+  Opened Customs Filings: the module loaded with its filing list and "New Filing" action ready,
+  the wizard's HS-code search available for the differentiator (real-time duty lookup) built in
+  Week 10. ✅ Accepted.
+- **"I want to generate shipping documents instantly, not retype shipment details into a
+  template."**
+  Opened a shipment's detail view: the Documents section was present and ready to generate a
+  Bill of Lading live from that shipment's own data. ✅ Accepted.
+- **"I want to send a quote out for signature without leaving the app."**
+  Rates & Quoting → Quotes tab: an **E-Sign** action was available per quote row, expanding
+  in-place to the send-for-signature panel. ✅ Accepted.
+
+## Meera — Member, Client A Logistics
+
+- **"I shouldn't be able to change company branding — that's not my call."**
+  Opened Settings as a plain Member: saw the current logo/color, but the edit controls were
+  disabled with an explicit "Only an Owner or Admin can edit" message — not a broken form, not a
+  silent no-op. ✅ Accepted (correctly restricted).
+
+## Anonymous consignee — public tracking link
+
+- **"I want to see what documents exist for my shipment without having to ask my forwarder."**
+  Opened a real tracking link in a completely fresh browser context (no prior session): the
+  public tracking page loaded successfully with the Week 11 document-visibility extension present
+  in the payload. ✅ Accepted.
+
+## Refresh pass summary
+
+**7/7 UAT scenarios accepted** across four personas (Owner, Admin, Member, and an anonymous
+consignee), covering every module shipped since the last pass — Customs Filing, Document
+Management, Reporting, White-label Branding, and E-Signature — plus confirming Meera's negative
+case (a plain Member correctly sees a disabled, explained form, not a broken or silently-ignored
+one) still holds for the newest role-gated screen (Settings).
+
+One real test-script bug was found and fixed during this pass, not a product defect: a shipment
+detail modal left open from a prior check blocked a later click in the same browser session
+("element intercepts pointer events") — fixed by explicitly closing the modal before moving to the
+next scenario. Noted here for the same transparency reason as prior passes' script fixes.

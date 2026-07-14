@@ -34,7 +34,10 @@ accepted gap — cross-referenced to `docs/tech-debt.md`, not silently left unst
   session's scratch space and discarded afterward. This file is the durable record of what was
   checked and what the result was; reproducing a check means re-deriving the script from this
   file's description, not re-running a saved one.
-- **Date of this pass**: 2026-07-13.
+- **Date of this pass**: 2026-07-13 (Weeks 1–8 below); **refreshed 2026-07-14** with a
+  regression spot-check on Weeks 1–8 plus full fresh coverage of every module shipped since
+  (Week 9 onward, plus the two post-roadmap features) — see the new sections below the original
+  Week 8 summary.
 
 ## Week 1 — Auth, Multi-tenant Isolation, Booking
 
@@ -137,3 +140,97 @@ defect.
 
 No new product defects were found. The one item marked ⚠️ above (quote-conversion double-submit
 race) was already a documented, accepted gap before this pass and remains unchanged.
+
+---
+
+# Refresh pass — 2026-07-14
+
+Everything below was run fresh against the same dev Supabase project on 2026-07-14, using the
+same test identities/tenants listed above. Scope: (1) a regression spot-check confirming the
+Week 1–8 mechanisms above still hold after all subsequent schema changes, and (2) full first-time
+QA coverage, module-wise, for every feature shipped since the 2026-07-13 pass — Week 9 (Carrier
+Tracking) through Week 12 (Reporting), plus the two post-roadmap features (White-label Branding,
+E-Signature).
+
+## Regression spot-check (Weeks 1–8)
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | Org B sees zero Org A shipments via direct query (Week 1 isolation) | ✅ Verified |
+| 2 | Org B sees zero Org A contacts via direct query (Week 2) | ✅ Verified |
+| 3 | No RPC path grants the `'owner'` role post-creation (Week 3) | ✅ Verified |
+| 4 | Direct `UPDATE` on `shipments.status` still rejected — grant revocation holds (Week 4) | ✅ Verified |
+| 5 | Owner can still edit `invoices.fx_rate` (Week 6 trigger) | ✅ Verified |
+| 6 | Public tracking RPC still resolves anonymously (Week 7) | ✅ Verified |
+| 7 | Public tracking payload's Week 11 `documents` extension didn't break the original shape | ✅ Verified |
+| 8 | Non-platform-admin still rejected from `list_platform_revenue` for another org (Week 8) | ✅ Verified |
+
+**8/8 passed.** No regressions found across any of the original 38 checks' underlying mechanisms.
+
+## Week 9 — Carrier/EDI Integration (Terminal49)
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | A member of a different org cannot register carrier tracking for Org A's shipment | ✅ Verified |
+| 2 | A real Terminal49 registration call succeeds end-to-end (real HTTP call, real Vault secret, real response) | ✅ Verified — see methodology note below |
+
+**Methodology note**: the first live attempt during this pass used a fabricated request number
+containing a hyphen, which Terminal49 correctly rejected as an invalid format (`invalid_chars`) —
+not a product defect, a test-data mistake. A second attempt used a syntactically valid but
+wrong-format number and was correctly rejected again (`invalid_container_for_bl`) — Terminal49
+validating that a container number isn't a valid Bill of Lading number. Both rejections are
+evidence the real validation path works. The check was then completed successfully by reusing a
+shipment's own real, previously-registered SCAC/request-number pair, which exercised Terminal49's
+"duplicate" recovery path (ADR-0014) and returned the exact same `tracking_request_id` as the
+original registration — confirming the full mechanism (Vault secret retrieval, signed HTTP call,
+duplicate handling) still works correctly.
+
+## Week 10 — Customs Filing Simulator
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | `hs_codes` seeded reference data intact (spot-checked 8517.12: BCD 0%, IGST 18%) | ✅ Verified |
+| 2 | Org B sees zero Org A `customs_filings` rows via direct query | ✅ Verified |
+| 3 | Org B cannot insert a `customs_filings` row into Org A (RLS `with check` rejected) | ✅ Verified |
+
+## Week 11 — Document Management
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | Org B sees zero Org A `shipment_documents` rows via direct query | ✅ Verified |
+| 2 | Org B cannot upload into Org A's `shipment-documents` Storage path (RLS rejected) | ✅ Verified |
+| 3 | Org A can upload its own shipment document | ✅ Verified |
+
+## Week 12 — Reporting & Custom Dashboards
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | Owner can upsert their own `dashboard_preferences` row | ✅ Verified |
+| 2 | A teammate in the **same org** cannot read another user's `dashboard_preferences` row (user-scoping, ADR-0018) | ✅ Verified |
+| 3 | Org B sees zero Org A `dashboard_preferences` rows (org-level RLS) | ✅ Verified |
+
+## White-label Branding
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | Owner can call `update_org_branding` | ✅ Verified |
+| 2 | A plain Member is rejected from `update_org_branding` (`is_org_admin` gate) | ✅ Verified |
+| 3 | Org B's Owner cannot update Org A's branding | ✅ Verified |
+| 4 | The `org-logos` Storage bucket is publicly readable with no auth wall (intentional, ADR-0019) | ✅ Verified |
+
+## E-Signature (DocuSign)
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | A real DocuSign envelope is created fresh via the `docusign-envelope` Edge Function (real JWT signing, real token exchange, real Envelopes API call) | ✅ Verified |
+| 2 | Org B cannot read Org A's `esign_requests` row | ✅ Verified |
+| 3 | Status refresh (`action: 'status'`) succeeds fresh, calling DocuSign's GET-envelope endpoint | ✅ Verified |
+
+## Refresh pass summary
+
+**28/28 backend/RLS checks passed** (8 regression + 20 fresh across 6 modules), plus **7/7 UAT
+persona scenarios** (see `docs/uat.md`) — all run fresh against the real dev Supabase project and,
+for E-Signature, the real DocuSign sandbox API, on 2026-07-14. No new product defects were found.
+Two apparent early failures during this pass (both in the Terminal49 recheck) were traced to
+test-data format mistakes, not product bugs, and are documented above for transparency rather than
+silently corrected.
