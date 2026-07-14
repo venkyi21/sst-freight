@@ -1,0 +1,808 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SST Freight — Competitor Clarity Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #fbfaf6;
+    --paper-raised: #f3f1e9;
+    --paper-sunken: #eeebe0;
+    --ink: #0f0f0f;
+    --ink-soft: #5f5a50;
+    --ink-faint: #7a7267;
+    --ink-faintest: #b5b0a3;
+    --ink-secondary: #2a2a2a;
+    --rule: #d6d2c4;
+    --accent: #c8371d;
+    --accent-wash: rgba(200, 55, 29, 0.06);
+    --accent-line: rgba(200, 55, 29, 0.25);
+    --risk: #a83a20;
+    --warn: #c87a1d;
+    --font-display: 'Source Serif 4', Georgia, serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #17140f; --paper-raised: #211d16; --paper-sunken: #2a2419;
+      --ink: #f2ede2; --ink-soft: #c9c0ae; --ink-faint: #96897a; --ink-faintest: #5c5346;
+      --ink-secondary: #cfc7b8; --rule: #3a3226;
+      --accent: #e8593a; --accent-wash: rgba(232, 89, 58, 0.09); --accent-line: rgba(232, 89, 58, 0.3);
+      --risk: #ff7a52; --warn: #e0a458;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #17140f; --paper-raised: #211d16; --paper-sunken: #2a2419;
+    --ink: #f2ede2; --ink-soft: #c9c0ae; --ink-faint: #96897a; --ink-faintest: #5c5346;
+    --ink-secondary: #cfc7b8; --rule: #3a3226;
+    --accent: #e8593a; --accent-wash: rgba(232, 89, 58, 0.09); --accent-line: rgba(232, 89, 58, 0.3);
+    --risk: #ff7a52; --warn: #e0a458;
+  }
+  :root[data-theme="light"] {
+    --paper: #fbfaf6; --paper-raised: #f3f1e9; --paper-sunken: #eeebe0;
+    --ink: #0f0f0f; --ink-soft: #5f5a50; --ink-faint: #7a7267; --ink-faintest: #b5b0a3;
+    --ink-secondary: #2a2a2a; --rule: #d6d2c4;
+    --accent: #c8371d; --accent-wash: rgba(200, 55, 29, 0.06); --accent-line: rgba(200, 55, 29, 0.25);
+    --risk: #a83a20; --warn: #c87a1d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    background-image: radial-gradient(1200px 600px at 15% -10%, var(--accent-wash), transparent),
+      radial-gradient(900px 500px at 90% 10%, rgba(120, 120, 120, 0.05), transparent);
+    background-attachment: fixed;
+  }
+  em { font-style: italic; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 48px) 96px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .eyebrow.risk { color: var(--risk); }
+
+  /* ── top bar ─────────────────────────────────────────── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 28px 0 20px; border-bottom: 1px solid var(--rule); margin-bottom: 40px;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand .mark {
+    width: 34px; height: 34px; background: var(--accent); color: var(--paper); display: flex;
+    align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700;
+    font-size: 13px; letter-spacing: -0.02em; flex: none;
+  }
+  .brand .kicker { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.14em; text-transform: uppercase; }
+  .brand .title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+  .lens-tabs { display: flex; gap: 6px; padding: 6px; background: var(--paper-sunken); border: 1px solid var(--rule); }
+  .lens-tabs button {
+    all: unset; padding: 8px 16px; font-family: var(--font-mono); font-size: 11.5px; letter-spacing: 0.05em;
+    text-transform: uppercase; cursor: pointer; color: var(--ink-soft); white-space: nowrap;
+  }
+  .lens-tabs button.active { background: var(--accent); color: var(--paper); font-weight: 600; }
+
+  /* ── hero ────────────────────────────────────────────── */
+  .hero { display: grid; grid-template-columns: 1.4fr 1fr; gap: 40px; margin-bottom: 64px; align-items: start; }
+  @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } }
+  .hero h1 {
+    font-family: var(--font-display); font-size: clamp(32px, 4.6vw, 68px); line-height: 1.05;
+    font-weight: 400; margin: 0 0 22px; letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .hero h1 em { color: var(--accent); }
+  .hero .dek { font-size: 17px; line-height: 1.55; color: var(--ink-soft); max-width: 56ch; margin: 0; }
+  .glance { border: 1px solid var(--rule); background: var(--paper-raised); padding: 26px; }
+  .glance-label { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 16px; }
+  .glance-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .glance-num { font-family: var(--font-display); font-size: 40px; line-height: 1; }
+  .glance-cap { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+
+  /* ── chapters ────────────────────────────────────────── */
+  section.chapter { padding-top: 56px; margin-top: 56px; border-top: 1px solid var(--rule); scroll-margin-top: 20px; }
+  section.chapter:first-of-type { border-top: none; margin-top: 0; padding-top: 0; }
+  .chapter-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap; margin-bottom: 26px; }
+  .chapter-head h2 { font-family: var(--font-display); font-size: clamp(26px, 3.2vw, 38px); line-height: 1.05; margin: 0; font-weight: 400; text-wrap: balance; }
+  .chapter-head h2 em { color: var(--accent); }
+  .chapter-note { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+
+  /* ── tier tabs ───────────────────────────────────────── */
+  .tier-tabs { display: flex; gap: 6px; font-family: var(--font-mono); font-size: 11px; }
+  .tier-tabs button {
+    all: unset; padding: 7px 13px; border: 1px solid var(--rule); color: var(--ink-faint); cursor: pointer;
+    letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap;
+  }
+  .tier-tabs button.active { border-color: var(--accent); color: var(--accent); }
+
+  /* ── competitor cards ────────────────────────────────── */
+  .competitor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+  @media (max-width: 1000px) { .competitor-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .competitor-grid { grid-template-columns: 1fr; } }
+  .card {
+    border: 1px solid var(--rule); background: var(--paper-raised); padding: 20px; position: relative;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .card:hover { border-color: var(--accent); background: var(--paper-sunken); }
+  .card .tier-chip {
+    position: absolute; top: 0; right: 0; padding: 4px 10px; font-family: var(--font-mono); font-size: 9px;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  .card[data-tier="INTL"] .tier-chip { background: rgba(120, 120, 120, 0.14); color: var(--ink-secondary); }
+  .card[data-tier="LOCAL"] .tier-chip { background: var(--accent-wash); color: var(--accent); }
+  .card .hq { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.08em; margin: 18px 0 8px; }
+  .card .name { font-size: 19px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px; }
+  .card .blurb { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; min-height: 54px; }
+  .card .strength { font-family: var(--font-mono); font-size: 9px; color: var(--ink-secondary); margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--rule); }
+  .card .weakness { font-family: var(--font-mono); font-size: 9px; color: var(--risk); margin-top: 4px; }
+  body[data-tier="intl"] .card[data-tier="LOCAL"] { display: none; }
+  body[data-tier="local"] .card[data-tier="INTL"] { display: none; }
+
+  /* ── scorecard ───────────────────────────────────────── */
+  .matrix-scroll { overflow-x: auto; border: 1px solid var(--rule); }
+  .matrix { min-width: 900px; }
+  .matrix-row { display: grid; grid-template-columns: 190px repeat(8, 1fr); border-bottom: 1px solid var(--rule); }
+  .matrix-row:last-child { border-bottom: none; }
+  .matrix-row.head { background: var(--paper-sunken); }
+  .matrix-row.head > div { padding: 13px 8px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.05em; text-transform: uppercase; text-align: center; line-height: 1.25; }
+  .matrix-row.head > div:first-child { text-align: left; padding-left: 16px; }
+  .matrix-row.us { background: var(--accent-wash); }
+  .player-cell { padding: 15px 16px; display: flex; align-items: center; gap: 8px; }
+  .player-cell .dot { width: 6px; height: 6px; flex: none; background: var(--row-color, var(--ink)); }
+  .player-cell .name { font-size: 13.5px; }
+  .matrix-row.us .player-cell .name { font-weight: 700; color: var(--accent); }
+  .matrix-row.intl .player-cell .name { font-weight: 500; }
+  .matrix-row.local .player-cell .name { font-weight: 500; }
+  .score-cell { padding: 15px 8px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .score-cell .track { width: 100%; height: 6px; background: var(--rule); position: relative; }
+  .score-cell .fill { position: absolute; inset: 0 auto 0 0; background: var(--ink-faintest); }
+  .score-cell .val { font-family: var(--font-mono); font-size: 10px; min-width: 12px; color: var(--ink-faintest); }
+  .score-cell[data-level="hi"] .fill, .score-cell[data-level="hi"] .val { background: var(--row-color, var(--ink)); color: var(--row-color, var(--ink)); }
+  .score-cell[data-level="mid"] .fill { background: var(--ink-soft); }
+  .score-cell[data-level="mid"] .val { color: var(--ink-soft); }
+  .matrix-legend { display: flex; gap: 22px; margin-top: 14px; font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); }
+  .matrix-legend .sw { display: inline-block; width: 8px; height: 8px; margin-right: 6px; }
+
+  /* ── wins / gaps ─────────────────────────────────────── */
+  .wins-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .wins-grid { grid-template-columns: 1fr; } }
+  .win-card { border: 1px solid var(--rule); background: linear-gradient(180deg, var(--accent-wash), transparent); padding: 28px; }
+  .win-card .n { font-family: var(--font-mono); font-size: 42px; color: var(--accent); opacity: 0.4; line-height: 1; }
+  .win-card .title { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-top: 12px; line-height: 1.25; }
+  .win-card .body { font-size: 13.5px; color: var(--ink-soft); line-height: 1.55; margin-top: 12px; }
+  .win-card .beats { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--rule); font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+
+  .gaps-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .gaps-grid { grid-template-columns: 1fr; } }
+  .gap-card { border: 1px solid var(--rule); padding: 22px; display: grid; grid-template-columns: 50px 1fr auto; gap: 18px; align-items: center; }
+  .gap-card .n { font-family: var(--font-display); font-size: 38px; color: var(--risk); line-height: 1; }
+  .gap-card .title { font-size: 16px; font-weight: 600; margin-bottom: 5px; }
+  .gap-card .detail { font-size: 12.5px; color: var(--ink-soft); line-height: 1.5; }
+  .gap-card .sev-label { font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; text-align: right; }
+  .gap-card .sev-val { font-family: var(--font-mono); font-size: 13px; margin-top: 3px; text-align: right; }
+  .gap-card[data-sev="CRITICAL"] .sev-val { color: var(--risk); }
+  .gap-card[data-sev="HIGH"] .sev-val { color: var(--warn); }
+  .gap-card[data-sev="MEDIUM"] .sev-val { color: var(--accent); }
+
+  /* ── pricing ─────────────────────────────────────────── */
+  .pricing-panel { border: 1px solid var(--rule); background: var(--paper-raised); padding: 30px; }
+  .pricing-head, .pricing-row { display: grid; grid-template-columns: 160px 1fr 110px; gap: 16px; align-items: center; }
+  .pricing-head { padding: 10px 0; border-bottom: 1px solid var(--rule); font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; }
+  .pricing-row { padding: 16px 0; border-bottom: 1px solid var(--rule); }
+  .pricing-row:last-of-type { border-bottom: none; }
+  .pricing-row .vendor { font-size: 14.5px; }
+  .pricing-row.us .vendor { font-weight: 700; color: var(--accent); }
+  .pricing-row .track { height: 13px; background: var(--rule); position: relative; }
+  .pricing-row .fill { position: absolute; inset: 0 auto 0 0; background: var(--ink-faint); }
+  .pricing-row.us .fill { background: var(--accent); }
+  .pricing-row.max .fill { background: var(--ink-secondary); }
+  .pricing-row .total { text-align: right; font-family: var(--font-mono); font-size: 14.5px; font-weight: 600; }
+  .pricing-row.us .total { color: var(--accent); }
+  .pricing-read { margin-top: 18px; padding: 15px; background: var(--accent-wash); border-left: 2px solid var(--accent); font-size: 13px; color: var(--ink); }
+  .pricing-read b { color: var(--accent); }
+
+  /* ── quadrant ────────────────────────────────────────── */
+  .quadrant { position: relative; height: 480px; border: 1px solid var(--rule); background: var(--paper-raised); }
+  .quadrant::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; width: 1px; background: var(--rule); }
+  .quadrant::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: var(--rule); }
+  .quad-axis { position: absolute; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.12em; text-transform: uppercase; white-space: nowrap; }
+  .quad-axis.top { top: 14px; left: 50%; transform: translateX(-50%); }
+  .quad-axis.bottom { bottom: 14px; left: 50%; transform: translateX(-50%); }
+  .quad-axis.left { left: 14px; top: 50%; transform: translateY(-50%) rotate(-90deg); transform-origin: left; }
+  .quad-axis.right { right: 14px; top: 50%; transform: translateY(-50%) rotate(90deg); transform-origin: right; }
+  .quad-point { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .quad-point .dot { border-radius: 50%; }
+  .quad-point .label { font-family: var(--font-mono); font-size: 10px; white-space: nowrap; }
+  .quad-callout { position: absolute; right: 20px; top: 28px; text-align: right; max-width: 190px; }
+  .quad-callout .eyebrow { margin-bottom: 6px; }
+  .quad-callout .body { font-size: 13px; color: var(--ink); line-height: 1.5; }
+
+  /* ── lens panel ──────────────────────────────────────── */
+  .thesis-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+  @media (max-width: 800px) { .thesis-pair { grid-template-columns: 1fr; } }
+  .thesis-card { border: 1px solid var(--rule); padding: 30px; }
+  .thesis-card.bet { border-color: var(--accent); background: linear-gradient(180deg, var(--accent-wash), transparent); }
+  .thesis-card .label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 12px; }
+  .thesis-card.bet .label { color: var(--accent); }
+  .thesis-card.risk .label { color: var(--ink-faint); }
+  .thesis-card .title { font-family: var(--font-display); font-size: 28px; line-height: 1.15; }
+  .thesis-card.bet .title { color: var(--accent); }
+  .thesis-card.risk .title { color: var(--risk); }
+  .thesis-card .body { font-size: 14.5px; line-height: 1.6; color: var(--ink-soft); margin-top: 15px; }
+
+  .lens-points { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .lens-points { grid-template-columns: 1fr; } }
+  .lens-point { border: 1px solid var(--rule); background: var(--paper-raised); padding: 22px; }
+  .lens-point .kicker { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 10px; }
+  .lens-point .title { font-size: 17px; font-weight: 600; line-height: 1.3; margin-bottom: 10px; }
+  .lens-point .body { font-size: 12.5px; color: var(--ink-soft); line-height: 1.55; }
+  .lens-point .metric { margin-top: 15px; font-family: var(--font-mono); font-size: 11px; }
+
+  [data-lens-panel] { display: none; }
+  body[data-lens="investor"] [data-lens-panel="investor"],
+  body[data-lens="buyer"] [data-lens-panel="buyer"],
+  body[data-lens="roadmap"] [data-lens-panel="roadmap"] { display: grid; }
+  [data-lens-name] { display: none; }
+  body[data-lens="investor"] [data-lens-name="investor"],
+  body[data-lens="buyer"] [data-lens-name="buyer"],
+  body[data-lens="roadmap"] [data-lens-name="roadmap"] { display: inline; }
+  [data-lens-tagline] { display: none; }
+  body[data-lens="investor"] [data-lens-tagline="investor"],
+  body[data-lens="buyer"] [data-lens-tagline="buyer"],
+  body[data-lens="roadmap"] [data-lens-tagline="roadmap"] { display: inline; }
+
+  /* ── sprint roadmap ──────────────────────────────────── */
+  .sprint-table { border: 1px solid var(--rule); }
+  .sprint-row { display: grid; grid-template-columns: 110px 1fr; border-bottom: 1px solid var(--rule); }
+  .sprint-row:last-child { border-bottom: none; }
+  .sprint-week { padding: 18px 16px; border-right: 1px solid var(--rule); background: var(--paper-sunken); }
+  .sprint-week .lbl { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.1em; }
+  .sprint-week .num { font-family: var(--font-display); font-size: 28px; line-height: 1.1; }
+  .sprint-body { padding: 18px 22px; display: grid; grid-template-columns: 1fr auto auto; gap: 14px; align-items: center; }
+  @media (max-width: 760px) { .sprint-body { grid-template-columns: 1fr; } }
+  .sprint-body .title { font-size: 14.5px; font-weight: 600; margin-bottom: 3px; }
+  .sprint-body .desc { font-size: 12px; color: var(--ink-soft); }
+  .sprint-closes { font-family: var(--font-mono); font-size: 10px; color: var(--ink-secondary); padding: 4px 9px; background: rgba(120, 120, 120, 0.1); border: 1px solid var(--rule); white-space: nowrap; }
+  .sprint-pri { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.1em; white-space: nowrap; }
+
+  /* ── two battlefields ────────────────────────────────── */
+  .battle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .battle-grid { grid-template-columns: 1fr; } }
+  .battle-card { border: 1px solid var(--rule); padding: 30px; }
+  .battle-card .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-secondary); letter-spacing: 0.14em; text-transform: uppercase; margin-bottom: 12px; }
+  .battle-card .title { font-family: var(--font-display); font-size: 26px; line-height: 1.2; margin-bottom: 15px; }
+  .battle-card .body { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; margin-bottom: 18px; }
+  .battle-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-family: var(--font-mono); font-size: 11px; }
+  .battle-stat { padding: 10px; background: var(--paper-raised); border-left: 2px solid var(--accent); }
+  .battle-stat.secondary { border-left-color: var(--ink-secondary); }
+  .battle-stat .k { color: var(--ink-faint); }
+  .battle-stat .v { font-size: 14.5px; margin-top: 2px; }
+
+  /* ── messaging matrix ────────────────────────────────── */
+  .msg-table { border: 1px solid var(--rule); overflow-x: auto; }
+  .msg-row { display: grid; grid-template-columns: 170px 1fr 1fr 1fr; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--rule); min-width: 760px; }
+  .msg-row:last-child { border-bottom: none; }
+  .msg-row.head { background: var(--paper-sunken); font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.1em; text-transform: uppercase; }
+  .msg-row .vs { font-size: 13.5px; font-weight: 600; }
+  .msg-row .lead { font-size: 12.5px; color: var(--accent); }
+  .msg-row .prove { font-size: 12.5px; color: var(--ink); }
+  .msg-row .avoid { font-size: 12.5px; color: var(--risk); opacity: 0.85; }
+
+  /* ── metrics ─────────────────────────────────────────── */
+  .metrics-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  @media (max-width: 860px) { .metrics-grid { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .metrics-grid { grid-template-columns: 1fr; } }
+  .metric-tile { border: 1px solid var(--rule); padding: 22px; }
+  .metric-tile .label { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.14em; text-transform: uppercase; }
+  .metric-tile .num-row { display: flex; align-items: baseline; gap: 8px; margin-top: 8px; }
+  .metric-tile .target { font-family: var(--font-display); font-size: 42px; line-height: 1; }
+  .metric-tile .unit { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .metric-tile .desc { font-size: 12px; color: var(--ink-soft); margin-top: 10px; line-height: 1.5; }
+
+  /* ── decision log ────────────────────────────────────── */
+  .decisions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 760px) { .decisions-grid { grid-template-columns: 1fr; } }
+  .decision-row { border: 1px solid var(--rule); padding: 20px; display: grid; grid-template-columns: 1fr auto; gap: 16px; align-items: center; }
+  .decision-row .q { font-size: 14.5px; font-weight: 600; margin-bottom: 5px; }
+  .decision-row .ctx { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+  .decision-toggle {
+    all: unset; padding: 8px 14px; border: 1px solid var(--ink-faint); color: var(--ink-faint);
+    font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.05em; cursor: pointer; white-space: nowrap;
+  }
+  .decision-row.decided .decision-toggle { border-color: var(--accent); color: var(--accent); }
+
+  /* ── 90-day play ─────────────────────────────────────── */
+  .play-title { font-family: var(--font-display); font-size: clamp(28px, 4vw, 48px); line-height: 1.05; margin-bottom: 28px; text-wrap: balance; }
+  .play-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  @media (max-width: 860px) { .play-grid { grid-template-columns: 1fr; } }
+  .play-card { border: 2px solid var(--accent); padding: 28px; background: linear-gradient(180deg, var(--accent-wash), transparent); }
+  .play-card .when { font-family: var(--font-mono); font-size: 10px; color: var(--accent); letter-spacing: 0.14em; }
+  .play-card .title { font-family: var(--font-display); font-size: 27px; margin: 12px 0 14px; line-height: 1.1; }
+  .play-card .body { font-size: 13.5px; color: var(--ink); line-height: 1.55; }
+
+  /* ── footer ──────────────────────────────────────────── */
+  footer.doc-footer {
+    border-top: 1px solid var(--rule); padding-top: 20px; margin-top: 56px; display: flex; justify-content: space-between;
+    flex-wrap: wrap; gap: 8px; font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); letter-spacing: 0.08em; text-transform: uppercase;
+  }
+</style>
+</head>
+<body data-lens="investor" data-tier="all">
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">SST</div>
+      <div>
+        <div class="kicker">SST Freight · Internal · Competitive strategy</div>
+        <div class="title">Competitor Clarity Dashboard</div>
+      </div>
+    </div>
+    <div class="lens-tabs" role="tablist" aria-label="Reading lens">
+      <button type="button" data-lens-tab="investor" class="active">Investor lens</button>
+      <button type="button" data-lens-tab="buyer">Buyer lens</button>
+      <button type="button" data-lens-tab="roadmap">Roadmap lens</button>
+    </div>
+  </div>
+
+  <!-- § 01 — The Question -->
+  <div class="hero">
+    <div>
+      <div class="eyebrow">§ 01 — The question</div>
+      <h1>Where do we <em>actually</em> win, and where are we still <em>catching up?</em></h1>
+      <p class="dek">
+        A brutally honest scan of 10 competitors — 4 international, 6 local to Chennai &amp; Andhra — mapped
+        against the eight axes that decide freight-forwarding software deals.
+        <span data-lens-tagline="investor">Read as: where does the moat compound, and where is the cash flywheel?</span>
+        <span data-lens-tagline="buyer">Read as: what do I actually get, and why should I trust this over Fresa?</span>
+        <span data-lens-tagline="roadmap">Read as: what to build next week, and what to explicitly not build.</span>
+      </p>
+    </div>
+    <div class="glance">
+      <div class="glance-label">At a glance</div>
+      <div class="glance-grid">
+        <div><div class="glance-num" style="color:var(--accent)">3</div><div class="glance-cap">clear moats we already hold</div></div>
+        <div><div class="glance-num" style="color:var(--risk)">5</div><div class="glance-cap">gaps that will lose deals</div></div>
+        <div><div class="glance-num" style="color:var(--ink-secondary)">10</div><div class="glance-cap">competitors mapped</div></div>
+        <div><div class="glance-num">12wk</div><div class="glance-cap">to feature-parity + moat</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- § 02 — Thesis under this lens -->
+  <section class="chapter" id="thesis">
+    <div class="eyebrow">§ 02 — Thesis under this lens</div>
+    <div class="thesis-pair" data-lens-panel="investor">
+      <div class="thesis-card bet">
+        <div class="label">The bet</div>
+        <div class="title">Buyout economics + India-compliance moat = a category of one.</div>
+        <div class="body">The freight-tech market has SaaS players and legacy players. Nobody has monetized the on-prem/perpetual model for modern architecture in India. That gap is the wedge, and SCMTR compliance is the reason forwarders will pay for it.</div>
+      </div>
+      <div class="thesis-card risk">
+        <div class="label">The counter-risk</div>
+        <div class="title">One-time revenue vs recurring — the multiples question.</div>
+        <div class="body">Investors will ask how buyout revenue compares to SaaS ARR on multiples. Answer: flat AMC (18% of license/yr) + Docker support + integration services stabilize recurring at ~40% of top-line by year 3.</div>
+      </div>
+    </div>
+    <div class="thesis-pair" data-lens-panel="buyer">
+      <div class="thesis-card bet">
+        <div class="label">The bet</div>
+        <div class="title">You buy it once. You own it. It speaks Indian customs.</div>
+        <div class="body">Freightify and Fresa charge you per seat, forever. Eroyal makes you install Windows software. CargoWise costs more than your revenue. SST is a Docker container you own, a modern UI your junior clerks actually enjoy, and a SCMTR simulator that stops bill errors before they cost you penalties.</div>
+      </div>
+      <div class="thesis-card risk">
+        <div class="label">The counter-risk</div>
+        <div class="title">You are betting on a young vendor. Here is how we de-risk that.</div>
+        <div class="body">You get source-code escrow, a 90-day money-back pilot, an on-site engineer for the first month, and a public case-study clause. If we disappear, you still own the Docker image and the database.</div>
+      </div>
+    </div>
+    <div class="thesis-pair" data-lens-panel="roadmap">
+      <div class="thesis-card bet">
+        <div class="label">The bet</div>
+        <div class="title">Ship the moat before the parity. Compliance and buyout first.</div>
+        <div class="body">We will lose bake-offs on feature-count for another 6 months no matter what. So do not chase Fresa on modules. Chase the two things that make forwarders switch: SCMTR simulator (week 9) and Docker/RLS story (weeks 1-3). Everything else is second.</div>
+      </div>
+      <div class="thesis-card risk">
+        <div class="label">The counter-risk</div>
+        <div class="title">What we are explicitly not building this quarter.</div>
+        <div class="body">No air-freight consol tooling, no CRM, no accounting GL beyond what the freight ledger needs, no mobile-first driver app. Every one of these is a rabbit hole that competitors already own. Say no.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- § 03 — The board -->
+  <section class="chapter" id="board">
+    <div class="chapter-head">
+      <div>
+        <div class="eyebrow">§ 03 — The board</div>
+        <h2>Who we are up against</h2>
+      </div>
+      <div class="tier-tabs" role="tablist" aria-label="Filter by tier">
+        <button type="button" data-tier-tab="all" class="active">All</button>
+        <button type="button" data-tier-tab="intl">International</button>
+        <button type="button" data-tier-tab="local">Local (CHN/AP)</button>
+      </div>
+    </div>
+    <div class="competitor-grid">
+      <div class="card" data-tier="INTL"><div class="tier-chip">INTL</div><div class="hq">ISRAEL · GLOBAL</div><div class="name">Logitude</div><div class="blurb">Cloud freight forwarder ops. Broad but generic, no India-native compliance.</div><div class="strength">STRENGTH · Ops breadth</div><div class="weakness">WEAKNESS · No SCMTR</div></div>
+      <div class="card" data-tier="INTL"><div class="tier-chip">INTL</div><div class="hq">USA · GLOBAL</div><div class="name">GoFreight</div><div class="blurb">Modern UI SaaS aimed at US NVOCCs. Weak in Indian regulatory context.</div><div class="strength">STRENGTH · Modern UX</div><div class="weakness">WEAKNESS · US-centric</div></div>
+      <div class="card" data-tier="INTL"><div class="tier-chip">INTL</div><div class="hq">USA · GLOBAL</div><div class="name">Magaya</div><div class="blurb">40-year legacy incumbent. Massive feature bloat, dated feel, expensive.</div><div class="strength">STRENGTH · Feature depth</div><div class="weakness">WEAKNESS · Legacy UX</div></div>
+      <div class="card" data-tier="INTL"><div class="tier-chip">INTL</div><div class="hq">AUS · GLOBAL</div><div class="name">CargoWise</div><div class="blurb">The 800lb gorilla. Enterprise standard but hostile pricing and steep onboarding.</div><div class="strength">STRENGTH · Enterprise trust</div><div class="weakness">WEAKNESS · Hostile pricing</div></div>
+      <div class="card" data-tier="LOCAL"><div class="tier-chip">LOCAL</div><div class="hq">CHENNAI · GLOBAL</div><div class="name">Freightify</div><div class="blurb">Gold-standard rate automation + white-label quoting. Chennai&rsquo;s tech-forward exit.</div><div class="strength">STRENGTH · Rate AI</div><div class="weakness">WEAKNESS · Rate-only scope</div></div>
+      <div class="card" data-tier="LOCAL"><div class="tier-chip">LOCAL</div><div class="hq">CHENNAI</div><div class="name">CargoEZ</div><div class="blurb">AI freight suite, ISF/AMS filing, embedded accounting. Growing quickly.</div><div class="strength">STRENGTH · AI extract</div><div class="weakness">WEAKNESS · Small footprint</div></div>
+      <div class="card" data-tier="LOCAL"><div class="tier-chip">LOCAL</div><div class="hq">CHENNAI/GLOBAL</div><div class="name">Shipthis</div><div class="blurb">Modular forwarder ops with container lifecycle bots. Strong South-India base.</div><div class="strength">STRENGTH · Automation bots</div><div class="weakness">WEAKNESS · Recurring SaaS</div></div>
+      <div class="card" data-tier="LOCAL"><div class="tier-chip">LOCAL</div><div class="hq">CHENNAI</div><div class="name">Fresa Technologies</div><div class="blurb">Localized full-suite, Oracle Apex core. Deep India + Middle East penetration.</div><div class="strength">STRENGTH · India+ME trust</div><div class="weakness">WEAKNESS · Slow UI</div></div>
+      <div class="card" data-tier="LOCAL"><div class="tier-chip">LOCAL</div><div class="hq">CHENNAI</div><div class="name">Eroyal Tech</div><div class="blurb">Veteran SCMTR/ICEGATE compliance specialist. CHA-first product.</div><div class="strength">STRENGTH · Compliance depth</div><div class="weakness">WEAKNESS · Legacy desktop</div></div>
+      <div class="card" data-tier="LOCAL"><div class="tier-chip">LOCAL</div><div class="hq">CHENNAI</div><div class="name">SCM Cube</div><div class="blurb">CHA operating modules, manifest parsing. Narrow but sticky niche.</div><div class="strength">STRENGTH · CHA workflows</div><div class="weakness">WEAKNESS · Narrow scope</div></div>
+    </div>
+  </section>
+
+  <!-- § 04 — The scorecard -->
+  <section class="chapter" id="scorecard">
+    <div class="chapter-head">
+      <div>
+        <div class="eyebrow">§ 04 — The scorecard</div>
+        <h2>Eight-axis feature comparison</h2>
+      </div>
+      <div class="chapter-note">score: 0 (missing) → 5 (best-in-class)</div>
+    </div>
+    <div class="matrix-scroll">
+      <div class="matrix">
+        <div class="matrix-row head">
+          <div>Player</div>
+          <div>Pricing</div><div>Security</div><div>Compliance</div><div>Rate&nbsp;Mgmt</div><div>Tracking</div><div>UI/UX</div><div>Deploy</div><div>Branch&nbsp;scale</div>
+        </div>
+        <!-- rows: color var --row-color set per kind; data-level hi(>=4)/mid(>=3)/low(else) per cell -->
+        <div class="matrix-row us" style="--row-color:#c8371d">
+          <div class="player-cell"><div class="dot"></div><div class="name">SST Freight</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+        </div>
+        <div class="matrix-row intl" style="--row-color:#2a2a2a">
+          <div class="player-cell"><div class="dot"></div><div class="name">CargoWise</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+        </div>
+        <div class="matrix-row intl" style="--row-color:#2a2a2a">
+          <div class="player-cell"><div class="dot"></div><div class="name">Magaya</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+        </div>
+        <div class="matrix-row intl" style="--row-color:#2a2a2a">
+          <div class="player-cell"><div class="dot"></div><div class="name">GoFreight</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+        </div>
+        <div class="matrix-row intl" style="--row-color:#2a2a2a">
+          <div class="player-cell"><div class="dot"></div><div class="name">Logitude</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+        </div>
+        <div class="matrix-row local" style="--row-color:#0f0f0f">
+          <div class="player-cell"><div class="dot"></div><div class="name">Freightify</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+        </div>
+        <div class="matrix-row local" style="--row-color:#0f0f0f">
+          <div class="player-cell"><div class="dot"></div><div class="name">Fresa</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+        </div>
+        <div class="matrix-row local" style="--row-color:#0f0f0f">
+          <div class="player-cell"><div class="dot"></div><div class="name">Shipthis</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+        </div>
+        <div class="matrix-row local" style="--row-color:#0f0f0f">
+          <div class="player-cell"><div class="dot"></div><div class="name">CargoEZ</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+        </div>
+        <div class="matrix-row local" style="--row-color:#0f0f0f">
+          <div class="player-cell"><div class="dot"></div><div class="name">Eroyal</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:100%"></div></div><div class="val">5</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+        </div>
+        <div class="matrix-row local" style="--row-color:#0f0f0f">
+          <div class="player-cell"><div class="dot"></div><div class="name">SCM Cube</div></div>
+          <div class="score-cell" data-level="mid"><div class="track"><div class="fill" style="width:60%"></div></div><div class="val">3</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="hi"><div class="track"><div class="fill" style="width:80%"></div></div><div class="val">4</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:20%"></div></div><div class="val">1</div></div>
+          <div class="score-cell" data-level="low"><div class="track"><div class="fill" style="width:40%"></div></div><div class="val">2</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="matrix-legend">
+      <div><span class="sw" style="background:#c8371d"></span>SST Freight</div>
+      <div><span class="sw" style="background:#2a2a2a"></span>International</div>
+      <div><span class="sw" style="background:#0f0f0f"></span>Local (Chennai/AP)</div>
+    </div>
+  </section>
+
+  <!-- § 05 — Where we win -->
+  <section class="chapter" id="wins">
+    <div class="eyebrow">§ 05 — Where we win</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">The three moats <em style="color:var(--accent)">nobody else has stacked together</em></h2>
+    <div class="wins-grid">
+      <div class="win-card"><div class="n">01</div><div class="title">One-time buyout + flat AMC</div><div class="body">Zero headcount tax. A 30-seat, 3-branch forwarder saves ~₹1.4Cr over 10 years vs Freightify/Fresa SaaS. Nobody in the local market offers this.</div><div class="beats">Beats · Freightify · Fresa · Shipthis</div></div>
+      <div class="win-card"><div class="n">02</div><div class="title">Native RLS + Docker isolation</div><div class="body">Row-level security in the database tier + optional on-prem Docker package. Enterprise forwarders paranoid about multi-tenant leaks have nowhere else to go.</div><div class="beats">Beats · All SaaS competitors</div></div>
+      <div class="win-card"><div class="n">03</div><div class="title">SCMTR-native modern UI</div><div class="body">Interactive HS-code validator + shipping-bill pre-check wrapped in a modern UI. Eroyal has depth but 2005 UX. Freightify has UX but no compliance.</div><div class="beats">Beats · Eroyal · SCM Cube · Freightify</div></div>
+    </div>
+  </section>
+
+  <!-- § 06 — Where we lag -->
+  <section class="chapter" id="gaps">
+    <div class="eyebrow risk">§ 06 — Where we lag</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">Five gaps that will <em style="color:var(--risk)">lose deals</em> if unaddressed</h2>
+    <div class="gaps-grid">
+      <div class="gap-card" data-sev="CRITICAL"><div class="n">01</div><div><div class="title">Carrier API coverage</div><div class="detail">Freightify has 30+ live carrier feeds. We ship with 4. This kills rate-desk deals immediately.</div></div><div><div class="sev-label">Severity</div><div class="sev-val">CRITICAL</div></div></div>
+      <div class="gap-card" data-sev="HIGH"><div class="n">02</div><div><div class="title">Brand trust in Chennai</div><div class="detail">Fresa and Freightify are known names. We are a stranger. Requires 3 lighthouse case studies before scale sales work.</div></div><div><div class="sev-label">Severity</div><div class="sev-val">HIGH</div></div></div>
+      <div class="gap-card" data-sev="HIGH"><div class="n">03</div><div><div class="title">Onboarding + local support</div><div class="detail">Fresa runs on-site training in Tamil. We have docs. Enterprise CHAs will not self-serve. Need Chennai boots-on-ground.</div></div><div><div class="sev-label">Severity</div><div class="sev-val">HIGH</div></div></div>
+      <div class="gap-card" data-sev="MEDIUM"><div class="n">04</div><div><div class="title">Feature breadth vs Fresa</div><div class="detail">Fresa Gold has 200+ modules built over 15 years. We have ~60. Not every module matters, but RFPs check boxes.</div></div><div><div class="sev-label">Severity</div><div class="sev-val">MEDIUM</div></div></div>
+      <div class="gap-card" data-sev="MEDIUM"><div class="n">05</div><div><div class="title">Global-forwarder credibility</div><div class="detail">To touch Magaya/CargoWise deals we need at least one Tier-1 forwarder logo. Wedge via SCMTR sidecar, not rip-replace.</div></div><div><div class="sev-label">Severity</div><div class="sev-val">MEDIUM</div></div></div>
+    </div>
+  </section>
+
+  <!-- § 07 — Money math -->
+  <section class="chapter" id="pricing">
+    <div class="eyebrow">§ 07 — Money math</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">10-year TCO for a mid-size Chennai forwarder <span style="font-size:15px;font-family:var(--font-mono);color:var(--ink-faint);">(30 seats, 3 branches)</span></h2>
+    <div class="pricing-panel">
+      <div class="pricing-head"><div>Vendor</div><div>10-year cost curve</div><div style="text-align:right">Total</div></div>
+      <div class="pricing-row us"><div class="vendor">SST Freight</div><div class="track"><div class="fill" style="width:18%"></div></div><div class="total">₹42L</div></div>
+      <div class="pricing-row"><div class="vendor">CargoEZ</div><div class="track"><div class="fill" style="width:34%"></div></div><div class="total">₹78L</div></div>
+      <div class="pricing-row"><div class="vendor">Shipthis</div><div class="track"><div class="fill" style="width:42%"></div></div><div class="total">₹95L</div></div>
+      <div class="pricing-row"><div class="vendor">Fresa Gold</div><div class="track"><div class="fill" style="width:58%"></div></div><div class="total">₹1.3Cr</div></div>
+      <div class="pricing-row"><div class="vendor">Freightify</div><div class="track"><div class="fill" style="width:71%"></div></div><div class="total">₹1.6Cr</div></div>
+      <div class="pricing-row max"><div class="vendor">CargoWise</div><div class="track"><div class="fill" style="width:100%"></div></div><div class="total">₹2.2Cr</div></div>
+      <div class="pricing-read"><b>Reads:</b> the buyout model wins on TCO after year 2. The headcount tax on cloud SaaS compounds — this is our single most defensible pricing message.</div>
+    </div>
+  </section>
+
+  <!-- § 08 — Positioning quadrant -->
+  <section class="chapter" id="quadrant">
+    <div class="eyebrow">§ 08 — Positioning quadrant</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">Local depth × modern architecture</h2>
+    <div class="quadrant">
+      <div class="quad-axis top">↑ Modern architecture</div>
+      <div class="quad-axis bottom">Legacy stack ↓</div>
+      <div class="quad-axis left">← Global generic</div>
+      <div class="quad-axis right">Local depth →</div>
+      <div class="quad-point" style="left:78%;top:22%"><div class="dot" style="width:26px;height:26px;background:#c8371d;border:3px solid rgba(200,55,29,.25)"></div><div class="label" style="color:#c8371d">SST</div></div>
+      <div class="quad-point" style="left:62%;top:40%"><div class="dot" style="width:16px;height:16px;background:#0f0f0f"></div><div class="label" style="color:#0f0f0f">Freightify</div></div>
+      <div class="quad-point" style="left:32%;top:34%"><div class="dot" style="width:16px;height:16px;background:#2a2a2a"></div><div class="label" style="color:#2a2a2a">GoFreight</div></div>
+      <div class="quad-point" style="left:60%;top:52%"><div class="dot" style="width:14px;height:14px;background:#0f0f0f"></div><div class="label" style="color:#0f0f0f">Shipthis</div></div>
+      <div class="quad-point" style="left:65%;top:46%"><div class="dot" style="width:14px;height:14px;background:#0f0f0f"></div><div class="label" style="color:#0f0f0f">CargoEZ</div></div>
+      <div class="quad-point" style="left:72%;top:68%"><div class="dot" style="width:18px;height:18px;background:#0f0f0f"></div><div class="label" style="color:#0f0f0f">Fresa</div></div>
+      <div class="quad-point" style="left:82%;top:82%"><div class="dot" style="width:14px;height:14px;background:#0f0f0f"></div><div class="label" style="color:#0f0f0f">Eroyal</div></div>
+      <div class="quad-point" style="left:28%;top:62%"><div class="dot" style="width:22px;height:22px;background:#2a2a2a"></div><div class="label" style="color:#2a2a2a">CargoWise</div></div>
+      <div class="quad-point" style="left:22%;top:78%"><div class="dot" style="width:18px;height:18px;background:#2a2a2a"></div><div class="label" style="color:#2a2a2a">Magaya</div></div>
+      <div class="quad-point" style="left:34%;top:54%"><div class="dot" style="width:14px;height:14px;background:#2a2a2a"></div><div class="label" style="color:#2a2a2a">Logitude</div></div>
+      <div class="quad-callout">
+        <div class="eyebrow">The empty quadrant</div>
+        <div class="body">Modern-stack + Indian-compliance-native. That's ours to lose.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- § 09 — What this means for [lens] -->
+  <section class="chapter" id="lens-panel">
+    <div class="eyebrow">§ 09 — What this means for
+      <span data-lens-name="investor" style="color:var(--ink)">investors</span><span data-lens-name="buyer" style="color:var(--ink)">buyers</span><span data-lens-name="roadmap" style="color:var(--ink)">the product team</span>
+    </div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">
+      <span data-lens-tagline="investor" style="display:none">Investment thesis in three moves</span>
+      <span data-lens-tagline="buyer" style="display:none">Three reasons a forwarder switches</span>
+      <span data-lens-tagline="roadmap" style="display:none">Roadmap priorities in one screen</span>
+    </h2>
+    <div class="lens-points" data-lens-panel="investor">
+      <div class="lens-point"><div class="kicker" style="color:#c8371d">MOAT</div><div class="title">India-native compliance is defensible</div><div class="body">SCMTR + ICEGATE + HS-code validation is a 12-18 month build for any global player, and they will not prioritize it. This is a durable moat.</div><div class="metric" style="color:#c8371d">→ 12-18mo lead time to copy</div></div>
+      <div class="lens-point"><div class="kicker" style="color:#2a2a2a">FLYWHEEL</div><div class="title">Buyout unlocks larger deal sizes</div><div class="body">Enterprise buyers with security teams will not touch multi-tenant SaaS. Buyout + on-prem opens deals SaaS players cannot bid on.</div><div class="metric" style="color:#2a2a2a">→ ~₹85L avg deal size</div></div>
+      <div class="lens-point"><div class="kicker" style="color:#0f0f0f">EXPANSION</div><div class="title">Chennai first, SEA/ME year 3</div><div class="body">Fresa proved the Chennai→Middle East corridor is real. Same play, modern stack, ownership pricing.</div><div class="metric" style="color:#0f0f0f">→ ~$4B addressable</div></div>
+    </div>
+    <div class="lens-points" data-lens-panel="buyer">
+      <div class="lens-point"><div class="kicker" style="color:#c8371d">MONEY</div><div class="title">62% cheaper across 10 years</div><div class="body">For a 30-seat, 3-branch forwarder: ~₹42L total vs ~₹1.1Cr median SaaS. Add another Vizag branch — our number does not move.</div><div class="metric" style="color:#c8371d">→ ~₹1.4Cr saved / 10yr</div></div>
+      <div class="lens-point"><div class="kicker" style="color:#2a2a2a">CONTROL</div><div class="title">Your data, your firewall</div><div class="body">Docker install. RLS in Postgres. Your CTO owns the keys. Nobody at SST can see your consignments.</div><div class="metric" style="color:#2a2a2a">→ 0 multi-tenant surface</div></div>
+      <div class="lens-point"><div class="kicker" style="color:#0f0f0f">COMPLIANCE</div><div class="title">SCMTR simulator catches typos</div><div class="body">HS code + shipping bill validated before ICEGATE submission. Fewer penalties, faster gate-in.</div><div class="metric" style="color:#0f0f0f">→ ~₹6L / yr penalties avoided</div></div>
+    </div>
+    <div class="lens-points" data-lens-panel="roadmap">
+      <div class="lens-point"><div class="kicker" style="color:#c8371d">BUILD</div><div class="title">Weeks 1-9 · The wedge stack</div><div class="body">RLS + Docker + rate mgmt + ICEGATE simulator. That is the demo. Everything else waits.</div><div class="metric" style="color:#c8371d">→ 9-week critical path</div></div>
+      <div class="lens-point"><div class="kicker" style="color:#2a2a2a">CLOSE</div><div class="title">Weeks 10-13 · Parity + proof</div><div class="body">20 carrier APIs, TCO calculator, first 3 lighthouse deployments in Chennai + Vizag.</div><div class="metric" style="color:#2a2a2a">→ GAPs 01-03 closed</div></div>
+      <div class="lens-point"><div class="kicker" style="color:#a83a20">DEFER</div><div class="title">Q2 · Explicit no-builds</div><div class="body">Mobile driver app, generic CRM, air-freight consols. Say no. Send prospects who insist to Fresa.</div><div class="metric" style="color:#a83a20">→ 4 features deferred</div></div>
+    </div>
+  </section>
+
+  <!-- § 10 — Roadmap prioritization -->
+  <section class="chapter" id="sprints">
+    <div class="eyebrow">§ 10 — Roadmap prioritization</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">Every gap, mapped to a sprint</h2>
+    <div class="sprint-table">
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num" style="color:#c8371d">01</div></div><div class="sprint-body"><div><div class="title">Postgres RLS foundation</div><div class="desc">Row-level tenant isolation. The security story starts here.</div></div><div class="sprint-closes">CLOSES · security narrative</div><div class="sprint-pri" style="color:#a83a20">P0</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">02</div></div><div class="sprint-body"><div><div class="title">Docker distribution package</div><div class="desc">One-command on-prem install for security-first buyers.</div></div><div class="sprint-closes">CLOSES · buyout story</div><div class="sprint-pri" style="color:#a83a20">P0</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">03</div></div><div class="sprint-body"><div><div class="title">Auth + branch scaling</div><div class="desc">Unlimited seats per branch. The headcount-tax kill switch.</div></div><div class="sprint-closes">CLOSES · branch scale</div><div class="sprint-pri" style="color:#a83a20">P0</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">05</div></div><div class="sprint-body"><div><div class="title">Rate Management v1</div><div class="desc">Meter-flip billing engine + FX spread ledger. Must be &lt;3s to search.</div></div><div class="sprint-closes">CLOSES · Freightify parity</div><div class="sprint-pri" style="color:#a83a20">P0</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">06</div></div><div class="sprint-body"><div><div class="title">Multi-currency quoting</div><div class="desc">Live FX + margin capture on every line. Where we out-Freightify Freightify.</div></div><div class="sprint-closes">CLOSES · rate depth</div><div class="sprint-pri" style="color:#c8371d">P1</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num" style="color:#c8371d">07</div></div><div class="sprint-body"><div><div class="title">Carrier API batch #1</div><div class="desc">MSC, Maersk, CMA, HL, ONE, Evergreen, COSCO. 7 in one sprint.</div></div><div class="sprint-closes">CLOSES · GAP 01</div><div class="sprint-pri" style="color:#a83a20">P0</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">08</div></div><div class="sprint-body"><div><div class="title">Container tracking pipe</div><div class="desc">HTTP RPC gateway feeding a live status board. Match Shipthis.</div></div><div class="sprint-closes">CLOSES · tracking</div><div class="sprint-pri" style="color:#c8371d">P1</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num" style="color:#c8371d">09</div></div><div class="sprint-body"><div><div class="title">ICEGATE customs simulator</div><div class="desc">The wedge feature. Interactive HS validation before file submission.</div></div><div class="sprint-closes">CLOSES · compliance moat</div><div class="sprint-pri" style="color:#a83a20">P0</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">10</div></div><div class="sprint-body"><div><div class="title">Carrier API batch #2</div><div class="desc">Regional lines + air (ZIM, PIL, KMTC, air-freight top 5).</div></div><div class="sprint-closes">CLOSES · GAP 01</div><div class="sprint-pri" style="color:#c8371d">P1</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">11</div></div><div class="sprint-body"><div><div class="title">TCO calculator + landing</div><div class="desc">Public inbound tool. Paste seats/branches → 10-year comparison.</div></div><div class="sprint-closes">CLOSES · GAP 02</div><div class="sprint-pri" style="color:#c8371d">P1</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">12</div></div><div class="sprint-body"><div><div class="title">Chennai boots-on-ground</div><div class="desc">2 implementation engineers on-site. Close GAP 03.</div></div><div class="sprint-closes">CLOSES · GAP 03</div><div class="sprint-pri" style="color:#c8371d">P1</div></div></div>
+      <div class="sprint-row"><div class="sprint-week"><div class="lbl">WEEK</div><div class="num">13</div></div><div class="sprint-body"><div><div class="title">Lighthouse case studies</div><div class="desc">Publish 3 pilot outcomes. Fuel for GAP 02 close-out.</div></div><div class="sprint-closes">CLOSES · GAP 02</div><div class="sprint-pri" style="color:#2a2a2a">P2</div></div></div>
+    </div>
+  </section>
+
+  <!-- § 11 — Two battlefields -->
+  <section class="chapter" id="battlefields">
+    <div class="eyebrow">§ 11 — Two battlefields</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">One product, two go-to-market fights</h2>
+    <div class="battle-grid">
+      <div class="battle-card">
+        <div class="label">Battle 01 · Local</div>
+        <div class="title">Chennai &amp; Andhra — the home ground</div>
+        <div class="body">Freightify + Fresa + Eroyal already have 12+ years of trust with CHAs. We beat them on <b style="color:var(--accent)">architecture and ownership</b>, not features. Lead with SCMTR compliance, buyout math, and Docker isolation.</div>
+        <div class="battle-stats">
+          <div class="battle-stat"><div class="k">Win rate target</div><div class="v" style="color:var(--accent)">40% of pilots</div></div>
+          <div class="battle-stat secondary"><div class="k">First 10 lighthouse</div><div class="v" style="color:var(--ink-secondary)">Vizag + CHN NVOCCs</div></div>
+        </div>
+      </div>
+      <div class="battle-card">
+        <div class="label">Battle 02 · International</div>
+        <div class="title">Global — where Magaya &amp; CargoWise reign</div>
+        <div class="body">We do <b style="color:var(--risk)">not</b> fight CargoWise head-on. We wedge in via <b style="color:var(--accent)">Indian-origin cargo flows</b> handled by global forwarders — sell as a compliance sidecar, not a rip-and-replace.</div>
+        <div class="battle-stats">
+          <div class="battle-stat"><div class="k">Wedge product</div><div class="v" style="color:var(--accent)">SCMTR sidecar</div></div>
+          <div class="battle-stat secondary"><div class="k">Year-3 target</div><div class="v" style="color:var(--ink-secondary)">SEA + ME expansion</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- § 12 — Say-this / not-that -->
+  <section class="chapter" id="messaging">
+    <div class="eyebrow">§ 12 — Say-this / not-that</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">Messaging by competitor, in one page</h2>
+    <div class="msg-table">
+      <div class="msg-row head"><div>Against</div><div>Lead with</div><div>Prove with</div><div>Never say</div></div>
+      <div class="msg-row"><div class="vs">Freightify</div><div class="lead">You bought rates. We give you the whole ledger.</div><div class="prove">Meter-flip demo · FX spread live capture · buyout math</div><div class="avoid">&ldquo;We have better rate AI&rdquo; — they do, we don't win that argument</div></div>
+      <div class="msg-row"><div class="vs">Fresa</div><div class="lead">Modern stack, unlimited branches, one-time price.</div><div class="prove">Side-by-side UX video · 10yr TCO · Docker install in &lt;10min</div><div class="avoid">&ldquo;More features than Fresa&rdquo; — we don't (yet)</div></div>
+      <div class="msg-row"><div class="vs">Eroyal / SCM Cube</div><div class="lead">SCMTR compliance without the 2005 interface.</div><div class="prove">ICEGATE simulator screencast · pre-submit HS validation</div><div class="avoid">&ldquo;We're cheaper&rdquo; — they're already cheap</div></div>
+      <div class="msg-row"><div class="vs">CargoWise / Magaya</div><div class="lead">India-native compliance sidecar for your global stack.</div><div class="prove">API bridges to CW1 · SCMTR compliance report · no rip-replace</div><div class="avoid">&ldquo;Replace CargoWise&rdquo; — nobody will believe you</div></div>
+      <div class="msg-row"><div class="vs">GoFreight / Logitude</div><div class="lead">Made for Indian ports, priced for Indian owners.</div><div class="prove">Chennai/Vizag port lookups · ICEGATE native · INR pricing</div><div class="avoid">&ldquo;Global brand&rdquo; — you're not, don't pretend</div></div>
+    </div>
+  </section>
+
+  <!-- § 13 — Prove it -->
+  <section class="chapter" id="metrics">
+    <div class="eyebrow">§ 13 — Prove it</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">Six metrics that make the story true</h2>
+    <div class="metrics-grid">
+      <div class="metric-tile"><div class="label">Pilot conversion</div><div class="num-row"><div class="target" style="color:#c8371d">40</div><div class="unit">%</div></div><div class="desc">of Chennai pilots convert to paid within 60 days</div></div>
+      <div class="metric-tile"><div class="label">TCO advantage @ Y3</div><div class="num-row"><div class="target" style="color:#c8371d">62</div><div class="unit">%</div></div><div class="desc">cheaper than the median local SaaS competitor</div></div>
+      <div class="metric-tile"><div class="label">Carrier feeds live</div><div class="num-row"><div class="target" style="color:#2a2a2a">20+</div><div class="unit">by week 12</div></div><div class="desc">closes the biggest feature-parity gap</div></div>
+      <div class="metric-tile"><div class="label">SCMTR submit time</div><div class="num-row"><div class="target" style="color:#2a2a2a">&lt;90</div><div class="unit">sec avg</div></div><div class="desc">vs 12+ min on Eroyal manual flow</div></div>
+      <div class="metric-tile"><div class="label">Lighthouse logos</div><div class="num-row"><div class="target">3</div><div class="unit">by day 90</div></div><div class="desc">named public case studies from Chennai/Vizag</div></div>
+      <div class="metric-tile"><div class="label">On-prem install</div><div class="num-row"><div class="target">&lt;10</div><div class="unit">min p95</div></div><div class="desc">Docker package boot to first successful login</div></div>
+    </div>
+  </section>
+
+  <!-- § 14 — Live decisions -->
+  <section class="chapter" id="decisions">
+    <div class="eyebrow">§ 14 — Live decisions</div>
+    <h2 style="font-family:var(--font-display);font-size:clamp(26px,3.2vw,38px);font-weight:400;margin:0 0 24px;line-height:1.1;">What we're deciding this week</h2>
+    <div class="decisions-grid">
+      <div class="decision-row"><div><div class="q">Fight CargoWise or sidecar it?</div><div class="ctx">Recommendation: sidecar via SCMTR compliance API. Head-on kills 18 months.</div></div><button type="button" class="decision-toggle" data-decision>OPEN</button></div>
+      <div class="decision-row"><div><div class="q">Free tier or paid-pilot-only?</div><div class="ctx">Free tier attracts noise; paid pilot filters serious CHAs. Lean paid-pilot @ ₹1L/3-months.</div></div><button type="button" class="decision-toggle" data-decision>OPEN</button></div>
+      <div class="decision-row"><div><div class="q">Chennai office by day 60?</div><div class="ctx">Closes GAP 03. Cost: ~₹30L/quarter. Alternative: partner integrator.</div></div><button type="button" class="decision-toggle" data-decision>OPEN</button></div>
+      <div class="decision-row"><div><div class="q">Open-source the Docker recipe?</div><div class="ctx">Trust hack for enterprise buyers. Locks nothing away since RLS logic ships anyway.</div></div><button type="button" class="decision-toggle" data-decision>OPEN</button></div>
+    </div>
+  </section>
+
+  <!-- § 15 — The 90-day play -->
+  <section class="chapter" id="ninety-day">
+    <div class="eyebrow">§ 15 — The 90-day play</div>
+    <div class="play-title">If we do only three things, do these.</div>
+    <div class="play-grid">
+      <div class="play-card"><div class="when">DAY 0-30</div><div class="title">Ship SCMTR simulator</div><div class="body">The single feature Freightify + GoFreight + Magaya all lack. Land 3 Chennai pilots on it alone.</div></div>
+      <div class="play-card"><div class="when">DAY 30-60</div><div class="title">Publish TCO calculator</div><div class="body">Interactive page: paste seats+branches, see 10-year Freightify/Fresa cost vs our buyout. Sales weapon + inbound magnet.</div></div>
+      <div class="play-card"><div class="when">DAY 60-90</div><div class="title">Ship 20 carrier APIs</div><div class="body">Close the coverage gap that currently kills us in RFPs. Prioritize by Chennai/Vizag volume, not global generic.</div></div>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <div>SST Freight · Internal strategy · Not for distribution</div>
+    <div>15 sections · 10 competitors · 8 axes</div>
+    <div id="last-synced">Last synced · 14 Jul 2026</div>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('[data-lens-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.body.dataset.lens = btn.dataset.lensTab;
+      document.querySelectorAll('[data-lens-tab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    });
+  });
+  document.querySelectorAll('[data-tier-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.body.dataset.tier = btn.dataset.tierTab;
+      document.querySelectorAll('[data-tier-tab]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    });
+  });
+  document.querySelectorAll('[data-decision]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var row = btn.closest('.decision-row');
+      var decided = row.classList.toggle('decided');
+      btn.textContent = decided ? 'DECIDED ✓' : 'OPEN';
+    });
+  });
+</script>
+</body>
+</html>
