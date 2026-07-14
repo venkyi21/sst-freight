@@ -81,6 +81,10 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
   const [dnaRakes, setDnaRakes] = useState<PlatformRevenueEntry[]>([])
   const [dnaHistory, setDnaHistory] = useState<AuditLogEntry[]>([])
 
+  // Week 14 (ADR-0021): id -> ref only, just for display in the profitability table below —
+  // invoices/shipment_costs already carry shipment_id, this is a lightweight lookup, not a join.
+  const [shipmentRefs, setShipmentRefs] = useState<Map<string, string>>(new Map())
+
   useEffect(() => {
     let cancelled = false
     setInvoicesLoading(true)
@@ -121,6 +125,20 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
     }
   }, [orgId])
 
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('shipments')
+      .select('id, ref')
+      .eq('org_id', orgId)
+      .then(({ data }) => {
+        if (!cancelled && data) setShipmentRefs(new Map((data as { id: string; ref: string }[]).map((s) => [s.id, s.ref])))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
   const aging = useMemo(() => {
     const unpaid = invoices.filter((i) => i.status === 'unpaid')
     const outstanding = unpaid.reduce((sum, i) => sum + i.amount_inr, 0)
@@ -147,6 +165,34 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
     const cost = costs.reduce((sum, c) => sum + c.amount, 0)
     return { revenue, cost, profit: revenue - cost }
   }, [invoices, costs])
+
+  // Week 14 (ADR-0021): "shipment_costs already has shipment_id on every row, so a per-shipment
+  // view is a query away, just not built" (tech-debt.md, verbatim) — this is that view, grouping
+  // the same invoices/costs arrays already fetched above, no new query. Worst-margin-first so the
+  // shipment that needs attention is the one on top.
+  const profitability = useMemo(() => {
+    const byShipment = new Map<string, { revenue: number; cost: number }>()
+    for (const inv of invoices) {
+      const entry = byShipment.get(inv.shipment_id) ?? { revenue: 0, cost: 0 }
+      entry.revenue += inv.amount_inr
+      byShipment.set(inv.shipment_id, entry)
+    }
+    for (const c of costs) {
+      const entry = byShipment.get(c.shipment_id) ?? { revenue: 0, cost: 0 }
+      entry.cost += c.amount
+      byShipment.set(c.shipment_id, entry)
+    }
+    return Array.from(byShipment.entries())
+      .map(([shipmentId, { revenue, cost }]) => ({
+        shipmentId,
+        ref: shipmentRefs.get(shipmentId) ?? shipmentId,
+        revenue,
+        cost,
+        margin: revenue - cost,
+        marginPct: revenue > 0 ? ((revenue - cost) / revenue) * 100 : 0,
+      }))
+      .sort((a, b) => a.margin - b.margin)
+  }, [invoices, costs, shipmentRefs])
 
   function handleInvoiceCreated(invoice: Invoice) {
     setInvoices((prev) => [invoice, ...prev])
@@ -392,6 +438,43 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
               </div>
             </div>
           </div>
+
+          {profitability.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Profitability by shipment</div>
+                <div style={{ fontSize: 11.5, color: '#5b6b82' }}>See margin the moment you invoice — not at month-end.</div>
+              </div>
+              <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+                      <th style={headStyle}>Shipment</th>
+                      <th style={headStyle}>Revenue</th>
+                      <th style={headStyle}>Cost</th>
+                      <th style={headStyle}>Margin</th>
+                      <th style={headStyle}>Margin %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {profitability.map((p) => (
+                      <tr key={p.shipmentId} style={{ borderBottom: '1px solid #172033' }}>
+                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{p.ref}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>{fmt(p.revenue)}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#fb7185' }}>{fmt(p.cost)}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: p.margin >= 0 ? '#4ade80' : '#fb7185' }}>
+                          {fmt(p.margin)}
+                        </td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: p.margin >= 0 ? '#4ade80' : '#fb7185' }}>
+                          {p.marginPct.toFixed(1)}%
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
           {costsError ? (
             <ErrorBox message={costsError} />

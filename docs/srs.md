@@ -121,6 +121,40 @@ built.
   - AC: Profit = sum of all invoiced `amount_inr` minus sum of all recorded costs. **Known
     limitation**: totals are organization-wide only; no per-shipment profitability breakdown
     exists yet (`docs/tech-debt.md`).
+- **US-7.4** — As a Member, I can add multiple line items (freight, THC, documentation, etc.) to
+  a quote instead of one flat rate, and those same line items carry over automatically when I
+  invoice the shipment that quote became — I don't retype them.
+  - AC (verified by real Playwright click-through against dev Supabase, 2026-07-14): a 3-line
+    quote (₹45,000×2 freight + ₹5,000 THC + ₹2,500 documentation) showed `total` = ₹97,500,
+    exactly the sum of its `quote_line_items` amounts; converting it to a shipment and invoicing
+    that shipment showed a "Line items carried over from quote ... — nothing retyped" confirmation
+    and prefilled all 3 line items' descriptions/quantities/rates with zero manual re-entry.
+    **Not independently verified this pass**: a quote/invoice created *before* Week 14 (with no
+    line items) still displaying/functioning as before — no such pre-existing row exists in dev to
+    test against; this is reasoned from the additive schema (`docs/adr/0021-...md`) and the
+    `lineItems.length > 0` fallback branch in `renderQuoteHtml`, not click-tested.
+- **US-7.5** — As a Member, I can see the correct CGST+SGST-vs-IGST GST breakup on an invoice,
+  computed automatically instead of by hand, with a plain-language reason shown for which split
+  applies.
+  - AC (verified by real Playwright click-through against dev Supabase, 2026-07-14): a same-state
+    (Tamil Nadu org, Tamil Nadu client) ₹90,000-taxable invoice line showed the "Same state as
+    your business → CGST + SGST" explainer with CGST+SGST rows (no IGST); a different-state
+    (Tamil Nadu org, Maharashtra client) ₹10,000-taxable, 18%-GST line showed "Different state...
+    → IGST" with IGST = ₹1,800 exactly (no CGST/SGST); a client with no state set showed the "⚠
+    Set this client's state... defaulting to inter-state (IGST) for now" warning and an IGST-only
+    breakdown — never a silent same-state assumption. **Known limitation**: real GST
+    e-invoicing/IRN government-portal filing is not built (`docs/tech-debt.md`).
+- **US-7.6** — As a Member, I can see profitability broken down per shipment, not only as an
+  organization-wide total, so a low-margin shipment or client is visible immediately rather than
+  discovered at month-end.
+  - AC (verified by real Playwright click-through against dev Supabase, 2026-07-14): after
+    creating an invoice against a shipment, the Accounting → P&L tab's "Profitability by shipment"
+    table rendered with the "See margin the moment you invoice — not at month-end" caption
+    immediately — confirming the table appears without a page reload or separate report step.
+    Row-level margin arithmetic (revenue − cost per `shipment_id`, worst-margin-first sort) was
+    verified by code inspection of the `useMemo` in `AccountingPage.tsx` against the same
+    `invoices`/`shipment_costs` arrays already covered by US-7.3's revenue/cost totals, not by a
+    separate multi-shipment numeric click-test this pass.
 
 ### FR-8: Customer Tracking Portal
 

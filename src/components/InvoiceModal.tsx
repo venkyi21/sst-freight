@@ -7,13 +7,26 @@ import InfoTooltip from './InfoTooltip'
 import { isCheckViolation } from '../lib/formErrors'
 import { generateRef } from '../lib/refGenerator'
 import { fetchFxRateToInr } from '../lib/fxRates'
-import { INVOICE_CURRENCIES, type Invoice, type MembershipRole, type Shipment } from '../types'
+import { determineSupplyType, computeGstAmounts } from '../lib/gst'
+import { INVOICE_CURRENCIES, type Invoice, type InvoiceLineItem, type MembershipRole, type QuoteLineItem, type Shipment } from '../types'
 
 interface InvoiceModalProps {
   orgId: string
   currentRole: MembershipRole
   onClose: () => void
   onCreated: (invoice: Invoice) => void
+}
+
+interface LineItemDraft {
+  description: string
+  sacCode: string
+  quantity: string
+  rate: string
+  gstRate: string
+}
+
+function blankLineItem(description = ''): LineItemDraft {
+  return { description, sacCode: '', quantity: '1', rate: '', gstRate: '18' }
 }
 
 const inputStyle: CSSProperties = {
@@ -44,11 +57,14 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
   const [fxRate, setFxRate] = useState('1')
   const [fxFetching, setFxFetching] = useState(false)
   const [fxError, setFxError] = useState<string | null>(null)
-  const [amount, setAmount] = useState('')
+  const [lineItems, setLineItems] = useState<LineItemDraft[]>([blankLineItem('Freight')])
+  const [orgGstState, setOrgGstState] = useState<string | null>(null)
+  const [contactState, setContactState] = useState<string | null>(null)
+  const [carryoverNote, setCarryoverNote] = useState<string | null>(null)
   const [dueDate, setDueDate] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [fieldErrors, setFieldErrors] = useState<{ shipmentId?: string; amount?: string; fxRate?: string }>({})
+  const [fieldErrors, setFieldErrors] = useState<{ shipmentId?: string; lineItems?: string; fxRate?: string }>({})
 
   useEffect(() => {
     let cancelled = false
@@ -64,6 +80,71 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       cancelled = true
     }
   }, [orgId])
+
+  useEffect(() => {
+    let cancelled = false
+    supabase
+      .from('organizations')
+      .select('gst_state')
+      .eq('id', orgId)
+      .single()
+      .then(({ data }) => {
+        if (!cancelled) setOrgGstState((data as { gst_state: string | null } | null)?.gst_state ?? null)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [orgId])
+
+  // Week 14 (ADR-0021): picking a shipment does two things — looks up the billed contact's state
+  // (for the CGST/SGST-vs-IGST split below) and checks whether this shipment came from a
+  // converted quote, carrying that quote's line items over 1:1 (zero re-entry) if so.
+  useEffect(() => {
+    let cancelled = false
+    if (!shipmentId) {
+      setContactState(null)
+      setCarryoverNote(null)
+      return
+    }
+    const shipment = shipments.find((s) => s.id === shipmentId)
+    ;(async () => {
+      if (shipment?.consignee_contact_id) {
+        const { data } = await supabase.from('contacts').select('state').eq('id', shipment.consignee_contact_id).maybeSingle()
+        if (!cancelled) setContactState((data as { state: string | null } | null)?.state ?? null)
+      } else if (!cancelled) {
+        setContactState(null)
+      }
+
+      const { data: quote } = await supabase.from('quotes').select('id, ref').eq('converted_shipment_id', shipmentId).maybeSingle()
+      if (quote) {
+        const { data: quoteItems } = await supabase
+          .from('quote_line_items')
+          .select('*')
+          .eq('quote_id', (quote as { id: string }).id)
+          .order('created_at', { ascending: true })
+        if (!cancelled && quoteItems && quoteItems.length > 0) {
+          setLineItems(
+            (quoteItems as QuoteLineItem[]).map((qi) => ({
+              description: qi.description,
+              sacCode: qi.sac_code ?? '',
+              quantity: String(qi.quantity),
+              rate: String(qi.rate),
+              gstRate: '18',
+            })),
+          )
+          setCarryoverNote(`Line items carried over from quote ${(quote as { ref: string }).ref} — nothing retyped.`)
+          return
+        }
+      }
+      if (!cancelled) {
+        setLineItems([blankLineItem('Freight')])
+        setCarryoverNote(null)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [shipmentId, shipments])
 
   useEffect(() => {
     let cancelled = false
@@ -89,10 +170,36 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
     }
   }, [currency])
 
-  const amountN = Math.max(0, parseFloat(amount) || 0)
   const rateN = Math.max(0, parseFloat(fxRate) || 0)
+  const supplyType = determineSupplyType(orgGstState, contactState)
+  const lineComputed = lineItems.map((li) => {
+    const quantityN = Math.max(0, parseFloat(li.quantity) || 0)
+    const unitRateN = Math.max(0, parseFloat(li.rate) || 0)
+    const gstRateN = Math.max(0, parseFloat(li.gstRate) || 0)
+    const taxableValue = quantityN * unitRateN
+    const { cgstAmount, sgstAmount, igstAmount } = computeGstAmounts(taxableValue, gstRateN, supplyType)
+    return { quantityN, unitRateN, gstRateN, taxableValue, cgstAmount, sgstAmount, igstAmount, lineTotal: taxableValue + cgstAmount + sgstAmount + igstAmount }
+  })
+  const totalTaxable = lineComputed.reduce((sum, l) => sum + l.taxableValue, 0)
+  const totalCgst = lineComputed.reduce((sum, l) => sum + l.cgstAmount, 0)
+  const totalSgst = lineComputed.reduce((sum, l) => sum + l.sgstAmount, 0)
+  const totalIgst = lineComputed.reduce((sum, l) => sum + l.igstAmount, 0)
+  const amountN = lineComputed.reduce((sum, l) => sum + l.lineTotal, 0)
   const amountInr = amountN * rateN
-  const valid = shipmentId && amountN > 0 && rateN > 0
+  const lineItemsValid = lineItems.length > 0 && lineItems.every((li, i) => li.description.trim() && lineComputed[i].quantityN > 0 && lineComputed[i].unitRateN > 0)
+  const valid = shipmentId && lineItemsValid && rateN > 0
+
+  function updateLineItem(index: number, patch: Partial<LineItemDraft>) {
+    setLineItems((prev) => prev.map((li, i) => (i === index ? { ...li, ...patch } : li)))
+  }
+
+  function addLineItem() {
+    setLineItems((prev) => [...prev, blankLineItem()])
+  }
+
+  function removeLineItem(index: number) {
+    setLineItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -100,7 +207,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
     if (!valid) {
       setFieldErrors({
         shipmentId: shipmentId ? undefined : 'Select a shipment',
-        amount: amountN > 0 ? undefined : 'Amount must be greater than 0',
+        lineItems: lineItemsValid ? undefined : 'Every line needs a description, quantity, and rate greater than 0',
         fxRate: rateN > 0 ? undefined : 'FX rate must be greater than 0',
       })
       return
@@ -116,6 +223,9 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       return
     }
 
+    // Line item #1 also backfills nothing on invoices (unlike quotes, there's no legacy
+    // rate/quantity column here) — amount/amount_inr already are the stored, authoritative
+    // totals (ADR-0007's existing precedent), now sourced from summed line items.
     const base = {
       org_id: orgId,
       shipment_id: shipment.id,
@@ -130,6 +240,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       created_by: user.id,
     }
 
+    let invoice: Invoice | null = null
     let lastError: PostgrestError | null = null
     for (let attempt = 0; attempt < 5; attempt++) {
       const { data, error: insertError } = await supabase
@@ -139,22 +250,51 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
         .single()
 
       if (!insertError && data) {
-        onCreated(data as Invoice)
-        setBusy(false)
-        return
+        invoice = data as Invoice
+        break
       }
 
       lastError = insertError
       if (insertError?.code !== '23505') break
     }
 
-    if (lastError && isCheckViolation(lastError, 'invoices_amount_check')) {
-      setFieldErrors({ amount: 'Amount must be greater than 0' })
-    } else if (lastError && isCheckViolation(lastError, 'invoices_fx_rate_check')) {
-      setFieldErrors({ fxRate: 'FX rate must be greater than 0' })
-    } else {
-      setError(lastError?.message ?? 'Could not create invoice')
+    if (!invoice) {
+      if (lastError && isCheckViolation(lastError, 'invoices_amount_check')) {
+        setFieldErrors({ lineItems: 'Every line needs a rate and quantity greater than 0' })
+      } else if (lastError && isCheckViolation(lastError, 'invoices_fx_rate_check')) {
+        setFieldErrors({ fxRate: 'FX rate must be greater than 0' })
+      } else {
+        setError(lastError?.message ?? 'Could not create invoice')
+      }
+      setBusy(false)
+      return
     }
+
+    const lineItemRows: Omit<InvoiceLineItem, 'id' | 'created_at'>[] = lineItems.map((li, i) => ({
+      org_id: orgId,
+      invoice_id: (invoice as Invoice).id,
+      description: li.description.trim(),
+      sac_code: li.sacCode.trim() || null,
+      quantity: lineComputed[i].quantityN,
+      rate: lineComputed[i].unitRateN,
+      currency,
+      taxable_value: lineComputed[i].taxableValue,
+      gst_rate: lineComputed[i].gstRateN,
+      cgst_amount: lineComputed[i].cgstAmount,
+      sgst_amount: lineComputed[i].sgstAmount,
+      igst_amount: lineComputed[i].igstAmount,
+      line_total: lineComputed[i].lineTotal,
+      created_by: user.id,
+    }))
+
+    const { error: lineItemsError } = await supabase.from('invoice_line_items').insert(lineItemRows)
+    if (lineItemsError) {
+      // Same accepted non-atomicity as QuoteModal's line-item insert — the invoice row itself is
+      // real and onCreated below closes this modal regardless, so it's logged, not surfaced.
+      console.error(`Invoice ${invoice.ref} line items failed to save:`, lineItemsError.message)
+    }
+
+    onCreated(invoice)
     setBusy(false)
   }
 
@@ -176,7 +316,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 520,
+          maxWidth: 660,
           maxHeight: '88vh',
           overflowY: 'auto',
           background: '#0f172a',
@@ -210,6 +350,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               ))}
             </select>
             <FieldError message={fieldErrors.shipmentId} />
+            {carryoverNote && <div style={{ marginTop: 6, fontSize: 11.5, color: '#4ade80' }}>✓ {carryoverNote}</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
@@ -240,14 +381,9 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               />
               <FieldError message={fieldErrors.fxRate} />
             </div>
-            <div>
-              <label style={labelStyle}>Amount ({currency})</label>
-              <input type="number" min="0" step="any" value={amount} onChange={(e) => setAmount(e.target.value)} style={inputStyle} />
-              <FieldError message={fieldErrors.amount} />
-            </div>
-            <div>
+            <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Due Date</label>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={inputStyle} />
+              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} style={{ ...inputStyle, maxWidth: 200 }} />
             </div>
           </div>
 
@@ -259,6 +395,119 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               Only an Owner or Admin can edit the FX rate — this invoice will use the fetched rate above.
             </div>
           )}
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Line items</label>
+              <button
+                type="button"
+                onClick={addLineItem}
+                style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+              >
+                + Add line
+              </button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {lineItems.map((li, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '1.8fr 0.9fr 0.6fr 0.8fr 0.6fr auto', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={li.description}
+                    onChange={(e) => updateLineItem(i, { description: e.target.value })}
+                    placeholder={i === 0 ? 'Freight' : 'e.g. THC, Documentation'}
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={li.sacCode}
+                    onChange={(e) => updateLineItem(i, { sacCode: e.target.value })}
+                    placeholder="SAC code"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={li.quantity}
+                    onChange={(e) => updateLineItem(i, { quantity: e.target.value })}
+                    placeholder="Qty"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={li.rate}
+                    onChange={(e) => updateLineItem(i, { rate: e.target.value })}
+                    placeholder="Rate"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={li.gstRate}
+                    onChange={(e) => updateLineItem(i, { gstRate: e.target.value })}
+                    placeholder="GST %"
+                    style={inputStyle}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeLineItem(i)}
+                    disabled={lineItems.length === 1}
+                    title="Remove line"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: lineItems.length === 1 ? '#334155' : '#fb7185',
+                      fontSize: 16,
+                      lineHeight: 1,
+                      cursor: lineItems.length === 1 ? 'not-allowed' : 'pointer',
+                      padding: '0 4px',
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <FieldError message={fieldErrors.lineItems} />
+          </div>
+
+          <div
+            style={{
+              background: '#0b1220',
+              border: '1px solid #1e293b',
+              borderRadius: 8,
+              padding: '12px 14px',
+              marginBottom: 14,
+            }}
+          >
+            <div style={{ fontSize: 11.5, marginBottom: 10, color: supplyType.stateUnknown ? '#fbbf24' : '#5b6b82' }}>
+              {supplyType.stateUnknown
+                ? '⚠ Set this client\'s state (Directory → Contacts) for an accurate CGST/SGST-vs-IGST split — defaulting to inter-state (IGST) for now.'
+                : supplyType.isSameState
+                  ? 'Same state as your business → CGST + SGST'
+                  : 'Different state from your business → IGST, auto-computed'}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 6, fontSize: 12.5, color: '#94a3b8' }}>
+              <div>Taxable value</div>
+              <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{currency} {totalTaxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+              {totalCgst > 0 || totalSgst > 0 ? (
+                <>
+                  <div>CGST</div>
+                  <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{currency} {totalCgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                  <div>SGST</div>
+                  <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{currency} {totalSgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                </>
+              ) : (
+                <>
+                  <div>IGST</div>
+                  <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{currency} {totalIgst.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
+                </>
+              )}
+            </div>
+          </div>
 
           <div
             style={{
@@ -274,7 +523,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
           >
             <div style={{ fontSize: 11, color: '#64748b' }}>
               Amount in INR
-              <InfoTooltip text="Amount × FX Rate, calculated live as you type and stored on the invoice at creation — never recomputed later, even if the FX rate is edited afterward." />
+              <InfoTooltip text="Sum of line items (incl. GST) × FX Rate, calculated live and stored on the invoice at creation — never recomputed later, even if the FX rate is edited afterward." />
             </div>
             <div style={{ fontSize: 16, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
               ₹{amountInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}

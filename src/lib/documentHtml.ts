@@ -1,5 +1,21 @@
 import { supabase } from './supabaseClient'
-import { SHIPMENT_DOCUMENT_TYPE_META, type CustomsFiling, type Invoice, type Quote, type Shipment, type ShipmentDocumentType } from '../types'
+import {
+  SHIPMENT_DOCUMENT_TYPE_META,
+  type CustomsFiling,
+  type Invoice,
+  type Quote,
+  type QuoteLineItem,
+  type Shipment,
+  type ShipmentDocumentType,
+} from '../types'
+
+// Week 14 (ADR-0021): the actual customer-facing artifact — no point itemizing a quote in the
+// create modal if the signed document a client receives still shows one flat line. Fetched
+// separately (not joined into `quotes` selects elsewhere) since only the e-sign flow needs it.
+export async function fetchQuoteLineItems(quoteId: string): Promise<QuoteLineItem[]> {
+  const { data } = await supabase.from('quote_line_items').select('*').eq('quote_id', quoteId).order('created_at', { ascending: true })
+  return (data as QuoteLineItem[]) ?? []
+}
 
 export interface ContactNames {
   shipper: string | null
@@ -134,26 +150,57 @@ export function renderShipmentDocumentHtml(documentType: ShipmentDocumentType, s
 </body></html>`
 }
 
-export function renderQuoteHtml(quote: Quote): string {
-  const rows: DocumentRow[] = [
+function lineItemsToHtmlTable(items: QuoteLineItem[]): string {
+  const rows = items
+    .map(
+      (li) =>
+        `<tr><td style="padding:8px 0;border-bottom:1px solid #ddd;">${li.description}${li.sac_code ? ` <span style="color:#888;">(SAC ${li.sac_code})</span>` : ''}</td>` +
+        `<td style="padding:8px 0;text-align:right;border-bottom:1px solid #ddd;">${li.quantity}</td>` +
+        `<td style="padding:8px 0;text-align:right;border-bottom:1px solid #ddd;">${li.currency} ${li.rate.toLocaleString('en-IN')}</td>` +
+        `<td style="padding:8px 0;text-align:right;border-bottom:1px solid #ddd;">${li.currency} ${li.amount.toLocaleString('en-IN')}</td></tr>`,
+    )
+    .join('')
+  return `<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px;">
+    <thead><tr>
+      <th style="text-align:left;padding:8px 0;border-bottom:2px solid #333;">Description</th>
+      <th style="text-align:right;padding:8px 0;border-bottom:2px solid #333;">Qty</th>
+      <th style="text-align:right;padding:8px 0;border-bottom:2px solid #333;">Rate</th>
+      <th style="text-align:right;padding:8px 0;border-bottom:2px solid #333;">Amount</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table>`
+}
+
+// lineItems is optional so a quote created before Week 14 (no quote_line_items rows) still
+// renders exactly as before, using the flat quantity/rate/total columns — same additive,
+// backward-compatible shape as the rest of ADR-0021.
+export function renderQuoteHtml(quote: Quote, lineItems: QuoteLineItem[] = []): string {
+  const headerRows: DocumentRow[] = [
     { label: 'Shipper', value: quote.shipper_name },
     { label: 'Consignee', value: quote.consignee_name },
     { label: 'Mode', value: quote.mode },
     { label: 'Route', value: `${quote.origin} → ${quote.destination}` },
-    { label: 'Quantity', value: String(quote.quantity) },
-    { label: 'Rate', value: `${quote.currency} ${quote.rate.toLocaleString('en-IN')}` },
-    { label: 'Total', value: `${quote.currency} ${quote.total.toLocaleString('en-IN')}` },
   ]
+  const itemizedBody =
+    lineItems.length > 0
+      ? lineItemsToHtmlTable(lineItems)
+      : rowsToHtmlTable([
+          { label: 'Quantity', value: String(quote.quantity) },
+          { label: 'Rate', value: `${quote.currency} ${quote.rate.toLocaleString('en-IN')}` },
+        ])
   return `<!DOCTYPE html>
 <html><head><meta charset="utf-8"><style>
   body { font-family: Arial, Helvetica, sans-serif; color: #111; padding: 32px; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .ref { color: #666; font-size: 12px; margin-bottom: 24px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .total { text-align: right; font-size: 15px; font-weight: bold; margin-top: 12px; }
 </style></head><body>
   <h1>Quote</h1>
   <div class="ref">${quote.ref}</div>
-  <table>${rowsToHtmlTable(rows)}</table>
+  <table>${rowsToHtmlTable(headerRows)}</table>
+  ${itemizedBody}
+  <div class="total">Total: ${quote.currency} ${quote.total.toLocaleString('en-IN')}</div>
   ${SIGNATURE_LINE}
 </body></html>`
 }

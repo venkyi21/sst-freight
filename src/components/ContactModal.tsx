@@ -2,7 +2,7 @@ import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import FieldError from './FieldError'
-import { CONTACT_KIND_META, VENDOR_TYPE_META, type Contact, type ContactKind, type VendorType } from '../types'
+import { CONTACT_KIND_META, INDIAN_STATES, VENDOR_TYPE_META, type Contact, type ContactKind, type VendorType } from '../types'
 
 interface ContactModalProps {
   orgId: string
@@ -41,6 +41,7 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
   const [phone, setPhone] = useState(contact?.phone ?? '')
   const [city, setCity] = useState(contact?.city ?? '')
   const [country, setCountry] = useState(contact?.country ?? '')
+  const [state, setState] = useState(contact?.state ?? '')
   const [notes, setNotes] = useState(contact?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +69,7 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
       phone: phone.trim() || null,
       city: city.trim() || null,
       country: country.trim() || null,
+      state: state || null,
       notes: notes.trim() || null,
     }
 
@@ -217,6 +219,17 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
             <div>
               <label style={labelStyle}>Country</label>
               <input type="text" value={country} onChange={(e) => setCountry(e.target.value)} style={inputStyle} />
+            </div>
+            <div>
+              <label style={labelStyle}>State (for GST)</label>
+              <select value={state} onChange={(e) => setState(e.target.value)} style={inputStyle}>
+                <option value="">— Not set —</option>
+                {INDIAN_STATES.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Notes</label>

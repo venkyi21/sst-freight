@@ -102,8 +102,10 @@ erDiagram
   quotes }o--o| tariffs : "prefilled from (nullable FK)"
   quotes |o--o| shipments : "converts to (nullable FK)"
   quotes ||--o{ esign_requests : "quote requests (nullable FK)"
+  quotes ||--o{ quote_line_items : "itemized as"
 
   invoices }o--o| contacts : "client (nullable FK)"
+  invoices ||--o{ invoice_line_items : "itemized as"
   shipment_costs }o--o| contacts : "vendor (nullable FK)"
   invoices |o--o| platform_revenue_ledger : "fx_spread rake (nullable FK)"
   shipment_costs |o--o| platform_revenue_ledger : "instant_payout rake (nullable FK)"
@@ -176,6 +178,23 @@ is the simulated FinTech Slice rake ledger — no real funds move through it (AD
 invoice and only `instant_payout` ties to a shipment cost — `cargo_insurance` ties to neither
 directly (it's computed from a shipment's total invoiced amount, opted into per-shipment, not
 per-invoice or per-cost).
+
+**Week 14 (ADR-0021)**: `quote_line_items`/`invoice_line_items` are two concrete, org-scoped
+tables (not one polymorphic `line_items` table — every relationship in this schema is an explicit
+typed FK), additive alongside `quotes.rate/quantity/total` and `invoices.amount/amount_inr`, which
+remain authoritative whenever no line items exist for a given row. `invoice_line_items` carries
+the stored (not derived-on-read) GST breakup — `taxable_value`/`cgst_amount`/`sgst_amount`/
+`igst_amount`, same "compute once at creation, never recompute" shape `invoices.amount_inr`
+already had. `organizations` gained `gst_state` and `contacts` gained `state`, compared client-side
+to determine CGST+SGST (same state) vs. IGST (different state, or unknown) per line. `tariffs`
+gained `sac_code`/`default_gst_rate` — deliberately named `sac_code`, not `hsn_code`, since
+freight-forwarding line items are **services** (SAC-classified under GST), a different real-world
+tax concept from the **goods**-classification `hs_codes` table the Week 10 Customs Filing
+Simulator already uses for import duty; the two are never joined together. `organizations` had no
+plain grant at all before this (every existing update path was platform-admin-only or its own
+RPC), so `gst_state` needed its own new `update_org_gst_settings()` RPC, mirroring
+`update_org_branding()`'s exact `is_org_admin()`-gated shape but kept separate, since tax config
+and branding are unrelated concerns.
 
 ## 4. Request patterns
 

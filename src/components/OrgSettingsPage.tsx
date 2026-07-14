@@ -1,7 +1,7 @@
 import { useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
-import { TENANT_COLORS, type OrganizationWithRole } from '../types'
+import { INDIAN_STATES, TENANT_COLORS, type OrganizationWithRole } from '../types'
 
 interface OrgSettingsPageProps {
   org: OrganizationWithRole
@@ -37,6 +37,11 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  const [gstState, setGstState] = useState(org.gst_state ?? '')
+  const [gstBusy, setGstBusy] = useState(false)
+  const [gstError, setGstError] = useState<string | null>(null)
+  const [gstSuccess, setGstSuccess] = useState(false)
 
   const displayLogoUrl = previewUrl ?? org.logo_url
 
@@ -83,6 +88,26 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
     setPendingLogoFile(null)
     setSuccess(true)
     setBusy(false)
+  }
+
+  // Week 14 (ADR-0021): kept as its own RPC/save action, separate from branding above — tax
+  // config and branding are unrelated concerns that happen to both live on `organizations`.
+  async function handleSaveGst() {
+    setGstError(null)
+    setGstSuccess(false)
+    setGstBusy(true)
+    const { error: rpcError } = await supabase.rpc('update_org_gst_settings', {
+      p_org_id: org.id,
+      p_gst_state: gstState || null,
+    })
+    if (rpcError) {
+      setGstError(rpcError.message)
+      setGstBusy(false)
+      return
+    }
+    await refreshOrganizations()
+    setGstSuccess(true)
+    setGstBusy(false)
   }
 
   return (
@@ -219,6 +244,70 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           {busy ? 'Saving…' : 'Save Branding'}
         </button>
       )}
+
+      <div style={{ marginTop: 36, paddingTop: 24, borderTop: '1px solid #1e293b' }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>GST Settings</h2>
+        <div style={{ fontSize: 12, color: '#5b6b82', marginBottom: 18 }}>
+          Your business's home state, used to auto-compute CGST+SGST (same state as a client) vs. IGST (different
+          state) on every invoice.
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <label style={labelStyle}>State</label>
+          <select
+            value={gstState}
+            disabled={!canEdit || gstBusy}
+            onChange={(e) => setGstState(e.target.value)}
+            style={{ ...inputStyle, width: 260, opacity: canEdit ? 1 : 0.6 }}
+          >
+            <option value="">— Not set —</option>
+            {INDIAN_STATES.map((s) => (
+              <option key={s} value={s}>
+                {s}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {gstError && (
+          <div
+            style={{
+              marginBottom: 16,
+              background: 'rgba(244,63,94,0.1)',
+              border: '1px solid rgba(244,63,94,0.3)',
+              color: '#fb7185',
+              fontSize: 12.5,
+              borderRadius: 8,
+              padding: '9px 12px',
+            }}
+          >
+            {gstError}
+          </div>
+        )}
+        {gstSuccess && (
+          <div style={{ marginBottom: 16, fontSize: 12.5, color: '#4ade80', fontWeight: 600 }}>GST settings updated.</div>
+        )}
+
+        {canEdit && (
+          <button
+            type="button"
+            disabled={gstBusy}
+            onClick={() => void handleSaveGst()}
+            style={{
+              padding: '10px 18px',
+              borderRadius: 8,
+              border: 'none',
+              background: gstBusy ? '#1e293b' : '#2563eb',
+              color: '#fff',
+              fontWeight: 600,
+              fontSize: 13,
+              cursor: gstBusy ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {gstBusy ? 'Saving…' : 'Save GST Settings'}
+          </button>
+        )}
+      </div>
     </div>
   )
 }

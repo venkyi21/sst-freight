@@ -4,7 +4,7 @@ import { generateRef, shipmentRefPrefix } from '../lib/refGenerator'
 import TariffModal from './TariffModal'
 import QuoteModal from './QuoteModal'
 import EsignPanel from './EsignPanel'
-import { renderQuoteHtml } from '../lib/documentHtml'
+import { fetchQuoteLineItems, renderQuoteHtml } from '../lib/documentHtml'
 import { MODE_META, type Quote, type Shipment, type Tariff } from '../types'
 
 type Tab = 'tariffs' | 'quotes'
@@ -323,7 +323,7 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
                               documentLabel="Quote"
                               quoteId={q.id}
                               defaultRecipientName={q.consignee_name}
-                              buildHtml={() => renderQuoteHtml(q)}
+                              buildHtml={async () => renderQuoteHtml(q, await fetchQuoteLineItems(q.id))}
                             />
                           </td>
                         </tr>

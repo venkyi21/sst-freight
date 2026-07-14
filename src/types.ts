@@ -15,6 +15,7 @@ export interface Organization {
   billing_model: BillingModel
   monthly_fee_inr: number
   enabled_modules: PlatformModule[]
+  gst_state: string | null
   created_at: string
 }
 
@@ -57,6 +58,7 @@ export interface Contact {
   phone: string | null
   city: string | null
   country: string | null
+  state: string | null
   notes: string | null
   created_by: string | null
   created_at: string
@@ -73,6 +75,48 @@ export const VENDOR_TYPE_META: Record<VendorType, { label: string }> = {
   trucking_company: { label: 'Trucking Company' },
   cfs_agent: { label: 'CFS Agent' },
 }
+
+// Week 14 (ADR-0021): the 28 states + 8 union territories GST recognizes as distinct place-of-
+// supply jurisdictions — used for both an org's home state (gst_state) and a contact's state,
+// so the two values being compared always come from the same fixed list (no free-text drift).
+export const INDIAN_STATES = [
+  'Andaman and Nicobar Islands',
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chandigarh',
+  'Chhattisgarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jammu and Kashmir',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Ladakh',
+  'Lakshadweep',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Puducherry',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+] as const
 
 export interface Shipment {
   id: string
@@ -199,6 +243,8 @@ export interface Tariff {
   rate: number
   currency: string
   notes: string | null
+  sac_code: string | null
+  default_gst_rate: number | null
   created_by: string | null
   created_at: string
 }
@@ -223,6 +269,22 @@ export interface Quote {
   total: number
   status: QuoteStatus
   converted_shipment_id: string | null
+  created_by: string | null
+  created_at: string
+}
+
+// Week 14 (ADR-0021): itemized breakdown, additive alongside Quote.rate/quantity/total — a quote
+// with no line items uses those columns as before; total = sum(line items) once they exist.
+export interface QuoteLineItem {
+  id: string
+  org_id: string
+  quote_id: string
+  description: string
+  sac_code: string | null
+  quantity: number
+  rate: number
+  currency: string
+  amount: number
   created_by: string | null
   created_at: string
 }
@@ -268,6 +330,27 @@ export interface Invoice {
   status: InvoiceStatus
   due_date: string | null
   paid_at: string | null
+  created_by: string | null
+  created_at: string
+}
+
+// Week 14 (ADR-0021): additive alongside Invoice.amount/amount_inr, same shape as
+// QuoteLineItem plus the stored (not derived-on-read) GST breakup.
+export interface InvoiceLineItem {
+  id: string
+  org_id: string
+  invoice_id: string
+  description: string
+  sac_code: string | null
+  quantity: number
+  rate: number
+  currency: string
+  taxable_value: number
+  gst_rate: number
+  cgst_amount: number
+  sgst_amount: number
+  igst_amount: number
+  line_total: number
   created_by: string | null
   created_at: string
 }

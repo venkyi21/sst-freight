@@ -33,6 +33,11 @@ alter table organizations add column if not exists enabled_modules text[] not nu
 -- Nullable — no logo means the existing letter-avatar-on-color fallback renders instead.
 alter table organizations add column if not exists logo_url text;
 
+-- Week 14 (ADR-0021): the org's own home state, for GST place-of-supply comparison against a
+-- billed contact's state (see contacts.state below). Nullable — unset until an Owner/Admin fills
+-- it in via update_org_gst_settings(); invoices default to inter-state/IGST until then.
+alter table organizations add column if not exists gst_state text;
+
 create table if not exists memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -84,6 +89,11 @@ create table if not exists contacts (
   created_at timestamptz not null default now(),
   check ((kind = 'vendor') = (vendor_type is not null))
 );
+
+-- Week 14 (ADR-0021): state, for GST place-of-supply comparison against organizations.gst_state.
+-- Nullable — every contact created before this starts unset; invoices to an unset-state contact
+-- default to inter-state/IGST (the safer assumption) until someone fills this in.
+alter table contacts add column if not exists state text;
 
 create index if not exists contacts_org_id_idx on contacts (org_id);
 
@@ -142,6 +152,15 @@ create table if not exists tariffs (
 create index if not exists tariffs_org_id_idx on tariffs (org_id);
 alter table tariffs enable row level security;
 
+-- Week 14 (ADR-0021): optional prefill source for a quote's freight line item. sac_code is a
+-- Services Accounting Code (India's GST classification for services), deliberately distinct from
+-- the hs_codes table above — hs_codes is goods-import-duty data for the Week 10 Customs Filing
+-- Simulator, a different real-world tax concept from the GST a forwarder charges on its own
+-- freight/THC/documentation service fees. Both nullable — freight forwarding predates this
+-- feature, existing tariffs have neither until edited.
+alter table tariffs add column if not exists sac_code text;
+alter table tariffs add column if not exists default_gst_rate numeric check (default_gst_rate is null or default_gst_rate >= 0);
+
 -- quotes: shipper/consignee follow the same pattern as shipments — a nullable FK for
 -- traceability plus a denormalized name snapshot for display without an extra join.
 -- mode/origin/destination/rate are snapshotted from the tariff at creation time (not a live
@@ -171,6 +190,29 @@ create table if not exists quotes (
 create index if not exists quotes_org_id_idx on quotes (org_id);
 alter table quotes enable row level security;
 
+-- quote_line_items (Week 14, ADR-0021): itemized breakdown (freight/THC/documentation, etc.) as
+-- separate rows. Additive alongside quotes.rate/quantity/total, not a replacement — a quote with
+-- no line items still works exactly as before, using those existing columns; total becomes
+-- sum(line items) only once line items exist. Own org_id (not inferred via a join), same shape
+-- as shipment_costs. select/insert only — no update/delete grant, matching that no quote-editing
+-- UI exists at all today (tech-debt.md), so there is nothing to edit or remove after creation.
+create table if not exists quote_line_items (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  quote_id uuid not null references quotes (id) on delete cascade,
+  description text not null,
+  sac_code text,
+  quantity numeric not null check (quantity > 0),
+  rate numeric not null,
+  currency text not null default 'INR',
+  amount numeric not null check (amount >= 0),
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists quote_line_items_org_id_idx on quote_line_items (org_id);
+create index if not exists quote_line_items_quote_id_idx on quote_line_items (quote_id);
+alter table quote_line_items enable row level security;
+
 -- invoices: generated from a shipment. client_contact_id/client_name follow the same FK +
 -- denormalized-name pattern as quotes.consignee_*. amount_inr is stored (not computed on read)
 -- so P&L totals never need a currency-conversion join.
@@ -194,6 +236,34 @@ create table if not exists invoices (
 );
 create index if not exists invoices_org_id_idx on invoices (org_id);
 alter table invoices enable row level security;
+
+-- invoice_line_items (Week 14, ADR-0021): same additive shape as quote_line_items, plus the GST
+-- breakup. taxable_value/cgst_amount/sgst_amount/igst_amount/line_total are all stored, not
+-- derived on read — same reasoning as invoices.amount_inr. Tax-type split (CGST+SGST vs IGST) is
+-- computed client-side at creation time by comparing organizations.gst_state to the invoice's
+-- billed contact's state; when that contact's state is unset, the client defaults to
+-- inter-state/IGST (see ADR-0021) rather than guessing a same-state split.
+create table if not exists invoice_line_items (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  invoice_id uuid not null references invoices (id) on delete cascade,
+  description text not null,
+  sac_code text,
+  quantity numeric not null check (quantity > 0),
+  rate numeric not null,
+  currency text not null default 'INR',
+  taxable_value numeric not null check (taxable_value >= 0),
+  gst_rate numeric not null default 0 check (gst_rate >= 0),
+  cgst_amount numeric not null default 0 check (cgst_amount >= 0),
+  sgst_amount numeric not null default 0 check (sgst_amount >= 0),
+  igst_amount numeric not null default 0 check (igst_amount >= 0),
+  line_total numeric not null check (line_total >= 0),
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now()
+);
+create index if not exists invoice_line_items_org_id_idx on invoice_line_items (org_id);
+create index if not exists invoice_line_items_invoice_id_idx on invoice_line_items (invoice_id);
+alter table invoice_line_items enable row level security;
 
 -- shipment_costs: the P&L cost side, reusing vendor contacts from Week 2.
 create table if not exists shipment_costs (
@@ -575,6 +645,18 @@ create policy "members can update org quotes"
   on quotes for update
   using (is_org_member(org_id));
 
+-- quote_line_items: scoped strictly to org membership, same module gate as their parent quote.
+-- select/insert only — no update/update policy, matching that quotes have no editing UI.
+drop policy if exists "members can view org quote line items" on quote_line_items;
+create policy "members can view org quote line items"
+  on quote_line_items for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org quote line items" on quote_line_items;
+create policy "members can insert org quote line items"
+  on quote_line_items for insert
+  with check (is_org_member(org_id) and created_by = auth.uid() and is_module_enabled(org_id, 'quotes'));
+
 -- invoices: scoped strictly to org membership, same shape as quotes. Any member can mark an
 -- invoice paid/unpaid; the FX rate is additionally protected by a trigger below.
 drop policy if exists "members can view org invoices" on invoices;
@@ -591,6 +673,18 @@ drop policy if exists "members can update org invoices" on invoices;
 create policy "members can update org invoices"
   on invoices for update
   using (is_org_member(org_id));
+
+-- invoice_line_items: scoped strictly to org membership, same module gate as their parent
+-- invoice. select/insert only — no update policy, matching that invoices have no editing UI.
+drop policy if exists "members can view org invoice line items" on invoice_line_items;
+create policy "members can view org invoice line items"
+  on invoice_line_items for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org invoice line items" on invoice_line_items;
+create policy "members can insert org invoice line items"
+  on invoice_line_items for insert
+  with check (is_org_member(org_id) and created_by = auth.uid() and is_module_enabled(org_id, 'accounting'));
 
 -- shipment_costs: scoped strictly to org membership, same shape as contacts.
 drop policy if exists "members can view org shipment costs" on shipment_costs;
@@ -776,6 +870,33 @@ begin
   end if;
 
   update organizations set color = p_color, logo_url = p_logo_url where id = p_org_id returning * into v_org;
+  if v_org.id is null then
+    raise exception 'Organization not found';
+  end if;
+
+  return v_org;
+end;
+$$;
+
+-- update_org_gst_settings (Week 14, ADR-0021): the org's home state, for GST place-of-supply
+-- comparison on invoices. Same shape as update_org_branding above — organizations has no plain
+-- grant at all, so even this single-column, non-privileged-in-spirit update needs its own
+-- is_org_admin()-gated RPC, kept separate from update_org_branding since tax config and branding
+-- are unrelated concerns that happen to both live on organizations.
+create or replace function update_org_gst_settings(p_org_id uuid, p_gst_state text)
+returns organizations
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org organizations;
+begin
+  if not is_org_admin(p_org_id) then
+    raise exception 'Not authorized to update this organization''s GST settings';
+  end if;
+
+  update organizations set gst_state = p_gst_state where id = p_org_id returning * into v_org;
   if v_org.id is null then
     raise exception 'Organization not found';
   end if;
@@ -1382,6 +1503,7 @@ $$;
 
 grant execute on function create_organization(text, text) to authenticated;
 grant execute on function update_org_branding(uuid, text, text) to authenticated;
+grant execute on function update_org_gst_settings(uuid, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
 grant execute on function is_org_admin(uuid) to authenticated;
@@ -1412,7 +1534,9 @@ grant select, insert, update on contacts to authenticated;
 grant select on shipment_status_history to authenticated;
 grant select, insert, update on tariffs to authenticated;
 grant select, insert, update on quotes to authenticated;
+grant select, insert on quote_line_items to authenticated;
 grant select, insert, update on invoices to authenticated;
+grant select, insert on invoice_line_items to authenticated;
 grant select, insert, update on shipment_costs to authenticated;
 grant select on hs_codes to authenticated;
 grant select, insert, update on customs_filings to authenticated;

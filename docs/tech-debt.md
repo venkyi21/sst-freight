@@ -35,10 +35,15 @@ fast otherwise.
 - **Shipment status has no "go back" or correction path** (ADR-0004, deliberate). A
   fat-fingered status advance is permanent. Would need a new RPC with its own authorization story
   (who can revert, and does it get its own history entry or does it rewrite one).
-- **Quotes are single-rate, not itemized.** One tariff → one total per quote — no multi-line
-  quotes (freight + THC + documentation fee as separate lines). Deferred at Week 5 scoping.
+- ~~Quotes are single-rate, not itemized~~ **Closed Week 14 (ADR-0021)**: `quote_line_items` +
+  `invoice_line_items` support real multi-line itemization (freight/THC/documentation as separate
+  rows), additive alongside the original `rate`/`quantity`/`total` columns. **Still open**: line
+  items can't be edited after creation — no quote/invoice editing UI exists at all, itemized or
+  not, so this isn't a new gap so much as the existing one extended to the new tables.
 - **Quotes have no `sent`/`accepted`/`rejected` states** — only `draft` → `converted`. A quote
-  that a customer declined looks identical to one nobody has looked at yet.
+  that a customer declined looks identical to one nobody has looked at yet. Reserved for Week 15
+  ("Quote lifecycle + record housekeeping," `docs/competitor-dashboard.html` §10) — deliberately
+  not touched in Week 14 to keep that pass to itemization/GST/profitability only.
 - **Quote-to-booking conversion has a real, unguarded double-submit race** (see ADR-0006): the
   client update that flips `quotes.status` to `'converted'` filters only on `id`, not `id AND
   status = 'draft'`. Two near-simultaneous conversion attempts (double-click, two open tabs) can
@@ -47,11 +52,24 @@ fast otherwise.
   likelihood, low blast radius (no data loss, just an orphaned extra shipment) — fix is a
   one-line `.eq('status', 'draft')` added to that update call, or moving conversion into an RPC
   that does the check-and-set atomically.
-- **No GST/tax handling anywhere in Accounting.** Rates, HSN codes, and e-invoicing rules were
-  explicitly scoped out of Week 6 as their own future initiative, not a quick add-on.
-- **P&L is org-wide totals only** — Total Revenue / Total Cost / Profit, no per-shipment
-  profitability breakdown. `shipment_costs` already has `shipment_id` on every row, so a
-  per-shipment view is a query away, just not built.
+- ~~No GST/tax handling anywhere in Accounting~~ **Closed Week 14 (ADR-0021)**: invoice line items
+  carry `sac_code`/`gst_rate`, and CGST+SGST-vs-IGST is auto-computed by comparing
+  `organizations.gst_state` to the billed contact's `contacts.state`. **Still open**: (1) real
+  GST e-invoicing/IRN government-portal integration — needs a real GSTIN account, the same
+  "real credentials before building" bar as Terminal49/DocuSign (ADR-0014/0020), not built or
+  faked; (2) the tax-type split defaults to inter-state/IGST for any contact with no `state` set
+  — every contact created before Week 14 starts this way, so early invoices to them may compute
+  the wrong split until that contact is edited; the UI warns visibly, but this is a real accuracy
+  risk, not just a cosmetic gap; (3) the Bill of Lading/commercial-invoice document template
+  (`computeDocumentRows`, Week 11) still shows a flat, non-itemized amount — only the Quote
+  e-sign document (`renderQuoteHtml`) and the Accounting UI itself were updated to show line
+  items/GST this pass; a compliant itemized-tax-invoice layout for that document family is its
+  own follow-up, not started.
+- ~~P&L is org-wide totals only~~ **Narrowed Week 14 (ADR-0021)**: `AccountingPage.tsx`'s P&L tab
+  now has a "Profitability by shipment" table (revenue/cost/margin per `shipment_id`, worst-margin
+  first), computed client-side from the same `invoices`/`shipment_costs` arrays already fetched —
+  no new query. Org-wide Total Revenue/Cost/Profit stat cards are unchanged and still shown
+  alongside it.
 - **Team management has no self-service "leave organization" and no ownership transfer.**
   `remove_member()` explicitly blocks removing your own membership (avoids accidental
   self-lockout) but there is no alternative flow for a user who genuinely wants to leave, and

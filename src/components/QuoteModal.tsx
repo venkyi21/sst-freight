@@ -6,12 +6,23 @@ import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
 import { isCheckViolation } from '../lib/formErrors'
 import { generateRef } from '../lib/refGenerator'
-import { RATE_BASIS_META, type Quote, type ShipmentMode, type Tariff } from '../types'
+import { RATE_BASIS_META, type Quote, type QuoteLineItem, type ShipmentMode, type Tariff } from '../types'
 
 interface QuoteModalProps {
   orgId: string
   onClose: () => void
   onCreated: (quote: Quote) => void
+}
+
+interface LineItemDraft {
+  description: string
+  sacCode: string
+  quantity: string
+  rate: string
+}
+
+function blankLineItem(description = ''): LineItemDraft {
+  return { description, sacCode: '', quantity: '1', rate: '' }
 }
 
 const inputStyle: CSSProperties = {
@@ -41,8 +52,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
   const [selectedTariffId, setSelectedTariffId] = useState<string>('')
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
-  const [rate, setRate] = useState('')
-  const [quantity, setQuantity] = useState('1')
+  const [lineItems, setLineItems] = useState<LineItemDraft[]>([blankLineItem('Freight')])
   const [shipper, setShipper] = useState('')
   const [shipperContactId, setShipperContactId] = useState<string | null>(null)
   const [consignee, setConsignee] = useState('')
@@ -52,8 +62,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
   const [fieldErrors, setFieldErrors] = useState<{
     origin?: string
     destination?: string
-    rate?: string
-    quantity?: string
+    lineItems?: string
     shipper?: string
     consignee?: string
   }>({})
@@ -73,10 +82,10 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     }
   }, [orgId, mode])
 
-  const quantityN = Math.max(0, parseFloat(quantity) || 0)
-  const rateN = Math.max(0, parseFloat(rate) || 0)
-  const total = quantityN * rateN
-  const valid = origin.trim() && destination.trim() && rateN > 0 && quantityN > 0 && shipper.trim() && consignee.trim()
+  const lineAmounts = lineItems.map((li) => Math.max(0, parseFloat(li.quantity) || 0) * Math.max(0, parseFloat(li.rate) || 0))
+  const total = lineAmounts.reduce((sum, a) => sum + a, 0)
+  const lineItemsValid = lineItems.length > 0 && lineItems.every((li, i) => li.description.trim() && parseFloat(li.quantity) > 0 && lineAmounts[i] >= 0 && parseFloat(li.rate) > 0)
+  const valid = origin.trim() && destination.trim() && lineItemsValid && shipper.trim() && consignee.trim()
 
   function handleTariffSelect(tariffId: string) {
     setSelectedTariffId(tariffId)
@@ -84,8 +93,24 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     if (tariff) {
       setOrigin(tariff.origin)
       setDestination(tariff.destination)
-      setRate(String(tariff.rate))
+      setLineItems((prev) => {
+        const next = [...prev]
+        next[0] = { ...next[0], rate: String(tariff.rate), sacCode: tariff.sac_code ?? '' }
+        return next
+      })
     }
+  }
+
+  function updateLineItem(index: number, patch: Partial<LineItemDraft>) {
+    setLineItems((prev) => prev.map((li, i) => (i === index ? { ...li, ...patch } : li)))
+  }
+
+  function addLineItem() {
+    setLineItems((prev) => [...prev, blankLineItem()])
+  }
+
+  function removeLineItem(index: number) {
+    setLineItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
   }
 
   async function resolveContactId(
@@ -121,8 +146,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
       setFieldErrors({
         origin: origin.trim() ? undefined : 'Origin is required',
         destination: destination.trim() ? undefined : 'Destination is required',
-        rate: rateN > 0 ? undefined : 'Rate must be greater than 0',
-        quantity: quantityN > 0 ? undefined : 'Quantity must be greater than 0',
+        lineItems: lineItemsValid ? undefined : 'Every line needs a description, quantity, and rate greater than 0',
         shipper: shipper.trim() ? undefined : 'Shipper is required',
         consignee: consignee.trim() ? undefined : 'Consignee is required',
       })
@@ -135,6 +159,9 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
     const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
 
+    // Line item #1 (usually "Freight") also backfills the legacy rate/quantity columns, so a
+    // quote row is never itemless even before quote_line_items exist for it — same additive
+    // shape as every other Week 14 column (ADR-0021).
     const base = {
       org_id: orgId,
       tariff_id: selectedTariffId || null,
@@ -145,13 +172,14 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
       shipper_name: shipper.trim(),
       consignee_contact_id: consigneeId,
       consignee_name: consignee.trim(),
-      quantity: quantityN,
-      rate: rateN,
+      quantity: Math.max(0, parseFloat(lineItems[0].quantity) || 0),
+      rate: Math.max(0, parseFloat(lineItems[0].rate) || 0),
       total,
       status: 'draft',
       created_by: user.id,
     }
 
+    let quote: Quote | null = null
     let lastError: PostgrestError | null = null
     for (let attempt = 0; attempt < 5; attempt++) {
       const { data, error: insertError } = await supabase
@@ -161,20 +189,46 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
         .single()
 
       if (!insertError && data) {
-        onCreated(data as Quote)
-        setBusy(false)
-        return
+        quote = data as Quote
+        break
       }
 
       lastError = insertError
       if (insertError?.code !== '23505') break
     }
 
-    if (lastError && isCheckViolation(lastError, 'quotes_quantity_check')) {
-      setFieldErrors({ quantity: 'Quantity must be greater than 0' })
-    } else {
-      setError(lastError?.message ?? 'Could not create quote')
+    if (!quote) {
+      if (lastError && isCheckViolation(lastError, 'quotes_quantity_check')) {
+        setFieldErrors({ lineItems: 'Every line needs a quantity greater than 0' })
+      } else {
+        setError(lastError?.message ?? 'Could not create quote')
+      }
+      setBusy(false)
+      return
     }
+
+    const lineItemRows: Omit<QuoteLineItem, 'id' | 'created_at'>[] = lineItems.map((li, i) => ({
+      org_id: orgId,
+      quote_id: (quote as Quote).id,
+      description: li.description.trim(),
+      sac_code: li.sacCode.trim() || null,
+      quantity: Math.max(0, parseFloat(li.quantity) || 0),
+      rate: Math.max(0, parseFloat(li.rate) || 0),
+      currency: 'INR',
+      amount: lineAmounts[i],
+      created_by: user.id,
+    }))
+
+    const { error: lineItemsError } = await supabase.from('quote_line_items').insert(lineItemRows)
+    if (lineItemsError) {
+      // The quote row itself was created successfully — onCreated below closes this modal
+      // regardless (the quote is real and must appear in the list), so there's no in-modal
+      // error UI left to show. Same accepted, documented non-atomicity as the two-step
+      // quote-conversion flow (ADR-0006/tech-debt.md); logged, not silently dropped.
+      console.error(`Quote ${quote.ref} line items failed to save:`, lineItemsError.message)
+    }
+
+    onCreated(quote)
     setBusy(false)
   }
 
@@ -196,7 +250,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
         onClick={(e) => e.stopPropagation()}
         style={{
           width: '100%',
-          maxWidth: 560,
+          maxWidth: 640,
           maxHeight: '88vh',
           overflowY: 'auto',
           background: '#0f172a',
@@ -312,16 +366,75 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
               <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="e.g. Rotterdam (NLRTM)" style={inputStyle} />
               <FieldError message={fieldErrors.destination} />
             </div>
-            <div>
-              <label style={labelStyle}>Rate (INR / {RATE_BASIS_META[mode].unit})</label>
-              <input type="number" min="0" step="any" value={rate} onChange={(e) => setRate(e.target.value)} style={inputStyle} />
-              <FieldError message={fieldErrors.rate} />
+          </div>
+
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ ...labelStyle, marginBottom: 0 }}>Line items</label>
+              <button
+                type="button"
+                onClick={addLineItem}
+                style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+              >
+                + Add line
+              </button>
             </div>
-            <div>
-              <label style={labelStyle}>Quantity ({RATE_BASIS_META[mode].unit})</label>
-              <input type="number" min="0" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} style={inputStyle} />
-              <FieldError message={fieldErrors.quantity} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {lineItems.map((li, i) => (
+                <div key={i} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.8fr 1fr auto', gap: 6, alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    value={li.description}
+                    onChange={(e) => updateLineItem(i, { description: e.target.value })}
+                    placeholder={i === 0 ? 'Freight' : 'e.g. THC, Documentation'}
+                    style={inputStyle}
+                  />
+                  <input
+                    type="text"
+                    value={li.sacCode}
+                    onChange={(e) => updateLineItem(i, { sacCode: e.target.value })}
+                    placeholder="SAC code"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={li.quantity}
+                    onChange={(e) => updateLineItem(i, { quantity: e.target.value })}
+                    placeholder="Qty"
+                    style={inputStyle}
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={li.rate}
+                    onChange={(e) => updateLineItem(i, { rate: e.target.value })}
+                    placeholder="Rate"
+                    style={inputStyle}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeLineItem(i)}
+                    disabled={lineItems.length === 1}
+                    title="Remove line"
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: lineItems.length === 1 ? '#334155' : '#fb7185',
+                      fontSize: 16,
+                      lineHeight: 1,
+                      cursor: lineItems.length === 1 ? 'not-allowed' : 'pointer',
+                      padding: '0 4px',
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
             </div>
+            <FieldError message={fieldErrors.lineItems} />
           </div>
 
           <div

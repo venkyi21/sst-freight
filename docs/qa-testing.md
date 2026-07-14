@@ -234,3 +234,40 @@ for E-Signature, the real DocuSign sandbox API, on 2026-07-14. No new product de
 Two apparent early failures during this pass (both in the Terminal49 recheck) were traced to
 test-data format mistakes, not product bugs, and are documented above for transparency rather than
 silently corrected.
+
+## Week 14 — Itemized, GST-Ready, Instantly-Trackable Accounting (ADR-0021)
+
+Tooling: real Playwright (headless Chromium) click-through against the dev server + real dev
+Supabase for the itemization/carryover/GST-UI scenarios, plus a direct `@supabase/supabase-js`
+script (bypassing the UI) for RLS isolation on the two new tables — same split as every prior
+pass (UI-only behavior needs a browser; server-side enforcement needs to be proven independent of
+what any button does or doesn't show).
+
+| # | Scenario | Result |
+| --- | --- | --- |
+| 1 | Org GST state saved via the new `update_org_gst_settings` RPC (Org Settings page) | ✅ Verified |
+| 2 | Multi-line quote (freight ₹45,000×2 + THC ₹5,000 + documentation ₹2,500) shows `total` = ₹97,500, the exact sum of its 3 line items | ✅ Verified |
+| 3 | Quote → shipment conversion still works with itemized quotes | ✅ Verified |
+| 4 | Invoicing a converted shipment shows a "carried over from quote" confirmation and prefills all 3 line items (descriptions, quantities, rates) with zero manual re-entry | ✅ Verified |
+| 5 | Same-state (org & client both Tamil Nadu) invoice shows "Same state → CGST + SGST" and a CGST+SGST breakdown, no IGST | ✅ Verified |
+| 6 | Different-state (Tamil Nadu org, Maharashtra client) invoice shows "Different state → IGST" and IGST = ₹1,800 exactly (18% of ₹10,000), no CGST/SGST | ✅ Verified |
+| 7 | Client with no state set shows the "⚠ set this client's state... defaulting to inter-state (IGST)" warning and an IGST-only breakdown — never a silent same-state assumption | ✅ Verified |
+| 8 | "Profitability by shipment" table renders on the Accounting → P&L tab immediately after invoicing, with the "See margin the moment you invoice" caption | ✅ Verified |
+| 9 | Org A can insert its own `quote_line_items`/`invoice_line_items` rows (plain RLS-gated CRUD works, not just locked down) | ✅ Verified |
+| 10 | Org B sees zero rows querying Org A's `quote_line_items` by `org_id`, and zero rows querying a specific known row `id` directly | ✅ Verified |
+| 11 | Org B sees zero rows querying Org A's `invoice_line_items` by `org_id`, and zero rows querying a specific known row `id` directly | ✅ Verified |
+| 12 | Org B's attempt to insert a `quote_line_items` row against Org A's `org_id`/`quote_id` is rejected by RLS (`new row violates row-level security policy`) | ✅ Verified |
+| 13 | Org A can still read its own `quote_line_items` after the isolation checks (RLS isn't over-blocking) | ✅ Verified |
+
+**13/13 passed**, zero browser console errors across both Playwright runs. One test-script false
+positive during this pass (an assertion checking for the *absence* of the substring `"CGST"`
+tripped on the no-state warning copy itself, which contains the phrase "...for an accurate
+CGST/SGST-vs-IGST split..." as plain English, not a rendered tax line) — caught by comparing
+against the real screenshot before accepting the result, fixed in the test script, not a product
+issue.
+
+**Not covered by this pass** (see `docs/srs.md` FR-7 for exactly which claims are marked
+verified vs. reasoned-only): a pre-Week-14 quote/invoice's backward compatibility (no such row
+exists in dev to test against — reasoned from the additive schema instead), and a numeric
+multi-shipment profitability click-test (the table's *appearance* was verified; its per-row
+arithmetic was verified by code inspection of the `useMemo`, not a separate live numeric check).
