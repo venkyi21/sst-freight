@@ -346,6 +346,32 @@ create table if not exists dashboard_preferences (
 create index if not exists dashboard_preferences_org_user_idx on dashboard_preferences (org_id, user_id);
 alter table dashboard_preferences enable row level security;
 
+-- esign_requests (ADR-0020): tracks a DocuSign envelope sent for a Quote or a Bill of Lading.
+-- The actual DocuSign call (JWT signing + Envelopes API) happens in the docusign-envelope Edge
+-- Function, not a Postgres RPC — RS256 JWT signing has no viable in-Postgres path (pgjwt is
+-- HMAC-only). This table is just org-scoped state, plain RLS-gated CRUD like customs_filings/
+-- shipment_documents (ADR-0002/0006) — the Edge Function itself uses the caller's own JWT (not a
+-- service role) when it reads/writes here, so RLS enforces org membership exactly as everywhere
+-- else in this app.
+create table if not exists esign_requests (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  document_type text not null check (document_type in ('quote', 'bill_of_lading')),
+  quote_id uuid references quotes (id) on delete cascade,
+  shipment_id uuid references shipments (id) on delete cascade,
+  envelope_id text,
+  recipient_name text not null,
+  recipient_email text not null,
+  status text not null default 'sent' check (status in ('sent', 'delivered', 'completed', 'declined', 'voided')),
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  check ((document_type = 'quote') = (quote_id is not null)),
+  check ((document_type = 'bill_of_lading') = (shipment_id is not null))
+);
+create index if not exists esign_requests_org_id_idx on esign_requests (org_id);
+alter table esign_requests enable row level security;
+
 -- platform_admins: a platform-level Super-Admin, orthogonal to any org membership.
 -- No RLS policy is defined for this table and no grants are given to `authenticated` —
 -- it is unreachable from the client entirely. The only way in is a manual insert via the
@@ -674,6 +700,24 @@ drop policy if exists "users can update their own dashboard preferences" on dash
 create policy "users can update their own dashboard preferences"
   on dashboard_preferences for update
   using (auth.uid() = user_id and is_org_member(org_id));
+
+-- esign_requests: scoped strictly to org membership, same shape as customs_filings/
+-- shipment_documents. Update is needed so the docusign-envelope Edge Function can write a
+-- refreshed status back onto an existing row.
+drop policy if exists "members can view org esign requests" on esign_requests;
+create policy "members can view org esign requests"
+  on esign_requests for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org esign requests" on esign_requests;
+create policy "members can insert org esign requests"
+  on esign_requests for insert
+  with check (is_org_member(org_id) and created_by = auth.uid());
+
+drop policy if exists "members can update org esign requests" on esign_requests;
+create policy "members can update org esign requests"
+  on esign_requests for update
+  using (is_org_member(org_id));
 
 -- ─────────────────────────────────────────────────────────────
 -- RPCs (SECURITY DEFINER — the only way to create an org or join one)
@@ -1048,6 +1092,9 @@ create trigger customs_filings_audit after insert or update or delete on customs
 drop trigger if exists shipment_documents_audit on shipment_documents;
 create trigger shipment_documents_audit after insert or update or delete on shipment_documents
   for each row execute function log_audit_event();
+drop trigger if exists esign_requests_audit on esign_requests;
+create trigger esign_requests_audit after insert or update or delete on esign_requests
+  for each row execute function log_audit_event();
 
 -- list_audit_log: the only reader of audit_log. Gated to Owner/Admin (or platform admin) —
 -- same is_org_admin() gate as update_member_role()/remove_member(), since this ledger covers
@@ -1371,3 +1418,4 @@ grant select on hs_codes to authenticated;
 grant select, insert, update on customs_filings to authenticated;
 grant select, insert on shipment_documents to authenticated;
 grant select, insert, update on dashboard_preferences to authenticated;
+grant select, insert, update on esign_requests to authenticated;

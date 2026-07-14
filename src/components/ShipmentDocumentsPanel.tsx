@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { supabase } from '../lib/supabaseClient'
 import DocumentView from './DocumentView'
+import EsignPanel from './EsignPanel'
 import { documentRefPrefix, generateRef } from '../lib/refGenerator'
+import { computeDocumentRows, fetchShipmentDocumentData, renderShipmentDocumentHtml } from '../lib/documentHtml'
 import {
   GENERATED_DOCUMENT_TYPES,
   SHIPMENT_DOCUMENT_TYPE_META,
@@ -35,7 +37,18 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
   const [uploading, setUploading] = useState(false)
   const [uploadType, setUploadType] = useState<ShipmentDocumentType>('other')
   const [viewing, setViewing] = useState<{ documentType: ShipmentDocumentType; documentRef: string } | null>(null)
+  const [consigneeEmail, setConsigneeEmail] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (!shipment.consignee_contact_id) return
+    supabase
+      .from('contacts')
+      .select('email')
+      .eq('id', shipment.consignee_contact_id)
+      .maybeSingle()
+      .then(({ data }) => setConsigneeEmail((data as { email: string | null } | null)?.email ?? null))
+  }, [shipment.consignee_contact_id])
 
   useEffect(() => {
     let cancelled = false
@@ -215,6 +228,34 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
       {viewing && (
         <DocumentView shipment={shipment} documentType={viewing.documentType} documentRef={viewing.documentRef} onClose={() => setViewing(null)} />
       )}
+
+      {(() => {
+        const bol = documents.find((d) => d.document_type === 'bill_of_lading' && d.source === 'generated')
+        return (
+          <div style={{ marginTop: 18 }}>
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              E-Signature (Bill of Lading)
+            </div>
+            {bol ? (
+              <EsignPanel
+                orgId={shipment.org_id}
+                documentType="bill_of_lading"
+                documentRef={bol.ref ?? ''}
+                documentLabel="Bill of Lading"
+                shipmentId={shipment.id}
+                defaultRecipientEmail={consigneeEmail ?? undefined}
+                buildHtml={async () => {
+                  const data = await fetchShipmentDocumentData(shipment)
+                  const rows = computeDocumentRows('bill_of_lading', shipment, data, bol.ref ?? '')
+                  return renderShipmentDocumentHtml('bill_of_lading', shipment, rows, bol.ref ?? '')
+                }}
+              />
+            ) : (
+              <div style={{ fontSize: 11.5, color: '#5b6b82' }}>Generate a Bill of Lading above before sending it for signature.</div>
+            )}
+          </div>
+        )
+      })()}
     </div>
   )
 }

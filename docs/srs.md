@@ -315,6 +315,30 @@ built.
     no image validation/resizing, no color-contrast check; per-org custom domain is out of scope
     entirely (ADR-0019).
 
+### FR-16: E-Signature on Quotes and Bill of Lading
+
+- **US-16.1** — As a Member, I can send a Quote or a generated Bill of Lading to a named recipient
+  for e-signature, entering their name and email.
+  - AC: Verified end-to-end against a real DocuSign sandbox account — sending produces a real
+    envelope ID and the recipient receives a real (sandbox-stamped) email with a signing link.
+  - AC: The document sent is built from this app's own live shipment/quote data (reusing
+    `computeDocumentRows`/`renderShipmentDocumentHtml`/`renderQuoteHtml`), not re-typed — same
+    consistency guarantee as Week 11's generated documents.
+- **US-16.2** — As a Member, I can check the current signature status (sent, delivered,
+  completed, declined, voided) via a "Refresh Status" button.
+  - AC: Verified against a real sandbox envelope — signing it in DocuSign's sandbox, then clicking
+    "Refresh Status," shows "Completed" in this app.
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — no real-time push (manual
+    refresh only); one signer per envelope; no in-app void/resend.
+- **US-16.3** — As a Member of a different organization, I cannot read or send e-signature
+  requests for another org's quotes/shipments.
+  - AC: Verified directly — a user from Org B invoking the `docusign-envelope` function with Org
+    A's quote/shipment ID gets rejected (the function's own RLS-scoped query returns nothing for
+    a non-member, so the send fails cleanly).
+  - AC: **Explicitly not implemented / out of scope**: this uses a DocuSign **sandbox** account —
+    signed documents are not legally binding until the integration is moved to a real paid
+    DocuSign production plan, a decision left entirely to the user.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

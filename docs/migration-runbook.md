@@ -69,6 +69,22 @@ Supabase project (a fresh prod project, for instance) from scratch, **this step 
 separately** for every secret-dependent function, or that function will fail at runtime with
 "not configured in Vault" — a real, easy-to-forget step when standing up a new environment.
 
+### Edge Function deployment (E-signature, ADR-0020)
+
+`supabase/functions/docusign-envelope/` is **not** part of `supabase/schema.sql` and is **not**
+applied via the SQL Editor — it's a separate Deno program deployed independently, either via the
+Supabase CLI (`supabase functions deploy docusign-envelope`) or directly through the Supabase
+Dashboard's Edge Functions section (create/edit the function's code in the browser-based editor,
+no CLI required — the path used for this project, consistent with every other dashboard-based
+step so far).
+
+Its three secrets (`DOCUSIGN_INTEGRATION_KEY`, `DOCUSIGN_USER_ID`, `DOCUSIGN_ACCOUNT_ID`,
+`DOCUSIGN_PRIVATE_KEY`) live in the Edge Function's **own** secret store — set via
+`supabase secrets set` (CLI) or the Dashboard's Edge Functions → Manage Secrets UI — which is
+**separate from Postgres Vault** (the store `register_carrier_tracking` uses). Standing up a new
+environment (e.g. a future production DocuSign integration) means redeploying the function code
+*and* re-setting all four secrets there — neither step is covered by re-applying `schema.sql`.
+
 ### Order
 
 1. Apply to the **dev** Supabase project.

@@ -15,6 +15,10 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Supabase CLI local state (project ref, pooler URL, version cache) — machine-local, not secret
+# content itself, but not meant to be tracked (same principle as node_modules).
+supabase/.temp
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

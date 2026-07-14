@@ -378,14 +378,16 @@
         <div class="note ok">
           <b>Post-Week-12 "enterprise close" backlog (separate from the competitor-gap table
           above):</b> of the four items raised — real carrier-tracking read access, e-signature on
-          quote/BL, white-label branding, a public REST + webhook layer — <strong>white-label
-          logo/color config is now shipped</strong> (ADR-0019; per-org custom domain explicitly
-          split out as its own future hosting/DNS decision, not part of this). Carrier-tracking
-          read access needs a paid Terminal49 upgrade (declined for now — no free-tier read path
-          exists, confirmed Week 9). E-signature needs real DocuSign/SignWell credentials the user
-          is arranging. The webhook layer needs its own ADR once picked up — REST/API-key access
-          is nearly free (PostgREST is already there) but reliable outbound webhook delivery is
-          genuinely new architecture.
+          quote/BL, white-label branding, a public REST + webhook layer —
+          <strong>white-label logo/color config</strong> (ADR-0019; per-org custom domain
+          explicitly split out as its own future hosting/DNS decision, not part of this) and
+          <strong>e-signature on Quotes and the Bill of Lading</strong> (ADR-0020, via a real
+          DocuSign sandbox account — this app's first Supabase Edge Function, introduced solely
+          because DocuSign's JWT auth needs RS256 signing no Postgres extension can do) are now
+          shipped. Carrier-tracking read access needs a paid Terminal49 upgrade (declined for now
+          — no free-tier read path exists, confirmed Week 9). The webhook layer needs its own ADR
+          once picked up — REST/API-key access is nearly free (PostgREST is already there) but
+          reliable outbound webhook delivery is genuinely new architecture.
         </div>
       </section>
 

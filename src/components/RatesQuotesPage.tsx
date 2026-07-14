@@ -1,8 +1,10 @@
-import { useEffect, useState, type CSSProperties } from 'react'
+import { Fragment, useEffect, useState, type CSSProperties } from 'react'
 import { supabase } from '../lib/supabaseClient'
 import { generateRef, shipmentRefPrefix } from '../lib/refGenerator'
 import TariffModal from './TariffModal'
 import QuoteModal from './QuoteModal'
+import EsignPanel from './EsignPanel'
+import { renderQuoteHtml } from '../lib/documentHtml'
 import { MODE_META, type Quote, type Shipment, type Tariff } from '../types'
 
 type Tab = 'tariffs' | 'quotes'
@@ -61,6 +63,7 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
   const [quotesError, setQuotesError] = useState<string | null>(null)
   const [quoteModalOpen, setQuoteModalOpen] = useState(false)
   const [convertingId, setConvertingId] = useState<string | null>(null)
+  const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null)
   const [convertError, setConvertError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -272,37 +275,60 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
                     <th style={headStyle}>Client</th>
                     <th style={headStyle}>Total</th>
                     <th style={headStyle}>Status</th>
+                    <th style={headStyle}>E-Signature</th>
                   </tr>
                 </thead>
                 <tbody>
                   {quotes.map((q) => (
-                    <tr key={q.id} style={{ borderBottom: '1px solid #172033' }}>
-                      <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{q.ref}</td>
-                      <td style={{ ...cellStyle, fontSize: 12 }}>
-                        <div style={{ fontWeight: 600, color: '#cbd5e1' }}>{q.origin}</div>
-                        <div style={{ color: '#5b6b82' }}>→ {q.destination}</div>
-                      </td>
-                      <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{q.consignee_name}</td>
-                      <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>
-                        ₹{q.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                      </td>
-                      <td style={cellStyle}>
-                        {q.status === 'draft' ? (
-                          <button
-                            type="button"
-                            disabled={convertingId === q.id}
-                            onClick={() => void handleConvert(q)}
-                            style={actionButtonStyle}
-                          >
-                            {convertingId === q.id ? 'Converting…' : 'Convert to Booking'}
+                    <Fragment key={q.id}>
+                      <tr style={{ borderBottom: '1px solid #172033' }}>
+                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{q.ref}</td>
+                        <td style={{ ...cellStyle, fontSize: 12 }}>
+                          <div style={{ fontWeight: 600, color: '#cbd5e1' }}>{q.origin}</div>
+                          <div style={{ color: '#5b6b82' }}>→ {q.destination}</div>
+                        </td>
+                        <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{q.consignee_name}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>
+                          ₹{q.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                        </td>
+                        <td style={cellStyle}>
+                          {q.status === 'draft' ? (
+                            <button
+                              type="button"
+                              disabled={convertingId === q.id}
+                              onClick={() => void handleConvert(q)}
+                              style={actionButtonStyle}
+                            >
+                              {convertingId === q.id ? 'Converting…' : 'Convert to Booking'}
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 11.5, color: '#4ade80', fontWeight: 600 }}>
+                              ● Converted{q.converted_shipment ? ` — ${q.converted_shipment.ref}` : ''}
+                            </span>
+                          )}
+                        </td>
+                        <td style={cellStyle}>
+                          <button type="button" onClick={() => setExpandedQuoteId((prev) => (prev === q.id ? null : q.id))} style={actionButtonStyle}>
+                            {expandedQuoteId === q.id ? 'Hide' : 'E-Sign'}
                           </button>
-                        ) : (
-                          <span style={{ fontSize: 11.5, color: '#4ade80', fontWeight: 600 }}>
-                            ● Converted{q.converted_shipment ? ` — ${q.converted_shipment.ref}` : ''}
-                          </span>
-                        )}
-                      </td>
-                    </tr>
+                        </td>
+                      </tr>
+                      {expandedQuoteId === q.id && (
+                        <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
+                          <td colSpan={6} style={{ padding: '10px 20px 16px' }}>
+                            <EsignPanel
+                              orgId={orgId}
+                              documentType="quote"
+                              documentRef={q.ref}
+                              documentLabel="Quote"
+                              quoteId={q.id}
+                              defaultRecipientName={q.consignee_name}
+                              buildHtml={() => renderQuoteHtml(q)}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>

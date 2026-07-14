@@ -148,7 +148,7 @@ export const PLATFORM_RAKE_META: Record<PlatformRakeType, { label: string }> = {
 }
 
 export type AuditOperation = 'insert' | 'update' | 'delete'
-export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations' | 'customs_filings' | 'shipment_documents'
+export type AuditTableName = 'contacts' | 'memberships' | 'invoices' | 'shipment_costs' | 'organizations' | 'customs_filings' | 'shipment_documents' | 'esign_requests'
 
 export interface AuditLogEntry {
   id: string
@@ -169,6 +169,7 @@ export const AUDIT_TABLE_META: Record<AuditTableName, { label: string }> = {
   organizations: { label: 'Billing Plan' },
   customs_filings: { label: 'Customs Filings' },
   shipment_documents: { label: 'Shipment Documents' },
+  esign_requests: { label: 'E-Signature Requests' },
 }
 
 export const AUDIT_OPERATION_META: Record<AuditOperation, { label: string; color: string; background: string }> = {
@@ -396,6 +397,32 @@ export interface DashboardPreference {
   visible: boolean
   sort_order: number
   created_at: string
+}
+
+export type EsignDocumentType = 'quote' | 'bill_of_lading'
+export type EsignStatus = 'sent' | 'delivered' | 'completed' | 'declined' | 'voided'
+
+export const ESIGN_STATUS_META: Record<EsignStatus, { label: string; color: string; background: string }> = {
+  sent: { label: 'Sent', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
+  delivered: { label: 'Delivered', color: '#fbbf24', background: 'rgba(251,191,36,0.12)' },
+  completed: { label: 'Completed', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
+  declined: { label: 'Declined', color: '#fb7185', background: 'rgba(244,63,94,0.14)' },
+  voided: { label: 'Voided', color: '#94a3b8', background: 'rgba(148,163,184,0.12)' },
+}
+
+export interface EsignRequest {
+  id: string
+  org_id: string
+  document_type: EsignDocumentType
+  quote_id: string | null
+  shipment_id: string | null
+  envelope_id: string | null
+  recipient_name: string
+  recipient_email: string
+  status: EsignStatus
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface PublicTrackingData {

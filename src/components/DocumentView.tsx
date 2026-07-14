@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
-import {
-  SHIPMENT_DOCUMENT_TYPE_META,
-  type CustomsFiling,
-  type Invoice,
-  type Shipment,
-  type ShipmentDocumentType,
-} from '../types'
+import { computeDocumentRows, fetchShipmentDocumentData, type ShipmentDocumentData } from '../lib/documentHtml'
+import { SHIPMENT_DOCUMENT_TYPE_META, type Shipment, type ShipmentDocumentType } from '../types'
 
 interface DocumentViewProps {
   shipment: Shipment
@@ -15,98 +9,25 @@ interface DocumentViewProps {
   onClose: () => void
 }
 
-interface ContactNames {
-  shipper: string | null
-  consignee: string | null
-}
+const EMPTY_DATA: ShipmentDocumentData = { contacts: { shipper: null, consignee: null }, invoice: null, customsFiling: null }
 
 export default function DocumentView({ shipment, documentType, documentRef: docRef, onClose }: DocumentViewProps) {
-  const [contacts, setContacts] = useState<ContactNames>({ shipper: null, consignee: null })
-  const [invoice, setInvoice] = useState<Invoice | null>(null)
-  const [customsFiling, setCustomsFiling] = useState<CustomsFiling | null>(null)
+  const [data, setData] = useState<ShipmentDocumentData>(EMPTY_DATA)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     let cancelled = false
-    async function load() {
-      const ids = [shipment.shipper_contact_id, shipment.consignee_contact_id].filter(Boolean) as string[]
-      const [contactsRes, invoiceRes, filingRes] = await Promise.all([
-        ids.length > 0 ? supabase.from('contacts').select('id, name').in('id', ids) : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-        supabase.from('invoices').select('*').eq('shipment_id', shipment.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-        supabase.from('customs_filings').select('*').eq('shipment_id', shipment.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-      ])
+    fetchShipmentDocumentData(shipment).then((result) => {
       if (cancelled) return
-      const byId = new Map((contactsRes.data ?? []).map((c) => [c.id, c.name]))
-      setContacts({
-        shipper: shipment.shipper_contact_id ? byId.get(shipment.shipper_contact_id) ?? null : null,
-        consignee: shipment.consignee_contact_id ? byId.get(shipment.consignee_contact_id) ?? null : shipment.client,
-      })
-      setInvoice((invoiceRes as { data: Invoice | null }).data ?? null)
-      setCustomsFiling((filingRes as { data: CustomsFiling | null }).data ?? null)
+      setData(result)
       setLoading(false)
-    }
-    void load()
+    })
     return () => {
       cancelled = true
     }
   }, [shipment])
 
-  const goodsDescription = customsFiling?.goods_description ?? 'General Cargo'
-  const volumetricWeight =
-    shipment.length_cm && shipment.width_cm && shipment.height_cm
-      ? (shipment.length_cm * shipment.width_cm * shipment.height_cm) / 6000
-      : null
-
-  const rows: { label: string; value: string }[] = (() => {
-    const shipperLine = contacts.shipper ?? '—'
-    const consigneeLine = contacts.consignee ?? '—'
-    switch (documentType) {
-      case 'bill_of_lading':
-        return [
-          { label: 'Shipper', value: shipperLine },
-          { label: 'Consignee', value: consigneeLine },
-          { label: 'Vessel / Voyage', value: shipment.mode === 'ocean' ? `${shipment.vessel_name ?? '—'} / ${shipment.voyage_no ?? '—'}` : 'N/A' },
-          { label: 'Vehicle', value: shipment.mode === 'truck' ? shipment.vehicle_type ?? '—' : 'N/A' },
-          { label: 'Port / Place of Loading', value: shipment.origin },
-          { label: 'Port / Place of Discharge', value: shipment.destination },
-          { label: 'Container / Load Type', value: `${shipment.container_size ?? '—'} / ${shipment.load_type ?? '—'}` },
-          { label: 'Description of Goods', value: goodsDescription },
-          { label: 'Gross Weight', value: shipment.gross_weight_kg ? `${shipment.gross_weight_kg} kg` : '—' },
-          { label: 'B/L No.', value: docRef },
-        ]
-      case 'packing_list':
-        return [
-          { label: 'Shipper', value: shipperLine },
-          { label: 'Consignee', value: consigneeLine },
-          { label: 'Packing List No.', value: docRef },
-          {
-            label: 'Dimensions (L × W × H)',
-            value: shipment.length_cm ? `${shipment.length_cm} × ${shipment.width_cm} × ${shipment.height_cm} cm` : '—',
-          },
-          { label: 'Gross Weight', value: shipment.gross_weight_kg ? `${shipment.gross_weight_kg} kg` : '—' },
-          { label: 'Volumetric Weight', value: volumetricWeight ? `${volumetricWeight.toFixed(2)} kg` : '—' },
-          { label: 'Description of Goods', value: goodsDescription },
-        ]
-      case 'certificate_of_origin':
-        return [
-          { label: 'Exporter', value: shipperLine },
-          { label: 'Consignee', value: consigneeLine },
-          { label: 'Country of Origin', value: 'India' },
-          { label: 'HS Code', value: customsFiling?.hs_code ?? '—' },
-          { label: 'Description of Goods', value: goodsDescription },
-          { label: 'Certificate No.', value: docRef },
-        ]
-      case 'commercial_invoice':
-      default:
-        return [
-          { label: 'Seller', value: shipperLine },
-          { label: 'Buyer', value: consigneeLine },
-          { label: 'Invoice No.', value: invoice?.ref ?? docRef },
-          { label: 'Amount', value: invoice ? `${invoice.currency} ${invoice.amount.toLocaleString('en-IN')}` : '—' },
-          { label: 'Description of Goods', value: goodsDescription },
-        ]
-    }
-  })()
+  const rows = computeDocumentRows(documentType, shipment, data, docRef)
 
   return (
     <div

@@ -24,11 +24,14 @@ flowchart LR
   subgraph Supabase["Supabase (hosted)"]
     D[Auth]
     C[("Postgres + RLS\n+ SECURITY DEFINER RPCs")]
+    E["Edge Function\n(docusign-envelope, RS256 signing only)"]
   end
 
   A -- "served as static files" --- B
   A -- "supabase-js (anon key)" --> D
   A -- "supabase-js (anon key)" --> C
+  A -- "supabase.functions.invoke\n(caller's own JWT)" --> E
+  E -- "user-scoped supabase-js client\n(RLS still applies)" --> C
   D -. "auth.uid() available to RLS policies" .-> C
 ```
 
@@ -36,13 +39,17 @@ flowchart LR
 long-running compute. Every feature in this project has had to fit that constraint — e.g. the FX
 rate lookup (ADR-0007) is a direct client-side `fetch()` to a public, no-key API rather than a
 server-side integration, and the customer tracking link (ADR-0009) uses a query parameter rather
-than a router, because there's no server to configure a rewrite rule on. **One narrow exception,
-added Week 9 (ADR-0014)**: a `SECURITY DEFINER` Postgres function can make an outbound HTTPS call
-via the `http` extension, with a secret pulled from Supabase Vault at runtime — this is the one
-way this architecture *can* hide a secret (inside the database, not a server), used exactly once
-so far, for the carrier-tracking integration. It is not a general-purpose backend; it's a single
-extension call from within the same all-Postgres-RPC pattern every other privileged mutation in
-this app already uses.
+than a router, because there's no server to configure a rewrite rule on. **Two narrow exceptions
+exist**, both justified the same way — small enough to not be a general backend:
+- **Week 9 (ADR-0014)**: a `SECURITY DEFINER` Postgres function can make an outbound HTTPS call
+  via the `http` extension, with a secret pulled from Supabase Vault at runtime — used for the
+  carrier-tracking integration, where auth was a static API key (no signing needed).
+- **E-signature (ADR-0020)**: a Supabase **Edge Function** (Deno), used *only* because DocuSign's
+  JWT Grant needs RS256 signing that no Postgres extension can do. It's deliberately narrow: it
+  signs a JWT, calls DocuSign, and uses the *caller's own* Supabase JWT (not a service role) for
+  every table read/write — RLS applies exactly as if the browser had called Postgres directly.
+  Its own secrets live in Edge Function environment variables, a second, separate secret store
+  from Postgres Vault.
 
 ## 2. Two environments, two Supabase projects
 
@@ -81,17 +88,20 @@ erDiagram
   organizations ||--o{ customs_filings : "owns"
   organizations ||--o{ shipment_documents : "owns"
   organizations ||--o{ dashboard_preferences : "owns"
+  organizations ||--o{ esign_requests : "owns"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
   shipments ||--o{ shipment_costs : "costed via"
   shipments ||--o{ customs_filings : "filed via (nullable FK)"
   shipments ||--o{ shipment_documents : "documented via"
+  shipments ||--o{ esign_requests : "bill_of_lading requests (nullable FK)"
   shipments }o--o| contacts : "shipper / consignee (nullable FK)"
 
   quotes }o--o| contacts : "shipper / consignee (nullable FK)"
   quotes }o--o| tariffs : "prefilled from (nullable FK)"
   quotes |o--o| shipments : "converts to (nullable FK)"
+  quotes ||--o{ esign_requests : "quote requests (nullable FK)"
 
   invoices }o--o| contacts : "client (nullable FK)"
   shipment_costs }o--o| contacts : "vendor (nullable FK)"
@@ -135,6 +145,13 @@ in this app. Storage isn't a separate security model: RLS policies on `storage.o
 the org_id segment from the object's path (`{org_id}/{shipment_id}/{uuid}-{filename}`) and check
 it with the same `is_org_member()` every Postgres RLS policy already uses.
 
+**E-signature (ADR-0020)**: `esign_requests` is org-scoped like every other table — it's just a
+log of DocuSign envelope state (`sent`/`delivered`/`completed`/`declined`/`voided`), one row per
+Quote or Bill of Lading sent for signature. The actual DocuSign call (JWT signing + Envelopes API)
+happens in the `docusign-envelope` Edge Function (§1), not a Postgres RPC — the table itself needs
+no special RLS shape because the Edge Function reads/writes it with the caller's own JWT, so
+`is_org_member(org_id)` already covers it exactly like `customs_filings`/`shipment_documents`.
+
 **Week 12 (ADR-0018)**: `dashboard_preferences` is the first table in this schema whose RLS checks
 `auth.uid() = user_id` in addition to `is_org_member(org_id)` — every other tenant-scoped table
 lets any org member see/write any row belonging to their org, which is wrong for a genuinely
@@ -163,7 +180,7 @@ per-invoice or per-cost).
 ## 4. Request patterns
 
 **Pattern A — plain RLS-gated table access** (contacts, tariffs, most of quotes/invoices/costs,
-customs_filings, shipment_documents): the client calls `.select()`/`.insert()`/`.update()`
+customs_filings, shipment_documents, esign_requests): the client calls `.select()`/`.insert()`/`.update()`
 directly; Postgres's RLS policy decides per-row visibility. `hs_codes` is a read-only variant of
 this same pattern — no insert/update path exists at all, and its `using (true)` policy has no org
 dimension to check. `storage.objects` (the `shipment-documents` bucket, Week 11) is the same
@@ -202,6 +219,28 @@ sequenceDiagram
   else unauthorized, or already at final stage
     RPC-->>U: exception (no partial write)
   end
+```
+
+**Pattern C — Supabase Edge Function** (`docusign-envelope`, ADR-0020): the client calls
+`supabase.functions.invoke('fn_name', { body })`, which forwards the caller's own auth JWT. Used
+*only* when a request needs compute Postgres genuinely cannot do (here: RS256 JWT signing) — the
+function itself still uses the caller's JWT (not a service role) for any Postgres reads/writes it
+performs, so RLS applies exactly as in Pattern A.
+
+```mermaid
+sequenceDiagram
+  participant U as Browser
+  participant EF as docusign-envelope (Edge Function)
+  participant DS as DocuSign API
+  participant PG as Postgres (RLS enabled, caller's own JWT)
+  U->>EF: functions.invoke('docusign-envelope', { action: 'send', ... })
+  EF->>EF: build + RS256-sign JWT, exchange for DocuSign access token
+  EF->>DS: create envelope (HTML document, recipient)
+  DS-->>EF: envelope_id
+  EF->>PG: insert esign_requests row (as the caller's own JWT)
+  PG->>PG: policy check: is_org_member(org_id)
+  PG-->>EF: inserted row
+  EF-->>U: esign_requests row
 ```
 
 The rule for which pattern a new feature should use is in `docs/adr/0002-rpc-only-privileged-

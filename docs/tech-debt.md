@@ -216,6 +216,23 @@ is a near-term coding task, and none of it should be attempted without that infr
   GitHub Pages site with no per-tenant routing layer; a real custom domain per org is a hosting/
   DNS/TLS decision needing its own scoping conversation, not a code change.
 
+## E-signature on Quotes and Bill of Lading (ADR-0020)
+
+- **Sandbox envelopes are not legally binding.** DocuSign stamps sandbox-signed documents "test."
+  Real, binding signatures require moving the DocuSign integration to a paid production plan (a
+  real cost decision for the user, not an engineering task) — stated plainly, mirroring
+  ADR-0016's "simulator" honesty pattern for Customs Filing.
+- **No real-time status push.** DocuSign Connect (webhooks) was deliberately not built this pass
+  — status only updates when a user clicks "Refresh Status," which calls DocuSign's API on
+  demand. A signed document won't show as "Completed" in this app until someone checks.
+- **One signer only, one signature field, per envelope.** Anchor-based placement (`/sig1/`)
+  supports exactly one signer's signature line; multi-party signing (e.g. both shipper and
+  consignee sign the same Bill of Lading) isn't built.
+- **No resend/void flow.** If an envelope is sent to the wrong recipient, there's no in-app way to
+  void it — that has to be done directly in the DocuSign sandbox/dashboard.
+- **Edge Function secrets are a second secret store**, separate from Postgres Vault (ADR-0020) —
+  anyone auditing this app's secrets needs to check both.
+
 ## Test suite
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because
