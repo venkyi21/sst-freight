@@ -1,6 +1,6 @@
-import { Fragment, useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
-import { generateRef, shipmentRefPrefix } from '../lib/refGenerator'
+import { Fragment, useState, type CSSProperties } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { quotesQueryKey, tariffsQueryKey, useArchiveQuote, useConvertQuote, useQuotes, useTariffs, useUpdateQuoteStatus } from '../hooks/useQuotes'
 import TariffModal from './TariffModal'
 import QuoteModal from './QuoteModal'
 import EsignPanel from './EsignPanel'
@@ -8,7 +8,6 @@ import { fetchQuoteLineItems, renderQuoteHtml } from '../lib/documentHtml'
 import { MODE_META, QUOTE_STATUS_META, type Quote, type QuoteStatus, type Shipment, type Tariff } from '../types'
 
 type Tab = 'tariffs' | 'quotes'
-type QuoteWithShipmentRef = Quote & { converted_shipment: { ref: string } | null }
 
 const tabButtonStyle = (active: boolean): CSSProperties => ({
   padding: '6px 13px',
@@ -51,16 +50,15 @@ interface RatesQuotesPageProps {
 
 export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: RatesQuotesPageProps) {
   const [tab, setTab] = useState<Tab>('tariffs')
+  const queryClient = useQueryClient()
 
-  const [tariffs, setTariffs] = useState<Tariff[]>([])
-  const [tariffsLoading, setTariffsLoading] = useState(true)
-  const [tariffsError, setTariffsError] = useState<string | null>(null)
+  const { data: tariffs = [], isLoading: tariffsLoading, error: tariffsErrorObj } = useTariffs(orgId)
+  const tariffsError = tariffsErrorObj instanceof Error ? tariffsErrorObj.message : null
   const [tariffModalOpen, setTariffModalOpen] = useState(false)
   const [editingTariff, setEditingTariff] = useState<Tariff | null>(null)
 
-  const [quotes, setQuotes] = useState<QuoteWithShipmentRef[]>([])
-  const [quotesLoading, setQuotesLoading] = useState(true)
-  const [quotesError, setQuotesError] = useState<string | null>(null)
+  const { data: quotes = [], isLoading: quotesLoading, error: quotesErrorObj } = useQuotes(orgId)
+  const quotesError = quotesErrorObj instanceof Error ? quotesErrorObj.message : null
   const [quoteModalOpen, setQuoteModalOpen] = useState(false)
   const [convertingId, setConvertingId] = useState<string | null>(null)
   const [expandedQuoteId, setExpandedQuoteId] = useState<string | null>(null)
@@ -70,56 +68,17 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
   const [rejectionDraft, setRejectionDraft] = useState('')
   const [showArchivedQuotes, setShowArchivedQuotes] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    setTariffsLoading(true)
-    setTariffsError(null)
-    supabase
-      .from('tariffs')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setTariffsError(error.message)
-        else if (data) setTariffs(data as Tariff[])
-        setTariffsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
+  const convertMutation = useConvertQuote(orgId)
+  const statusMutation = useUpdateQuoteStatus(orgId)
+  const archiveMutation = useArchiveQuote(orgId)
 
-  useEffect(() => {
-    let cancelled = false
-    setQuotesLoading(true)
-    setQuotesError(null)
-    supabase
-      .from('quotes')
-      .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setQuotesError(error.message)
-        else if (data) setQuotes(data as unknown as QuoteWithShipmentRef[])
-        setQuotesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
-
-  function handleTariffSaved(tariff: Tariff) {
-    setTariffs((prev) => {
-      const exists = prev.some((t) => t.id === tariff.id)
-      return exists ? prev.map((t) => (t.id === tariff.id ? tariff : t)) : [tariff, ...prev]
-    })
+  function handleTariffSaved(_tariff: Tariff) {
+    void queryClient.invalidateQueries({ queryKey: tariffsQueryKey(orgId) })
     setTariffModalOpen(false)
   }
 
-  function handleQuoteCreated(quote: Quote) {
-    setQuotes((prev) => [{ ...quote, converted_shipment: null }, ...prev])
+  function handleQuoteCreated(_quote: Quote) {
+    void queryClient.invalidateQueries({ queryKey: quotesQueryKey(orgId) })
     setQuoteModalOpen(false)
   }
 
@@ -148,44 +107,15 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
       created_by: userId,
     }
 
-    let newShipment: Shipment | null = null
-    let lastError: string | null = null
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error: insertError } = await supabase
-        .from('shipments')
-        .insert({ ...base, ref: generateRef(shipmentRefPrefix(quote.mode)) })
-        .select()
-        .single()
+    const result = await convertMutation.mutateAsync({ quote, payload: base, mode: quote.mode })
 
-      if (!insertError && data) {
-        newShipment = data as Shipment
-        break
-      }
-      lastError = insertError?.message ?? 'Could not create booking'
-      if (insertError?.code !== '23505') break
-    }
-
-    if (!newShipment) {
-      setConvertError(lastError)
+    if (!result.updatedQuote || !result.newShipment) {
+      setConvertError(result.error ?? 'Could not convert quote')
       setConvertingId(null)
       return
     }
 
-    const { data: updatedQuote, error: updateError } = await supabase
-      .from('quotes')
-      .update({ status: 'converted', converted_shipment_id: newShipment.id })
-      .eq('id', quote.id)
-      .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-      .single()
-
-    if (updateError || !updatedQuote) {
-      setConvertError(updateError?.message ?? 'Booking created, but could not update the quote')
-      setConvertingId(null)
-      return
-    }
-
-    setQuotes((prev) => prev.map((q) => (q.id === quote.id ? (updatedQuote as unknown as QuoteWithShipmentRef) : q)))
-    onBookingCreated(newShipment)
+    onBookingCreated(result.newShipment)
     setConvertingId(null)
   }
 
@@ -195,16 +125,10 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
   async function handleStatusUpdate(quote: Quote, newStatus: QuoteStatus, rejectionReason?: string) {
     setStatusBusyId(quote.id)
     setConvertError(null)
-    const { data, error } = await supabase
-      .from('quotes')
-      .update({ status: newStatus, rejection_reason: rejectionReason ?? null })
-      .eq('id', quote.id)
-      .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-      .single()
+    const { data, error } = await statusMutation.mutateAsync({ quote, status: newStatus, reason: rejectionReason })
     if (error || !data) {
-      setConvertError(error?.message ?? 'Could not update quote status')
+      setConvertError(error ?? 'Could not update quote status')
     } else {
-      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? (data as unknown as QuoteWithShipmentRef) : q)))
       setRejectingId(null)
       setRejectionDraft('')
     }
@@ -213,15 +137,7 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
 
   async function handleArchiveToggle(quote: Quote) {
     setStatusBusyId(quote.id)
-    const { data, error } = await supabase
-      .from('quotes')
-      .update({ archived: !quote.archived })
-      .eq('id', quote.id)
-      .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-      .single()
-    if (!error && data) {
-      setQuotes((prev) => prev.map((q) => (q.id === quote.id ? (data as unknown as QuoteWithShipmentRef) : q)))
-    }
+    await archiveMutation.mutateAsync(quote)
     setStatusBusyId(null)
   }
 

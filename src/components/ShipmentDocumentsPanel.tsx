@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { fetchContactEmail } from '../api/contacts'
+import { createShipmentDocumentSignedUrl, fetchShipmentDocuments, insertGeneratedDocument, uploadShipmentDocumentFile } from '../api/documents'
 import DocumentView from './DocumentView'
 import EsignPanel from './EsignPanel'
 import { documentRefPrefix, generateRef } from '../lib/refGenerator'
@@ -42,29 +43,19 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
 
   useEffect(() => {
     if (!shipment.consignee_contact_id) return
-    supabase
-      .from('contacts')
-      .select('email')
-      .eq('id', shipment.consignee_contact_id)
-      .maybeSingle()
-      .then(({ data }) => setConsigneeEmail((data as { email: string | null } | null)?.email ?? null))
+    fetchContactEmail(shipment.consignee_contact_id).then(setConsigneeEmail)
   }, [shipment.consignee_contact_id])
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError(null)
-    supabase
-      .from('shipment_documents')
-      .select('*')
-      .eq('shipment_id', shipment.id)
-      .order('created_at', { ascending: false })
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return
-        if (fetchError) setError(fetchError.message)
-        else if (data) setDocuments(data as ShipmentDocument[])
-        setLoading(false)
-      })
+    fetchShipmentDocuments(shipment.id).then(({ data, error: fetchError }) => {
+      if (cancelled) return
+      if (fetchError) setError(fetchError)
+      else if (data) setDocuments(data)
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -75,25 +66,14 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
     setGeneratingType(documentType)
     setError(null)
     const ref = generateRef(documentRefPrefix(documentType))
-    const { data, error: insertError } = await supabase
-      .from('shipment_documents')
-      .insert({
-        org_id: shipment.org_id,
-        shipment_id: shipment.id,
-        document_type: documentType,
-        source: 'generated',
-        ref,
-        created_by: user.id,
-      })
-      .select()
-      .single()
+    const { data, error: insertError } = await insertGeneratedDocument(shipment.org_id, shipment.id, documentType, ref, user.id)
 
     if (insertError || !data) {
-      setError(insertError?.message ?? 'Could not generate document')
+      setError(insertError ?? 'Could not generate document')
       setGeneratingType(null)
       return
     }
-    setDocuments((prev) => [data as ShipmentDocument, ...prev])
+    setDocuments((prev) => [data, ...prev])
     setViewing({ documentType, documentRef: ref })
     setGeneratingType(null)
   }
@@ -102,45 +82,26 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
     if (!user) return
     setUploading(true)
     setError(null)
-    const path = `${shipment.org_id}/${shipment.id}/${crypto.randomUUID()}-${file.name}`
-    const { error: uploadError } = await supabase.storage.from('shipment-documents').upload(path, file)
-    if (uploadError) {
-      setError(uploadError.message)
-      setUploading(false)
-      return
-    }
-    const { data, error: insertError } = await supabase
-      .from('shipment_documents')
-      .insert({
-        org_id: shipment.org_id,
-        shipment_id: shipment.id,
-        document_type: uploadType,
-        source: 'uploaded',
-        file_name: file.name,
-        storage_path: path,
-        created_by: user.id,
-      })
-      .select()
-      .single()
+    const { data, error: uploadError } = await uploadShipmentDocumentFile(shipment.org_id, shipment.id, uploadType, file, user.id)
 
-    if (insertError || !data) {
-      setError(insertError?.message ?? 'File uploaded, but could not save the record')
+    if (uploadError || !data) {
+      setError(uploadError ?? 'Could not upload document')
       setUploading(false)
       return
     }
-    setDocuments((prev) => [data as ShipmentDocument, ...prev])
+    setDocuments((prev) => [data, ...prev])
     setUploading(false)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleDownload(doc: ShipmentDocument) {
     if (!doc.storage_path) return
-    const { data, error: signError } = await supabase.storage.from('shipment-documents').createSignedUrl(doc.storage_path, 60)
-    if (signError || !data) {
-      setError(signError?.message ?? 'Could not create a download link')
+    const { url, error: signError } = await createShipmentDocumentSignedUrl(doc.storage_path)
+    if (signError || !url) {
+      setError(signError ?? 'Could not create a download link')
       return
     }
-    window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   return (

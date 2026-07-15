@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { listAllOrganizations, listAllPlatformRevenue, setOrgBillingModel, setOrgConfig } from '../api/platformAdmin'
 import {
   BILLING_MODEL_META,
   PLATFORM_MODULE_META,
@@ -80,15 +80,12 @@ export default function PlatformAdminPage({ isPlatformAdmin }: PlatformAdminPage
     setLoading(true)
     setLoadError(null)
 
-    const load =
-      tab === 'orgs'
-        ? supabase.rpc('list_all_organizations')
-        : supabase.rpc('list_platform_revenue', { p_org_id: null })
+    const load = tab === 'orgs' ? listAllOrganizations() : listAllPlatformRevenue()
 
     load.then(({ data, error }) => {
       if (cancelled) return
       if (error) {
-        setLoadError(error.message)
+        setLoadError(error)
       } else if (data) {
         if (tab === 'orgs') setOrgs(data as PlatformOrgSummary[])
         else setRevenue(data as PlatformRevenueEntry[])
@@ -115,9 +112,9 @@ export default function PlatformAdminPage({ isPlatformAdmin }: PlatformAdminPage
     const newModel: BillingModel = org.billing_model === 'model_1' ? 'model_2' : 'model_1'
     setBusyId(org.id)
     setActionError(null)
-    const { error } = await supabase.rpc('set_org_billing_model', { p_org_id: org.id, p_model: newModel })
+    const { error } = await setOrgBillingModel(org.id, newModel)
     if (error) {
-      setActionError(error.message)
+      setActionError(error)
     } else {
       setReloadToken((t) => t + 1)
     }
@@ -134,13 +131,9 @@ export default function PlatformAdminPage({ isPlatformAdmin }: PlatformAdminPage
   async function saveConfig(org: PlatformOrgSummary) {
     setBusyId(org.id)
     setActionError(null)
-    const { error } = await supabase.rpc('set_org_config', {
-      p_org_id: org.id,
-      p_monthly_fee_inr: Number(editFee) || 0,
-      p_enabled_modules: editModules,
-    })
+    const { error } = await setOrgConfig(org.id, Number(editFee) || 0, editModules)
     if (error) {
-      setActionError(error.message)
+      setActionError(error)
     } else {
       setEditingId(null)
       setReloadToken((t) => t + 1)

@@ -1,5 +1,5 @@
-import { useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useState, type CSSProperties } from 'react'
+import { useCustomsFilings, useInvalidateCustomsFilings } from '../hooks/useCustomsFilings'
 import CustomsFilingWizard from './CustomsFilingWizard'
 import { CUSTOMS_FILING_STATUS_META, CUSTOMS_FILING_TYPE_META, type CustomsFiling } from '../types'
 
@@ -19,33 +19,13 @@ interface CustomsFilingsPageProps {
 }
 
 export default function CustomsFilingsPage({ orgId }: CustomsFilingsPageProps) {
-  const [filings, setFilings] = useState<CustomsFiling[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const { data: filings = [], isLoading: loading, error: errorObj } = useCustomsFilings(orgId)
+  const error = errorObj instanceof Error ? errorObj.message : null
+  const invalidateFilings = useInvalidateCustomsFilings(orgId)
   const [wizardOpen, setWizardOpen] = useState(false)
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    supabase
-      .from('customs_filings')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error: fetchError }) => {
-        if (cancelled) return
-        if (fetchError) setError(fetchError.message)
-        else if (data) setFilings(data as CustomsFiling[])
-        setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
-
-  function handleCreated(filing: CustomsFiling) {
-    setFilings((prev) => [filing, ...prev])
+  function handleCreated(_filing: CustomsFiling) {
+    invalidateFilings()
     setWizardOpen(false)
   }
 

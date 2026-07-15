@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { fetchOrgMembers, removeMember, updateMemberRole } from '../api/team'
 import { ROLE_META, type MembershipRole, type OrgMember } from '../types'
 
 const headStyle: CSSProperties = {
@@ -57,17 +57,15 @@ export default function TeamPage({ orgId, currentRole, currentUserId }: TeamPage
     let cancelled = false
     setLoading(true)
     setLoadError(null)
-    supabase
-      .rpc('list_org_members', { p_org_id: orgId })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setLoadError(error.message)
-        } else if (data) {
-          setMembers(data as OrgMember[])
-        }
-        setLoading(false)
-      })
+    fetchOrgMembers(orgId).then(({ data, error }) => {
+      if (cancelled) return
+      if (error) {
+        setLoadError(error)
+      } else if (data) {
+        setMembers(data)
+      }
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -84,12 +82,9 @@ export default function TeamPage({ orgId, currentRole, currentUserId }: TeamPage
     const newRole: MembershipRole = member.role === 'admin' ? 'member' : 'admin'
     setBusyId(member.membership_id)
     setActionError(null)
-    const { error } = await supabase.rpc('update_member_role', {
-      p_membership_id: member.membership_id,
-      p_new_role: newRole,
-    })
+    const { error } = await updateMemberRole(member.membership_id, newRole)
     if (error) {
-      setActionError(error.message)
+      setActionError(error)
     } else {
       setReloadToken((t) => t + 1)
     }
@@ -99,9 +94,9 @@ export default function TeamPage({ orgId, currentRole, currentUserId }: TeamPage
   async function handleRemove(member: OrgMember) {
     setBusyId(member.membership_id)
     setActionError(null)
-    const { error } = await supabase.rpc('remove_member', { p_membership_id: member.membership_id })
+    const { error } = await removeMember(member.membership_id)
     if (error) {
-      setActionError(error.message)
+      setActionError(error)
     } else {
       setMembers((prev) => prev.filter((m) => m.membership_id !== member.membership_id))
     }

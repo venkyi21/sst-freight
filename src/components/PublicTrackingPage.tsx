@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { fetchPublicTracking } from '../api/tracking'
 import { MODE_META, SHIPMENT_DOCUMENT_TYPE_META, STATUS_SEQUENCE, statusMeta, type PublicTrackingData } from '../types'
 
 interface PublicTrackingPageProps {
@@ -23,17 +23,15 @@ export default function PublicTrackingPage({ token }: PublicTrackingPageProps) {
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .rpc('get_public_shipment_tracking', { p_token: token })
-      .then(({ data: result, error: rpcError }) => {
-        if (cancelled) return
-        if (rpcError || !result) {
-          setError("We couldn't find a shipment for this tracking link.")
-        } else {
-          setData(result as PublicTrackingData)
-        }
-        setLoading(false)
-      })
+    fetchPublicTracking(token).then(({ data: result, error: hasError }) => {
+      if (cancelled) return
+      if (hasError || !result) {
+        setError("We couldn't find a shipment for this tracking link.")
+      } else {
+        setData(result)
+      }
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }

@@ -1,3 +1,5 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { HashRouter } from 'react-router-dom'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { supabaseConfigured } from './lib/supabaseClient'
 import AuthScreen from './components/AuthScreen'
@@ -6,6 +8,13 @@ import DashboardPage from './pages/DashboardPage'
 import PublicTrackingPage from './components/PublicTrackingPage'
 import PublicTCOCalculatorPage from './components/PublicTCOCalculatorPage'
 import ErrorBoundary from './components/ErrorBoundary'
+
+// One client for the app's lifetime. Query keys always include org id (see src/hooks/) so a
+// switched org never serves another tenant's cached rows — see ADR-0025 and the cross-tenant
+// cache verification in docs/qa-testing.md.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+})
 
 function ConfigWarning() {
   return (
@@ -69,7 +78,15 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <AppShell />
+        <QueryClientProvider client={queryClient}>
+          {/* HashRouter, not BrowserRouter — this app is static GitHub Pages hosting with no
+              server-side rewrite rule; a hash URL needs zero deploy configuration (ADR-0025,
+              reinforces the same call ADR-0009 made for the public tracking link). Mounted only
+              here, after the pre-router public-page checks above (ADR-0009 unchanged). */}
+          <HashRouter>
+            <AppShell />
+          </HashRouter>
+        </QueryClientProvider>
       </AuthProvider>
     </ErrorBoundary>
   )

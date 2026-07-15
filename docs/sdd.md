@@ -36,11 +36,14 @@ flowchart LR
 ```
 
 **Consequence of this shape**: there is no place to run a scheduled job or do anything requiring
-long-running compute. Every feature in this project has had to fit that constraint — e.g. the FX
-rate lookup (ADR-0007) is a direct client-side `fetch()` to a public, no-key API rather than a
-server-side integration, and the customer tracking link (ADR-0009) uses a query parameter rather
-than a router, because there's no server to configure a rewrite rule on. **Two narrow exceptions
-exist**, both justified the same way — small enough to not be a general backend:
+long-running compute, and no server to configure a rewrite rule on — every feature in this project
+has had to fit that constraint. The FX rate lookup (ADR-0007) is a direct client-side `fetch()` to
+a public, no-key API rather than a server-side integration. The in-app router added in ADR-0025 is
+`HashRouter`, not `BrowserRouter`, for exactly this reason (a hash URL needs no server-side rewrite
+rule at all); the customer tracking link and public TCO calculator (ADR-0009) stay outside that
+router entirely, evaluated as plain query-parameter checks before it even mounts — see §7 for the
+full routing model. **Two narrow exceptions exist**, both justified the same way — small enough to
+not be a general backend:
 - **Week 9 (ADR-0014)**: a `SECURITY DEFINER` Postgres function can make an outbound HTTPS call
   via the `http` extension, with a secret pulled from Supabase Vault at runtime — used for the
   carrier-tracking integration, where auth was a static API key (no signing needed).
@@ -208,6 +211,14 @@ was the one of the five now-archivable/lifecycle-bearing tables that trigger did
 
 ## 4. Request patterns
 
+**Since ADR-0025, every call described below is made from a named function in `src/api/`**
+(grouped by domain — `shipments.ts`, `quotes.ts`, `contacts.ts`, `accounting.ts`, `customs.ts`,
+`documents.ts`, `team.ts`, `org.ts`, `platformAdmin.ts`, `reporting.ts`, `onboarding.ts`,
+`esign.ts`, `tracking.ts`), not inline inside a component. This changes *where* the call lives,
+not the patterns themselves — RLS is still the trust boundary regardless of which file makes the
+call. Read-heavy screens additionally wrap their `src/api/` calls in a `@tanstack/react-query`
+`useQuery` hook (`src/hooks/`) for caching/dedupe; every query key is namespaced by org id.
+
 **Pattern A — plain RLS-gated table access** (contacts, tariffs, most of quotes/invoices/costs,
 customs_filings, shipment_documents, esign_requests): the client calls `.select()`/`.insert()`/`.update()`
 directly; Postgres's RLS policy decides per-row visibility. `hs_codes` is a read-only variant of
@@ -300,7 +311,29 @@ belong to my org."
   does not fit this architecture as-is. A secret can be hidden narrowly (Postgres Vault + the
   `http` extension inside a single `SECURITY DEFINER` RPC, ADR-0014) but this is not a general
   backend — no request routing, no long-running processes, no arbitrary server-side logic.
-- No client-side router — a single query-parameter special case in `App.tsx` handles the one
-  public route that exists today (ADR-0009). A second public route, or any deep-linkable
-  authenticated route, should prompt reconsidering this rather than adding another special case.
 - No automated schema rollback — see `docs/migration-runbook.md`.
+- `HashRouter`, not `BrowserRouter` — see §7. A future move to clean (non-`#`) URLs needs a
+  404.html SPA-fallback shim tested against both this app's base paths (`/` and `/preview/`)
+  first, not just a router swap.
+
+## 7. Routing model (ADR-0025)
+
+```mermaid
+flowchart TD
+  A["App.tsx mounts"] --> B{"?track= or ?tco= in\nwindow.location.search?"}
+  B -- yes --> C["PublicTrackingPage /\nPublicTCOCalculatorPage\n(no router, no auth)"]
+  B -- no --> D["AuthProvider + QueryClientProvider\n+ HashRouter mount"]
+  D --> E["DashboardPage reads\nuseLocation()/useParams()"]
+  E --> F["/dashboard /directory /team /quotes\n/accounting /customs /reporting\n/settings /auditlog /platformadmin"]
+  E --> G["/shipments/:id\n(ShipmentDetailModal over\nthe dashboard shell)"]
+```
+
+`HashRouter` was chosen over `BrowserRouter` specifically because this app is static GitHub Pages
+hosting with no server-side rewrite rule (§1) — a hash URL (`.../preview/#/shipments/<id>`) needs
+zero deploy configuration, at the cost of a `#` in every internal URL. `DashboardPage.tsx` is the
+only file that changed to support this: it derives `navPage` from `useLocation().pathname` and
+`selectedShipment` from `useParams()`-equivalent path parsing, instead of local `useState`.
+`Sidebar.tsx` is unchanged — it still receives a plain `navPage` string and an `onNavigate(page)`
+callback, unaware that either is now backed by the router. The public `?track=`/`?tco=1` entry
+points in `App.tsx` are evaluated **before** `HashRouter` mounts and stay completely outside it —
+this is unchanged from ADR-0009, not a new decision.

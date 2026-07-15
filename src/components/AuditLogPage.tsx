@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { fetchAuditLog } from '../api/accounting'
 import {
   AUDIT_OPERATION_META,
   AUDIT_TABLE_META,
@@ -86,20 +86,15 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
     let cancelled = false
     setLoading(true)
     setLoadError(null)
-    supabase
-      .rpc('list_audit_log', {
-        p_org_id: orgId,
-        p_table_name: tableFilter === 'all' ? null : tableFilter,
-      })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setLoadError(error.message)
-        } else if (data) {
-          setEntries(data as AuditLogEntry[])
-        }
-        setLoading(false)
-      })
+    fetchAuditLog(orgId, tableFilter === 'all' ? null : tableFilter).then(({ data, error }) => {
+      if (cancelled) return
+      if (error) {
+        setLoadError(error)
+      } else if (data) {
+        setEntries(data)
+      }
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }

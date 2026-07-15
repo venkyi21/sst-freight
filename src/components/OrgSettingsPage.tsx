@@ -1,6 +1,6 @@
 import { useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { updateOrgBranding, updateOrgGstSettings, uploadOrgLogo } from '../api/org'
 import { INDIAN_STATES, TENANT_COLORS, type OrganizationWithRole } from '../types'
 
 interface OrgSettingsPageProps {
@@ -62,24 +62,18 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
 
     let logoUrl = org.logo_url
     if (pendingLogoFile) {
-      const path = `${org.id}/logo`
-      const { error: uploadError } = await supabase.storage.from('org-logos').upload(path, pendingLogoFile, { upsert: true })
+      const { url, error: uploadError } = await uploadOrgLogo(org.id, pendingLogoFile)
       if (uploadError) {
-        setError(uploadError.message)
+        setError(uploadError)
         setBusy(false)
         return
       }
-      const { data } = supabase.storage.from('org-logos').getPublicUrl(path)
-      logoUrl = `${data.publicUrl}?v=${Date.now()}`
+      logoUrl = url
     }
 
-    const { error: rpcError } = await supabase.rpc('update_org_branding', {
-      p_org_id: org.id,
-      p_color: color,
-      p_logo_url: logoUrl,
-    })
+    const { error: rpcError } = await updateOrgBranding(org.id, color, logoUrl)
     if (rpcError) {
-      setError(rpcError.message)
+      setError(rpcError)
       setBusy(false)
       return
     }
@@ -96,12 +90,9 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
     setGstError(null)
     setGstSuccess(false)
     setGstBusy(true)
-    const { error: rpcError } = await supabase.rpc('update_org_gst_settings', {
-      p_org_id: org.id,
-      p_gst_state: gstState || null,
-    })
+    const { error: rpcError } = await updateOrgGstSettings(org.id, gstState || null)
     if (rpcError) {
-      setGstError(rpcError.message)
+      setGstError(rpcError)
       setGstBusy(false)
       return
     }

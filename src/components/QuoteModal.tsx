@@ -1,11 +1,10 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import type { PostgrestError } from '@supabase/supabase-js'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { resolveOrCreateContact } from '../api/contacts'
+import { fetchTariffsByMode, insertQuote, insertQuoteLineItems } from '../api/quotes'
 import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
 import { isCheckViolation } from '../lib/formErrors'
-import { generateRef } from '../lib/refGenerator'
 import { RATE_BASIS_META, type Quote, type QuoteLineItem, type ShipmentMode, type Tariff } from '../types'
 
 interface QuoteModalProps {
@@ -69,14 +68,9 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('tariffs')
-      .select('*')
-      .eq('org_id', orgId)
-      .eq('mode', mode)
-      .then(({ data }) => {
-        if (!cancelled && data) setTariffs(data as Tariff[])
-      })
+    fetchTariffsByMode(orgId, mode).then((data) => {
+      if (!cancelled) setTariffs(data)
+    })
     return () => {
       cancelled = true
     }
@@ -113,32 +107,6 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     setLineItems((prev) => (prev.length > 1 ? prev.filter((_, i) => i !== index) : prev))
   }
 
-  async function resolveContactId(
-    existingId: string | null,
-    kind: 'shipper' | 'consignee',
-    name: string,
-    userId: string,
-  ): Promise<string | null> {
-    if (existingId) return existingId
-    const { data: existingMatch } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('kind', kind)
-      .ilike('name', name)
-      .limit(1)
-      .maybeSingle()
-    if (existingMatch) return (existingMatch as { id: string }).id
-
-    const { data, error: insertError } = await supabase
-      .from('contacts')
-      .insert({ org_id: orgId, kind, name, created_by: userId })
-      .select('id')
-      .single()
-    if (insertError || !data) return null
-    return (data as { id: string }).id
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -156,8 +124,8 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     setFieldErrors({})
     setBusy(true)
 
-    const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
-    const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
+    const shipperId = await resolveOrCreateContact(orgId, shipperContactId, 'shipper', shipper.trim(), user.id)
+    const consigneeId = await resolveOrCreateContact(orgId, consigneeContactId, 'consignee', consignee.trim(), user.id)
 
     // Line item #1 (usually "Freight") also backfills the legacy rate/quantity columns, so a
     // quote row is never itemless even before quote_line_items exist for it — same additive
@@ -179,23 +147,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
       created_by: user.id,
     }
 
-    let quote: Quote | null = null
-    let lastError: PostgrestError | null = null
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error: insertError } = await supabase
-        .from('quotes')
-        .insert({ ...base, ref: generateRef('QT') })
-        .select()
-        .single()
-
-      if (!insertError && data) {
-        quote = data as Quote
-        break
-      }
-
-      lastError = insertError
-      if (insertError?.code !== '23505') break
-    }
+    const { data: quote, error: lastError } = await insertQuote(base)
 
     if (!quote) {
       if (lastError && isCheckViolation(lastError, 'quotes_quantity_check')) {
@@ -209,7 +161,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
 
     const lineItemRows: Omit<QuoteLineItem, 'id' | 'created_at'>[] = lineItems.map((li, i) => ({
       org_id: orgId,
-      quote_id: (quote as Quote).id,
+      quote_id: quote.id,
       description: li.description.trim(),
       sac_code: li.sacCode.trim() || null,
       quantity: Math.max(0, parseFloat(li.quantity) || 0),
@@ -219,13 +171,13 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
       created_by: user.id,
     }))
 
-    const { error: lineItemsError } = await supabase.from('quote_line_items').insert(lineItemRows)
+    const { error: lineItemsError } = await insertQuoteLineItems(lineItemRows)
     if (lineItemsError) {
       // The quote row itself was created successfully — onCreated below closes this modal
       // regardless (the quote is real and must appear in the list), so there's no in-modal
       // error UI left to show. Same accepted, documented non-atomicity as the two-step
       // quote-conversion flow (ADR-0006/tech-debt.md); logged, not silently dropped.
-      console.error(`Quote ${quote.ref} line items failed to save:`, lineItemsError.message)
+      console.error(`Quote ${quote.ref} line items failed to save:`, lineItemsError)
     }
 
     onCreated(quote)

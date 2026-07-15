@@ -1,5 +1,8 @@
 import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useQueryClient } from '@tanstack/react-query'
+import { fetchShipmentRefs } from '../api/shipments'
+import { fetchAuditLogForRecord, fetchPlatformRevenueForOrg } from '../api/accounting'
+import { costsQueryKey, invoicesQueryKey, useArchiveInvoice, useCosts, useInvoices, useMarkCostInstantPayout, useMarkInvoicePaid } from '../hooks/useInvoices'
 import InvoiceModal from './InvoiceModal'
 import CostModal from './CostModal'
 import InfoTooltip from './InfoTooltip'
@@ -62,21 +65,23 @@ function daysOverdue(dueDate: string | null): number | null {
 
 export default function AccountingPage({ orgId, currentRole, billingModel }: AccountingPageProps) {
   const [tab, setTab] = useState<Tab>('invoices')
+  const queryClient = useQueryClient()
 
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [invoicesLoading, setInvoicesLoading] = useState(true)
-  const [invoicesError, setInvoicesError] = useState<string | null>(null)
+  const { data: invoices = [], isLoading: invoicesLoading, error: invoicesErrorObj } = useInvoices(orgId)
+  const invoicesError = invoicesErrorObj instanceof Error ? invoicesErrorObj.message : null
   const [invoiceModalOpen, setInvoiceModalOpen] = useState(false)
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null)
   const [archivingInvoiceId, setArchivingInvoiceId] = useState<string | null>(null)
   const [showArchivedInvoices, setShowArchivedInvoices] = useState(false)
+  const markPaidMutation = useMarkInvoicePaid(orgId)
+  const archiveInvoiceMutation = useArchiveInvoice(orgId)
 
-  const [costs, setCosts] = useState<ShipmentCost[]>([])
-  const [costsLoading, setCostsLoading] = useState(true)
-  const [costsError, setCostsError] = useState<string | null>(null)
+  const { data: costs = [], isLoading: costsLoading, error: costsErrorObj } = useCosts(orgId)
+  const costsError = costsErrorObj instanceof Error ? costsErrorObj.message : null
   const [costModalOpen, setCostModalOpen] = useState(false)
   const [instantPayoutBusyId, setInstantPayoutBusyId] = useState<string | null>(null)
   const [instantPayoutDoneIds, setInstantPayoutDoneIds] = useState<Set<string>>(new Set())
+  const instantPayoutMutation = useMarkCostInstantPayout(orgId)
 
   const [dnaInvoiceId, setDnaInvoiceId] = useState<string | null>(null)
   const [dnaLoading, setDnaLoading] = useState(false)
@@ -89,53 +94,9 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
 
   useEffect(() => {
     let cancelled = false
-    setInvoicesLoading(true)
-    setInvoicesError(null)
-    supabase
-      .from('invoices')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setInvoicesError(error.message)
-        else if (data) setInvoices(data as Invoice[])
-        setInvoicesLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
-
-  useEffect(() => {
-    let cancelled = false
-    setCostsLoading(true)
-    setCostsError(null)
-    supabase
-      .from('shipment_costs')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) setCostsError(error.message)
-        else if (data) setCosts(data as ShipmentCost[])
-        setCostsLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
-
-  useEffect(() => {
-    let cancelled = false
-    supabase
-      .from('shipments')
-      .select('id, ref')
-      .eq('org_id', orgId)
-      .then(({ data }) => {
-        if (!cancelled && data) setShipmentRefs(new Map((data as { id: string; ref: string }[]).map((s) => [s.id, s.ref])))
-      })
+    fetchShipmentRefs(orgId).then((data) => {
+      if (!cancelled) setShipmentRefs(new Map(data.map((s) => [s.id, s.ref])))
+    })
     return () => {
       cancelled = true
     }
@@ -201,27 +162,19 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
   // Only the visible table rows are filtered.
   const visibleInvoices = invoices.filter((i) => showArchivedInvoices || !i.archived)
 
-  function handleInvoiceCreated(invoice: Invoice) {
-    setInvoices((prev) => [invoice, ...prev])
+  function handleInvoiceCreated(_invoice: Invoice) {
+    void queryClient.invalidateQueries({ queryKey: invoicesQueryKey(orgId) })
     setInvoiceModalOpen(false)
   }
 
-  function handleCostCreated(cost: ShipmentCost) {
-    setCosts((prev) => [cost, ...prev])
+  function handleCostCreated(_cost: ShipmentCost) {
+    void queryClient.invalidateQueries({ queryKey: costsQueryKey(orgId) })
     setCostModalOpen(false)
   }
 
   async function handleMarkPaid(invoice: Invoice) {
     setMarkingPaidId(invoice.id)
-    const { data, error } = await supabase
-      .from('invoices')
-      .update({ status: 'paid', paid_at: new Date().toISOString() })
-      .eq('id', invoice.id)
-      .select()
-      .single()
-    if (!error && data) {
-      setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? (data as Invoice) : i)))
-    }
+    await markPaidMutation.mutateAsync(invoice)
     setMarkingPaidId(null)
   }
 
@@ -229,19 +182,14 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
   // just a flag flip, not a privileged/ordering concern, so no RPC.
   async function handleArchiveToggle(invoice: Invoice) {
     setArchivingInvoiceId(invoice.id)
-    const { data, error } = await supabase.from('invoices').update({ archived: !invoice.archived }).eq('id', invoice.id).select().single()
-    if (!error && data) {
-      setInvoices((prev) => prev.map((i) => (i.id === invoice.id ? (data as Invoice) : i)))
-    }
+    await archiveInvoiceMutation.mutateAsync(invoice)
     setArchivingInvoiceId(null)
   }
 
   async function handleInstantPayout(cost: ShipmentCost) {
     setInstantPayoutBusyId(cost.id)
-    const { error } = await supabase.rpc('mark_cost_instant_payout', { p_shipment_cost_id: cost.id })
-    if (!error) {
-      setInstantPayoutDoneIds((prev) => new Set(prev).add(cost.id))
-    }
+    await instantPayoutMutation.mutateAsync(cost)
+    setInstantPayoutDoneIds((prev) => new Set(prev).add(cost.id))
     setInstantPayoutBusyId(null)
   }
 
@@ -252,12 +200,12 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
     }
     setDnaInvoiceId(invoice.id)
     setDnaLoading(true)
-    const [{ data: rakes }, { data: history }] = await Promise.all([
-      supabase.rpc('list_platform_revenue', { p_org_id: orgId }),
-      supabase.rpc('list_audit_log', { p_org_id: orgId, p_table_name: 'invoices', p_record_id: invoice.id }),
+    const [rakes, history] = await Promise.all([
+      fetchPlatformRevenueForOrg(orgId),
+      fetchAuditLogForRecord(orgId, 'invoices', invoice.id),
     ])
-    setDnaRakes(((rakes as PlatformRevenueEntry[]) ?? []).filter((r) => r.invoice_id === invoice.id))
-    setDnaHistory((history as AuditLogEntry[]) ?? [])
+    setDnaRakes(rakes.filter((r) => r.invoice_id === invoice.id))
+    setDnaHistory(history)
     setDnaLoading(false)
   }
 

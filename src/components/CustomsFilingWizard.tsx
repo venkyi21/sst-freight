@@ -1,28 +1,16 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import type { PostgrestError } from '@supabase/supabase-js'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { fetchShipmentsWithContacts, type ShipmentWithContacts } from '../api/shipments'
+import { fetchHsCodes, insertCustomsFiling } from '../api/customs'
 import FieldError from './FieldError'
 import InfoTooltip from './InfoTooltip'
 import { isCheckViolation } from '../lib/formErrors'
-import { customsFilingRefPrefix, generateRef } from '../lib/refGenerator'
-import {
-  CUSTOMS_FILING_TYPE_META,
-  type CustomsFiling,
-  type CustomsFilingType,
-  type HsCode,
-  type Shipment,
-} from '../types'
+import { CUSTOMS_FILING_TYPE_META, type CustomsFiling, type CustomsFilingType, type HsCode } from '../types'
 
 interface CustomsFilingWizardProps {
   orgId: string
   onClose: () => void
   onCreated: (filing: CustomsFiling) => void
-}
-
-type ShipmentWithContacts = Shipment & {
-  shipper_contact: { name: string } | null
-  consignee_contact: { name: string } | null
 }
 
 const STEPS = ['Filing', 'Goods & HS Code', 'Duty', 'Review'] as const
@@ -74,21 +62,12 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('shipments')
-      .select('*, shipper_contact:contacts!shipper_contact_id(name), consignee_contact:contacts!consignee_contact_id(name)')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (!cancelled && data) setShipments(data as unknown as ShipmentWithContacts[])
-      })
-    supabase
-      .from('hs_codes')
-      .select('*')
-      .order('hs_code')
-      .then(({ data }) => {
-        if (!cancelled && data) setHsCodes(data as HsCode[])
-      })
+    fetchShipmentsWithContacts(orgId).then((data) => {
+      if (!cancelled) setShipments(data)
+    })
+    fetchHsCodes().then((data) => {
+      if (!cancelled) setHsCodes(data)
+    })
     return () => {
       cancelled = true
     }
@@ -161,22 +140,11 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
       created_by: user.id,
     }
 
-    let lastError: PostgrestError | null = null
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error: insertError } = await supabase
-        .from('customs_filings')
-        .insert({ ...base, ref: generateRef(customsFilingRefPrefix(filingType)) })
-        .select()
-        .single()
-
-      if (!insertError && data) {
-        onCreated(data as CustomsFiling)
-        setBusy(false)
-        return
-      }
-
-      lastError = insertError
-      if (insertError?.code !== '23505') break
+    const { data, error: lastError } = await insertCustomsFiling(base, filingType)
+    if (data) {
+      onCreated(data)
+      setBusy(false)
+      return
     }
 
     if (lastError && isCheckViolation(lastError, 'customs_filings_assessable_value_inr_check')) {

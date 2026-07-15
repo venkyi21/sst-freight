@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { saveTariff } from '../api/quotes'
 import FieldError from './FieldError'
 import { isCheckViolation } from '../lib/formErrors'
 import { RATE_BASIS_META, type ShipmentMode, type Tariff } from '../types'
@@ -70,11 +70,7 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
       notes: notes.trim() || null,
     }
 
-    const query = tariff
-      ? supabase.from('tariffs').update(payload).eq('id', tariff.id).select().single()
-      : supabase.from('tariffs').insert({ ...payload, created_by: user.id }).select().single()
-
-    const { data, error: saveError } = await query
+    const { data, error: saveError } = await saveTariff(payload, tariff?.id ?? null, user.id)
 
     if (saveError || !data) {
       if (isCheckViolation(saveError!, 'tariffs_rate_check')) {
@@ -86,7 +82,7 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
       return
     }
 
-    onSaved(data as Tariff)
+    onSaved(data)
     setBusy(false)
   }
 

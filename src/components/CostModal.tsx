@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { fetchShipments } from '../api/shipments'
+import { insertCost } from '../api/accounting'
 import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
 import { isCheckViolation } from '../lib/formErrors'
@@ -44,14 +45,9 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('shipments')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (!cancelled && data) setShipments(data as Shipment[])
-      })
+    fetchShipments(orgId).then(({ data }) => {
+      if (!cancelled && data) setShipments(data)
+    })
     return () => {
       cancelled = true
     }
@@ -75,19 +71,15 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
     setFieldErrors({})
     setBusy(true)
 
-    const { data, error: insertError } = await supabase
-      .from('shipment_costs')
-      .insert({
-        org_id: orgId,
-        shipment_id: shipmentId,
-        vendor_contact_id: vendorContactId,
-        vendor_name: vendorName.trim() || null,
-        description: description.trim(),
-        amount: amountN,
-        created_by: user.id,
-      })
-      .select()
-      .single()
+    const { data, error: insertError } = await insertCost({
+      org_id: orgId,
+      shipment_id: shipmentId,
+      vendor_contact_id: vendorContactId,
+      vendor_name: vendorName.trim() || null,
+      description: description.trim(),
+      amount: amountN,
+      created_by: user.id,
+    })
 
     if (insertError || !data) {
       if (isCheckViolation(insertError!, 'shipment_costs_amount_check')) {
@@ -99,7 +91,7 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
       return
     }
 
-    onCreated(data as ShipmentCost)
+    onCreated(data)
     setBusy(false)
   }
 

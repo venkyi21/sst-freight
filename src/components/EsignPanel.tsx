@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { fetchLatestEsignRequest, refreshEsignStatus, sendEsignEnvelope } from '../api/esign'
 import { ESIGN_STATUS_META, type EsignDocumentType, type EsignRequest } from '../types'
 
 interface EsignPanelProps {
@@ -54,17 +54,11 @@ export default function EsignPanel({
 
   useEffect(() => {
     let cancelled = false
-    const query = supabase.from('esign_requests').select('*').eq('org_id', orgId).eq('document_type', documentType)
-    const scoped = quoteId ? query.eq('quote_id', quoteId) : query.eq('shipment_id', shipmentId)
-    scoped
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return
-        setRequest((data as EsignRequest | null) ?? null)
-        setLoading(false)
-      })
+    fetchLatestEsignRequest(orgId, documentType, quoteId, shipmentId).then((data) => {
+      if (cancelled) return
+      setRequest(data)
+      setLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -78,26 +72,23 @@ export default function EsignPanel({
     setBusy(true)
     setError(null)
     const html = await buildHtml()
-    const { data, error: invokeError } = await supabase.functions.invoke('docusign-envelope', {
-      body: {
-        action: 'send',
-        documentType,
-        orgId,
-        quoteId,
-        shipmentId,
-        documentRef,
-        documentLabel,
-        html,
-        recipientName: name.trim(),
-        recipientEmail: email.trim(),
-      },
+    const { data, error } = await sendEsignEnvelope({
+      documentType,
+      orgId,
+      quoteId,
+      shipmentId,
+      documentRef,
+      documentLabel,
+      html,
+      recipientName: name.trim(),
+      recipientEmail: email.trim(),
     })
-    if (invokeError || !data || (data as { error?: string }).error) {
-      setError((data as { error?: string })?.error ?? invokeError?.message ?? 'Could not send for signature')
+    if (error || !data) {
+      setError(error ?? 'Could not send for signature')
       setBusy(false)
       return
     }
-    setRequest((data as { data: EsignRequest }).data)
+    setRequest(data)
     setBusy(false)
   }
 
@@ -105,15 +96,13 @@ export default function EsignPanel({
     if (!request) return
     setBusy(true)
     setError(null)
-    const { data, error: invokeError } = await supabase.functions.invoke('docusign-envelope', {
-      body: { action: 'status', esignRequestId: request.id },
-    })
-    if (invokeError || !data || (data as { error?: string }).error) {
-      setError((data as { error?: string })?.error ?? invokeError?.message ?? 'Could not refresh status')
+    const { data, error } = await refreshEsignStatus(request.id)
+    if (error || !data) {
+      setError(error ?? 'Could not refresh status')
       setBusy(false)
       return
     }
-    setRequest((data as { data: EsignRequest }).data)
+    setRequest(data)
     setBusy(false)
   }
 

@@ -300,6 +300,32 @@ is a near-term coding task, and none of it should be attempted without that infr
   as GAP 01's carrier-tracking APIs (ADR-0014). The SCMTR report is the buildable substitute, not
   a workaround for this specific blocker.
 
+## Architecture evolution — data-access layer, react-query, hash routing (ADR-0025)
+
+- **`src/components/` (30 files) was deliberately not split into domain subfolders.** It's
+  already past the originating proposal's own "~15 file" split threshold, but the split is pure
+  import-path churn with no security, performance, or UX payoff on its own — unlike the `src/api/`
+  extraction, react-query wiring, and routing changes made alongside it. Closing this means
+  choosing domain groupings (e.g. `shipments/`, `quoting/`, `accounting/`, `customs/`,
+  `documents/`, `team/`, `shared/`) and moving files with an import-path update across every
+  affected file — a large, mechanical, low-risk-but-high-diff-size change best done as its own
+  pass, not bundled into an unrelated feature commit.
+- **Ephemeral, open-once forms were not converted to `useQuery`.** `BookingModal`, `ContactModal`,
+  `QuoteModal`, `InvoiceModal`, `CostModal`, `TariffModal`, and `CustomsFilingWizard` still fetch
+  their dropdown/lookup data via a plain effect calling the new `src/api/` functions directly —
+  react-query's caching benefit is negligible for a component that fetches once and unmounts.
+  Revisit only if one of these forms grows real repeat-open caching value.
+- **The default 30-second `staleTime` (`App.tsx`'s `QueryClientProvider`) is a real, deliberate
+  behavior change** on every converted screen except Reporting (which overrides it to `0` to keep
+  its "Live · as of [time]" promise, ADR-0018): a screen revisited within 30 seconds now shows a
+  cached view instead of re-fetching. Worth knowing if a future bug report describes "stale-
+  looking" data on a non-Reporting screen — that's expected, not a bug, unless the window is
+  meaningfully longer than 30 seconds.
+- **`HashRouter` means every internal URL carries a `#`** (e.g. `.../preview/#/shipments/<id>`),
+  not a clean path. This was a deliberate trade-off for zero GitHub Pages deploy changes
+  (ADR-0025) — revisit only if a future need for clean URLs justifies adding and testing a
+  404.html SPA-fallback shim across both this app's base paths (`/` and `/preview/`).
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in

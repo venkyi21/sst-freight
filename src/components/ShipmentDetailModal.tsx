@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { advanceShipmentStatus, fetchShipmentStatusHistory, optInCargoInsurance, registerCarrierTracking } from '../api/shipments'
 import InfoTooltip from './InfoTooltip'
 import ShipmentDocumentsPanel from './ShipmentDocumentsPanel'
 import { MODE_META, STATUS_SEQUENCE, statusMeta, type BillingModel, type Shipment, type StatusHistoryEntry } from '../types'
@@ -32,17 +32,15 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
     let cancelled = false
     setHistoryLoading(true)
     setHistoryError(null)
-    supabase
-      .rpc('list_shipment_status_history', { p_shipment_id: shipment.id })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setHistoryError(error.message)
-        } else if (data) {
-          setHistory(data as StatusHistoryEntry[])
-        }
-        setHistoryLoading(false)
-      })
+    fetchShipmentStatusHistory(shipment.id).then(({ data, error }) => {
+      if (cancelled) return
+      if (error) {
+        setHistoryError(error)
+      } else if (data) {
+        setHistory(data)
+      }
+      setHistoryLoading(false)
+    })
     return () => {
       cancelled = true
     }
@@ -51,19 +49,19 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
   async function handleAdvance() {
     setBusy(true)
     setActionError(null)
-    const { data, error } = await supabase.rpc('advance_shipment_status', { p_shipment_id: shipment.id }).single()
+    const { data, error } = await advanceShipmentStatus(shipment.id)
     if (error || !data) {
-      setActionError(error?.message ?? 'Could not update status')
+      setActionError(error ?? 'Could not update status')
       setBusy(false)
       return
     }
-    onUpdated(data as Shipment)
+    onUpdated(data)
     setBusy(false)
   }
 
   async function handleInsure() {
     setInsuranceBusy(true)
-    const { error } = await supabase.rpc('opt_in_cargo_insurance', { p_shipment_id: shipment.id })
+    const { error } = await optInCargoInsurance(shipment.id)
     if (!error) setInsured(true)
     setInsuranceBusy(false)
   }
@@ -75,15 +73,13 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
     }
     setTrackingBusy(true)
     setTrackingError(null)
-    const { data, error } = await supabase
-      .rpc('register_carrier_tracking', { p_shipment_id: shipment.id, p_scac: scacInput.trim().toUpperCase(), p_request_number: requestNumberInput.trim() })
-      .single()
+    const { data, error } = await registerCarrierTracking(shipment.id, scacInput.trim(), requestNumberInput.trim())
     if (error || !data) {
-      setTrackingError(error?.message ?? 'Could not register tracking')
+      setTrackingError(error ?? 'Could not register tracking')
       setTrackingBusy(false)
       return
     }
-    onUpdated(data as Shipment)
+    onUpdated(data)
     setTrackingBusy(false)
   }
 

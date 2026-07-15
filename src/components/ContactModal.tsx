@@ -1,6 +1,6 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { createContact, updateContact } from '../api/contacts'
 import FieldError from './FieldError'
 import { CONTACT_KIND_META, INDIAN_STATES, VENDOR_TYPE_META, type Contact, type ContactKind, type VendorType } from '../types'
 
@@ -73,19 +73,15 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
       notes: notes.trim() || null,
     }
 
-    const query = contact
-      ? supabase.from('contacts').update(payload).eq('id', contact.id).select().single()
-      : supabase.from('contacts').insert({ ...payload, created_by: user.id }).select().single()
-
-    const { data, error: saveError } = await query
+    const { data, error: saveError } = contact ? await updateContact(contact.id, payload) : await createContact(payload, user.id)
 
     if (saveError || !data) {
-      setError(saveError?.message ?? 'Could not save contact')
+      setError(saveError ?? 'Could not save contact')
       setBusy(false)
       return
     }
 
-    onSaved(data as Contact)
+    onSaved(data)
     setBusy(false)
   }
 

@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { shipmentsQueryKey, useShipments } from '../hooks/useShipments'
 import Sidebar from '../components/Sidebar'
 import ShipmentsTable from '../components/ShipmentsTable'
 import BookingModal from '../components/BookingModal'
@@ -35,45 +37,40 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   color: active ? '#f1f5f9' : '#8291a6',
 })
 
+const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'settings', 'auditlog', 'platformadmin']
+
+function navPageFromPath(pathname: string): NavPage {
+  const segment = pathname.split('/')[1]
+  return (NAV_PAGES as string[]).includes(segment) ? (segment as NavPage) : 'dashboard'
+}
+
+function shipmentIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/shipments\/([^/]+)$/)
+  return match ? match[1] : null
+}
+
 export default function DashboardPage() {
   const { currentOrg, clearSelectedOrganization, user, isPlatformAdmin } = useAuth()
-  const [navPage, setNavPage] = useState<NavPage>('dashboard')
+  const location = useLocation()
+  const navigate = useNavigate()
+  // The sidebar/modal render logic below is unchanged from the pre-router version — only how
+  // navPage/selectedShipment are *derived* changed (from the URL, not local state), so
+  // Sidebar.tsx needed no changes at all (ADR-0025).
+  const navPage = navPageFromPath(location.pathname)
+  function setNavPage(page: NavPage) {
+    navigate(`/${page}`)
+  }
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all')
   const [search, setSearch] = useState('')
-  const [shipments, setShipments] = useState<Shipment[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [reloadToken, setReloadToken] = useState(0)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingDefaultMode, setBookingDefaultMode] = useState<ShipmentMode>('ocean')
-  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null)
 
   const orgId = currentOrg?.id ?? null
-
-  useEffect(() => {
-    if (!orgId) return
-    let cancelled = false
-    setLoading(true)
-    setLoadError(null)
-    setShipments([])
-    supabase
-      .from('shipments')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setLoadError(error.message)
-        } else if (data) {
-          setShipments(data as Shipment[])
-        }
-        setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId, reloadToken])
+  const queryClient = useQueryClient()
+  const { data: shipments = [], isLoading: loading, error: loadErrorObj, refetch } = useShipments(orgId)
+  const loadError = loadErrorObj instanceof Error ? loadErrorObj.message : null
+  const selectedShipmentId = shipmentIdFromPath(location.pathname)
+  const selectedShipment = selectedShipmentId ? shipments.find((s) => s.id === selectedShipmentId) ?? null : null
 
   const modeCounts = useMemo(
     () => ({
@@ -99,8 +96,8 @@ export default function DashboardPage() {
     setBookingOpen(true)
   }
 
-  function handleCreated(shipment: Shipment) {
-    setShipments((prev) => [shipment, ...prev])
+  function handleCreated(_shipment: Shipment) {
+    if (orgId) void queryClient.invalidateQueries({ queryKey: shipmentsQueryKey(orgId) })
     setBookingOpen(false)
   }
 
@@ -222,7 +219,7 @@ export default function DashboardPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => setReloadToken((t) => t + 1)}
+                  onClick={() => void refetch()}
                   style={{
                     padding: '8px 16px',
                     borderRadius: 8,
@@ -238,7 +235,7 @@ export default function DashboardPage() {
                 </button>
               </div>
             ) : (
-              <ShipmentsTable shipments={filtered} loading={loading} onRowClick={setSelectedShipment} />
+              <ShipmentsTable shipments={filtered} loading={loading} onRowClick={(s) => navigate(`/shipments/${s.id}`)} />
             )}
           </div>
         )}
@@ -293,10 +290,9 @@ export default function DashboardPage() {
         <ShipmentDetailModal
           shipment={selectedShipment}
           billingModel={currentOrg.billing_model}
-          onClose={() => setSelectedShipment(null)}
-          onUpdated={(updated) => {
-            setShipments((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
-            setSelectedShipment(updated)
+          onClose={() => navigate('/dashboard')}
+          onUpdated={() => {
+            void queryClient.invalidateQueries({ queryKey: shipmentsQueryKey(currentOrg.id) })
           }}
         />
       )}

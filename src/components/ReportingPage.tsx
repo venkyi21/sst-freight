@@ -1,6 +1,7 @@
-import { Fragment, useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { toggleDashboardWidget } from '../api/reporting'
+import { useReportingData } from '../hooks/useReporting'
 import {
   DASHBOARD_WIDGET_META,
   DASHBOARD_WIDGET_ORDER,
@@ -8,22 +9,14 @@ import {
   STATUS_SEQUENCE,
   statusMeta,
   type CustomsFiling,
-  type DashboardPreference,
   type DashboardWidgetKey,
   type Invoice,
-  type Shipment,
   type ShipmentCost,
   type ShipmentDocument,
 } from '../types'
 
 interface ReportingPageProps {
   orgId: string
-}
-
-interface HistoryRow {
-  shipment_id: string
-  to_status: string
-  created_at: string
 }
 
 interface ProfitRow {
@@ -76,72 +69,33 @@ function downloadCsv(filename: string, rows: (string | number)[][]) {
 
 export default function ReportingPage({ orgId }: ReportingPageProps) {
   const { user } = useAuth()
-  const [shipments, setShipments] = useState<Shipment[]>([])
-  const [invoices, setInvoices] = useState<Invoice[]>([])
-  const [costs, setCosts] = useState<ShipmentCost[]>([])
-  const [history, setHistory] = useState<HistoryRow[]>([])
-  const [customsFilings, setCustomsFilings] = useState<CustomsFiling[]>([])
-  const [documents, setDocuments] = useState<ShipmentDocument[]>([])
-  const [prefs, setPrefs] = useState<Map<DashboardWidgetKey, boolean>>(new Map())
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [loadedAt, setLoadedAt] = useState<Date | null>(null)
+  const { data: result, isLoading: loading, error: errorObj, dataUpdatedAt } = useReportingData(orgId, user?.id)
+  const error = errorObj instanceof Error ? errorObj.message : result?.error ?? null
+  const shipments = result?.shipments ?? []
+  const invoices = result?.invoices ?? []
+  const costs = result?.costs ?? []
+  const history = result?.history ?? []
+  const customsFilings = (result?.customsFilings ?? []) as CustomsFiling[]
+  const documents = (result?.documents ?? []) as ShipmentDocument[]
+  const loadedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null
+
+  // Optimistic local overrides on top of the query's own prefs — avoids fighting react-query's
+  // immutable cache for a Map-shaped field the mutation below already persists server-side.
+  const [prefsOverride, setPrefsOverride] = useState<Map<DashboardWidgetKey, boolean>>(new Map())
   const [customizeOpen, setCustomizeOpen] = useState(false)
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null)
   const [expandedRoute, setExpandedRoute] = useState<string | null>(null)
 
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setError(null)
-    async function load() {
-      const [shipmentsRes, invoicesRes, costsRes, historyRes, filingsRes, docsRes, prefsRes] = await Promise.all([
-        supabase.from('shipments').select('*').eq('org_id', orgId),
-        supabase.from('invoices').select('*').eq('org_id', orgId),
-        supabase.from('shipment_costs').select('*').eq('org_id', orgId),
-        supabase.from('shipment_status_history').select('shipment_id, to_status, created_at').eq('org_id', orgId),
-        supabase.from('customs_filings').select('*').eq('org_id', orgId),
-        supabase.from('shipment_documents').select('*').eq('org_id', orgId),
-        user ? supabase.from('dashboard_preferences').select('*').eq('org_id', orgId).eq('user_id', user.id) : Promise.resolve({ data: [] as DashboardPreference[] }),
-      ])
-      if (cancelled) return
-      const firstError = shipmentsRes.error || invoicesRes.error || costsRes.error || historyRes.error || filingsRes.error || docsRes.error
-      if (firstError) {
-        setError(firstError.message)
-        setLoading(false)
-        return
-      }
-      setShipments((shipmentsRes.data ?? []) as Shipment[])
-      setInvoices((invoicesRes.data ?? []) as Invoice[])
-      setCosts((costsRes.data ?? []) as ShipmentCost[])
-      setHistory((historyRes.data ?? []) as unknown as HistoryRow[])
-      setCustomsFilings((filingsRes.data ?? []) as CustomsFiling[])
-      setDocuments((docsRes.data ?? []) as ShipmentDocument[])
-      const prefMap = new Map<DashboardWidgetKey, boolean>()
-      for (const p of (prefsRes.data ?? []) as DashboardPreference[]) {
-        prefMap.set(p.widget_key, p.visible)
-      }
-      setPrefs(prefMap)
-      setLoadedAt(new Date())
-      setLoading(false)
-    }
-    void load()
-    return () => {
-      cancelled = true
-    }
-  }, [orgId, user?.id])
-
   function isVisible(key: DashboardWidgetKey): boolean {
-    return prefs.get(key) ?? true
+    if (prefsOverride.has(key)) return prefsOverride.get(key)!
+    return result?.prefs.get(key) ?? true
   }
 
   async function toggleWidget(key: DashboardWidgetKey) {
     if (!user) return
     const next = !isVisible(key)
-    setPrefs((prev) => new Map(prev).set(key, next))
-    await supabase
-      .from('dashboard_preferences')
-      .upsert({ org_id: orgId, user_id: user.id, widget_key: key, visible: next }, { onConflict: 'org_id,user_id,widget_key' })
+    setPrefsOverride((prev) => new Map(prev).set(key, next))
+    await toggleDashboardWidget(orgId, user.id, key, next)
   }
 
   // shipment_id -> { client, origin, destination } — reused by both profitability breakdowns

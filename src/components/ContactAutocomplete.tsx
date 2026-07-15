@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
-
-interface ContactOption {
-  id: string
-  name: string
-}
+import { fetchContactOptions, type ContactOption } from '../api/contacts'
 
 interface ContactAutocompleteProps {
   orgId: string
@@ -30,15 +25,9 @@ export default function ContactAutocomplete({
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('contacts')
-      .select('id, name')
-      .eq('org_id', orgId)
-      .eq('kind', kind)
-      .eq('archived', false)
-      .then(({ data }) => {
-        if (!cancelled && data) setOptions(data as ContactOption[])
-      })
+    fetchContactOptions(orgId, kind).then((data) => {
+      if (!cancelled) setOptions(data)
+    })
     return () => {
       cancelled = true
     }

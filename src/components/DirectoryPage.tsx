@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { contactsQueryKey, useArchiveContact, useContacts } from '../hooks/useContacts'
 import ContactModal from './ContactModal'
 import { CONTACT_KIND_META, VENDOR_TYPE_META, type Contact, type ContactKind } from '../types'
 
@@ -43,39 +44,16 @@ interface DirectoryPageProps {
 }
 
 export default function DirectoryPage({ orgId }: DirectoryPageProps) {
-  const [contacts, setContacts] = useState<Contact[]>([])
-  const [loading, setLoading] = useState(true)
-  const [loadError, setLoadError] = useState<string | null>(null)
-  const [reloadToken, setReloadToken] = useState(0)
+  const queryClient = useQueryClient()
+  const { data: contacts = [], isLoading: loading, error: loadErrorObj, refetch } = useContacts(orgId)
+  const archiveMutation = useArchiveContact(orgId)
+  const loadError = loadErrorObj instanceof Error ? loadErrorObj.message : null
   const [kindFilter, setKindFilter] = useState<KindFilter>('all')
   const [search, setSearch] = useState('')
   const [modalContact, setModalContact] = useState<Contact | null>(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [archivingId, setArchivingId] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    setLoadError(null)
-    supabase
-      .from('contacts')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (error) {
-          setLoadError(error.message)
-        } else if (data) {
-          setContacts(data as Contact[])
-        }
-        setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId, reloadToken])
 
   const kindCounts = useMemo(
     () => ({
@@ -109,10 +87,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
   async function handleArchiveToggle(e: MouseEvent, contact: Contact) {
     e.stopPropagation()
     setArchivingId(contact.id)
-    const { data, error } = await supabase.from('contacts').update({ archived: !contact.archived }).eq('id', contact.id).select().single()
-    if (!error && data) {
-      setContacts((prev) => prev.map((c) => (c.id === contact.id ? (data as Contact) : c)))
-    }
+    await archiveMutation.mutateAsync(contact)
     setArchivingId(null)
   }
 
@@ -126,11 +101,8 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
     setModalOpen(true)
   }
 
-  function handleSaved(contact: Contact) {
-    setContacts((prev) => {
-      const exists = prev.some((c) => c.id === contact.id)
-      return exists ? prev.map((c) => (c.id === contact.id ? contact : c)) : [contact, ...prev]
-    })
+  function handleSaved(_contact: Contact) {
+    void queryClient.invalidateQueries({ queryKey: contactsQueryKey(orgId) })
     setModalOpen(false)
   }
 
@@ -219,7 +191,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
           <div style={{ color: '#fb7185', fontSize: 13.5, marginBottom: 12 }}>Couldn't load contacts: {loadError}</div>
           <button
             type="button"
-            onClick={() => setReloadToken((t) => t + 1)}
+            onClick={() => void refetch()}
             style={{
               padding: '8px 16px',
               borderRadius: 8,

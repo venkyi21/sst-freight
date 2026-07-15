@@ -1,69 +1,11 @@
-import { supabase } from './supabaseClient'
-import {
-  SHIPMENT_DOCUMENT_TYPE_META,
-  type CustomsFiling,
-  type HsCode,
-  type Invoice,
-  type Quote,
-  type QuoteLineItem,
-  type Shipment,
-  type ShipmentDocumentType,
-} from '../types'
+import { fetchQuoteLineItems } from '../api/quotes'
+import { fetchShipmentDocumentData, type ShipmentDocumentData } from '../api/documents'
+import { SHIPMENT_DOCUMENT_TYPE_META, type Quote, type QuoteLineItem, type Shipment, type ShipmentDocumentType } from '../types'
 
-// Week 14 (ADR-0021): the actual customer-facing artifact — no point itemizing a quote in the
-// create modal if the signed document a client receives still shows one flat line. Fetched
-// separately (not joined into `quotes` selects elsewhere) since only the e-sign flow needs it.
-export async function fetchQuoteLineItems(quoteId: string): Promise<QuoteLineItem[]> {
-  const { data } = await supabase.from('quote_line_items').select('*').eq('quote_id', quoteId).order('created_at', { ascending: true })
-  return (data as QuoteLineItem[]) ?? []
-}
-
-export interface ContactNames {
-  shipper: string | null
-  consignee: string | null
-}
-
-export interface ShipmentDocumentData {
-  contacts: ContactNames
-  invoice: Invoice | null
-  customsFiling: CustomsFiling | null
-  // GAP 05 (ADR-0024): the real published duty-rate percentages, not just the computed INR
-  // amounts already on customsFiling — needed for the SCMTR compliance report's "BCD: 7.5% →
-  // ₹31,500" style transparency. Only fetched once customsFiling.hs_code is known, so it can't
-  // join in the same Promise.all as the other three.
-  hsCodeReference: HsCode | null
-}
-
-// Shared by DocumentView.tsx (in-app viewer) and the e-signature flow (Bill of Lading), so both
-// pull from exactly the same shipment/contact/invoice/customs-filing records — never re-typed.
-export async function fetchShipmentDocumentData(shipment: Shipment): Promise<ShipmentDocumentData> {
-  const ids = [shipment.shipper_contact_id, shipment.consignee_contact_id].filter(Boolean) as string[]
-  const [contactsRes, invoiceRes, filingRes] = await Promise.all([
-    ids.length > 0
-      ? supabase.from('contacts').select('id, name').in('id', ids)
-      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
-    supabase.from('invoices').select('*').eq('shipment_id', shipment.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('customs_filings').select('*').eq('shipment_id', shipment.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-  ])
-  const byId = new Map((contactsRes.data ?? []).map((c) => [c.id, c.name]))
-  const customsFiling = (filingRes as { data: CustomsFiling | null }).data ?? null
-
-  let hsCodeReference: HsCode | null = null
-  if (customsFiling?.hs_code) {
-    const { data } = await supabase.from('hs_codes').select('*').eq('hs_code', customsFiling.hs_code).maybeSingle()
-    hsCodeReference = (data as HsCode | null) ?? null
-  }
-
-  return {
-    contacts: {
-      shipper: shipment.shipper_contact_id ? byId.get(shipment.shipper_contact_id) ?? null : null,
-      consignee: shipment.consignee_contact_id ? byId.get(shipment.consignee_contact_id) ?? null : shipment.client,
-    },
-    invoice: (invoiceRes as { data: Invoice | null }).data ?? null,
-    customsFiling,
-    hsCodeReference,
-  }
-}
+// Re-exported for existing call sites (DocumentView.tsx, ShipmentDocumentsPanel.tsx,
+// RatesQuotesPage.tsx) — the actual Supabase access now lives in src/api/, this file stays
+// focused on pure HTML rendering.
+export { fetchQuoteLineItems, fetchShipmentDocumentData, type ShipmentDocumentData }
 
 export interface DocumentRow {
   label: string

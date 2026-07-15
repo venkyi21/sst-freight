@@ -1,6 +1,13 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
+import {
+  checkIsPlatformAdmin,
+  createOrganizationRpc,
+  fetchMembershipsForCurrentUser,
+  fetchOrganizationsByIds,
+  joinOrganizationRpc,
+} from '../api/org'
 import type { Membership, Organization, OrganizationWithRole } from '../types'
 
 interface ActionResult {
@@ -72,13 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setOrgsLoading(true)
     setOrgsError(null)
 
-    const { data: memberships, error: membershipError } = await supabase
-      .from('memberships')
-      .select('org_id, role')
+    const { data: memberships, error: membershipError } = await fetchMembershipsForCurrentUser()
 
     if (membershipError) {
       setOrganizations([])
-      setOrgsError(membershipError.message)
+      setOrgsError(membershipError)
       setOrgsLoading(false)
       return
     }
@@ -92,11 +97,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const typedMemberships = memberships as Pick<Membership, 'org_id' | 'role'>[]
     const orgIds = typedMemberships.map((m) => m.org_id)
 
-    const { data: orgs, error: orgsFetchError } = await supabase.from('organizations').select('*').in('id', orgIds)
+    const { data: orgs, error: orgsFetchError } = await fetchOrganizationsByIds(orgIds)
 
     if (orgsFetchError || !orgs) {
       setOrganizations([])
-      setOrgsError(orgsFetchError?.message ?? 'Could not load your organizations')
+      setOrgsError(orgsFetchError ?? 'Could not load your organizations')
       setOrgsLoading(false)
       return
     }
@@ -115,9 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const stored = window.localStorage.getItem(currentOrgStorageKey(user.id))
       setCurrentOrgId(stored)
       void refreshOrganizations()
-      supabase
-        .rpc('is_platform_admin')
-        .then(({ data }) => setIsPlatformAdmin(Boolean(data)))
+      void checkIsPlatformAdmin().then(setIsPlatformAdmin)
     } else {
       setOrganizations([])
       setCurrentOrgId(null)
@@ -159,18 +162,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function createOrganization(name: string, color: string): Promise<ActionResult> {
-    const { data, error } = await supabase.rpc('create_organization', { p_name: name, p_color: color }).single()
-    if (error || !data) return { error: error?.message ?? 'Could not create organization' }
+    const { data, error } = await createOrganizationRpc(name, color)
+    if (error || !data) return { error: error ?? 'Could not create organization' }
     await refreshOrganizations()
-    selectOrganization((data as Organization).id)
+    selectOrganization(data.id)
     return { error: null }
   }
 
   async function joinOrganization(inviteCode: string): Promise<ActionResult> {
-    const { data, error } = await supabase.rpc('join_organization', { p_invite_code: inviteCode }).single()
-    if (error || !data) return { error: error?.message ?? 'Invalid invite code' }
+    const { data, error } = await joinOrganizationRpc(inviteCode)
+    if (error || !data) return { error: error ?? 'Invalid invite code' }
     await refreshOrganizations()
-    selectOrganization((data as Organization).id)
+    selectOrganization(data.id)
     return { error: null }
   }
 

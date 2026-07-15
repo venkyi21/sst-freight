@@ -12,15 +12,17 @@ vulnerability below is deferred rather than fixed; this file is the underlying d
 ## 1. Exact versions (no caret ranges)
 
 Every entry in `package.json` is pinned to an exact version — the version actually installed and
-tested, read directly from `package-lock.json` at the time of pinning (2026-07-13), not a nominal
-range. `npm install` on a fresh clone now installs exactly this, every time, until someone
-deliberately bumps a version.
+tested, read directly from `package-lock.json` at the time of pinning, not a nominal range.
+`npm install` on a fresh clone now installs exactly this, every time, until someone deliberately
+bumps a version.
 
 | Package | Pinned version | Type |
 | --- | --- | --- |
 | `@supabase/supabase-js` | `2.110.2` | dependency |
+| `@tanstack/react-query` | `5.101.2` | dependency |
 | `react` | `18.3.1` | dependency |
 | `react-dom` | `18.3.1` | dependency |
+| `react-router-dom` | `7.18.1` | dependency |
 | `@types/node` | `20.19.43` | devDependency |
 | `@types/react` | `18.3.31` | devDependency |
 | `@types/react-dom` | `18.3.7` | devDependency |
@@ -28,6 +30,10 @@ deliberately bumps a version.
 | `oxlint` | `0.9.10` | devDependency |
 | `typescript` | `5.9.3` | devDependency |
 | `vite` | `5.4.21` | devDependency |
+
+**Added 2026-07-15 (ADR-0025)**: `@tanstack/react-query` and `react-router-dom` — a data-fetching
+cache/dedupe layer and hash-based client-side routing, both pinned to the exact versions
+`npm install` resolved at pin time, per the same convention as every other entry above.
 
 **Trade-off, stated plainly**: pinning trades "automatically pick up patch fixes" for "nothing
 changes until a human decides it should." For a solo-developer project where an unreviewed patch
@@ -58,17 +64,26 @@ code that actually ships in the built bundle, as opposed to build-time tooling (
 | `@supabase/realtime-js` | MIT |
 | `@supabase/storage-js` | MIT |
 | `@supabase/supabase-js` | MIT |
+| `@tanstack/query-core` | MIT |
+| `@tanstack/react-query` | MIT |
+| `cookie` | MIT |
 | `iceberg-js` | MIT |
 | `js-tokens` | MIT |
 | `loose-envify` | MIT |
 | `react` | MIT |
 | `react-dom` | MIT |
+| `react-router` | MIT |
+| `react-router-dom` | MIT |
 | `scheduler` | MIT |
+| `set-cookie-parser` | MIT |
 | `tslib` | 0BSD |
 
 **Result: every shipped dependency is MIT or 0BSD** — both permissive, no copyleft, no
 network-use/attribution obligation beyond preserving the license text, and no conflict with any
-distribution model this project might choose later (open-source or closed/commercial).
+distribution model this project might choose later (open-source or closed/commercial). Re-verified
+2026-07-15 after adding `@tanstack/react-query` and `react-router-dom` (ADR-0025) — both, and their
+own transitive dependencies (`@tanstack/query-core`, `react-router`, `cookie`,
+`set-cookie-parser`), are MIT.
 
 The full dependency tree (`--production` flag removed, i.e. including devDependencies) adds `ISC`,
 `Apache-2.0`, and `CC-BY-4.0` (the last one is `caniuse-lite`, browser-compatibility data consumed
@@ -89,6 +104,9 @@ separately, hence "2 vulnerabilities" for one advisory). Full rationale for why 
 rather than fixed — the dev-only exposure, the breaking Vite 8 upgrade it would require, and when
 to revisit — lives in `docs/tech-debt.md`'s Dependencies section; this file just confirms the
 finding is current as of the date above.
+
+Re-run 2026-07-15 after adding `@tanstack/react-query` and `react-router-dom` (ADR-0025): same 2
+findings, same single advisory — neither new package introduced a new vulnerability.
 
 ## How to refresh this file
 

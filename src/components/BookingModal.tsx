@@ -1,11 +1,11 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { resolveOrCreateContact } from '../api/contacts'
+import { insertShipment } from '../api/shipments'
 import { chargeableWeightKg, volumetricWeightKg } from '../lib/volumetric'
 import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
 import InfoTooltip from './InfoTooltip'
-import { generateRef, shipmentRefPrefix } from '../lib/refGenerator'
 import type { Shipment, ShipmentMode } from '../types'
 
 interface BookingModalProps {
@@ -65,36 +65,6 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
 
   const valid = shipper.trim() && consignee.trim() && origin.trim() && destination.trim()
 
-  async function resolveContactId(
-    existingId: string | null,
-    kind: 'shipper' | 'consignee',
-    name: string,
-    userId: string,
-  ): Promise<string | null> {
-    if (existingId) return existingId
-
-    // Re-check for an exact-name match at submit time rather than trusting the
-    // autocomplete's client-side list, which may still be loading — avoids
-    // creating a duplicate contact when the name matches one that already exists.
-    const { data: existingMatch } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('org_id', orgId)
-      .eq('kind', kind)
-      .ilike('name', name)
-      .limit(1)
-      .maybeSingle()
-    if (existingMatch) return (existingMatch as { id: string }).id
-
-    const { data, error: insertError } = await supabase
-      .from('contacts')
-      .insert({ org_id: orgId, kind, name, created_by: userId })
-      .select('id')
-      .single()
-    if (insertError || !data) return null
-    return (data as { id: string }).id
-  }
-
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     setError(null)
@@ -111,8 +81,8 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
     setFieldErrors({})
     setBusy(true)
 
-    const shipperId = await resolveContactId(shipperContactId, 'shipper', shipper.trim(), user.id)
-    const consigneeId = await resolveContactId(consigneeContactId, 'consignee', consignee.trim(), user.id)
+    const shipperId = await resolveOrCreateContact(orgId, shipperContactId, 'shipper', shipper.trim(), user.id)
+    const consigneeId = await resolveOrCreateContact(orgId, consigneeContactId, 'consignee', consignee.trim(), user.id)
 
     const base = {
       org_id: orgId,
@@ -122,7 +92,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
       consignee_contact_id: consigneeId,
       origin: origin.trim(),
       destination: destination.trim(),
-      status: 'Booked',
+      status: 'Booked' as const,
       created_by: user.id,
       load_type: mode === 'ocean' ? loadType : null,
       container_size: mode === 'ocean' ? containerSize : null,
@@ -136,26 +106,13 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
       driver_phone: mode === 'truck' ? driverPhone.trim() || null : null,
     }
 
-    let lastError: string | null = null
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error: insertError } = await supabase
-        .from('shipments')
-        .insert({ ...base, ref: generateRef(shipmentRefPrefix(mode)) })
-        .select()
-        .single()
-
-      if (!insertError && data) {
-        onCreated(data as Shipment)
-        setBusy(false)
-        return
-      }
-
-      lastError = insertError?.message ?? 'Could not create booking'
-      // 23505 = unique_violation on (org_id, ref) — regenerate and retry.
-      if (insertError?.code !== '23505') break
+    const { data, error } = await insertShipment(base, mode)
+    if (data) {
+      onCreated(data)
+      setBusy(false)
+      return
     }
-
-    setError(lastError)
+    setError(error)
     setBusy(false)
   }
 

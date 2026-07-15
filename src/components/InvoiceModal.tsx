@@ -1,14 +1,15 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
-import type { PostgrestError } from '@supabase/supabase-js'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { fetchContactState } from '../api/contacts'
+import { fetchQuoteByConvertedShipmentId, fetchQuoteLineItems } from '../api/quotes'
+import { fetchShipments } from '../api/shipments'
+import { fetchOrgGstState, insertInvoice, insertInvoiceLineItems } from '../api/accounting'
 import FieldError from './FieldError'
 import InfoTooltip from './InfoTooltip'
 import { isCheckViolation } from '../lib/formErrors'
-import { generateRef } from '../lib/refGenerator'
 import { fetchFxRateToInr } from '../lib/fxRates'
 import { determineSupplyType, computeGstAmounts } from '../lib/gst'
-import { INVOICE_CURRENCIES, type Invoice, type InvoiceLineItem, type MembershipRole, type QuoteLineItem, type Shipment } from '../types'
+import { INVOICE_CURRENCIES, type Invoice, type InvoiceLineItem, type MembershipRole, type Shipment } from '../types'
 
 interface InvoiceModalProps {
   orgId: string
@@ -68,14 +69,9 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('shipments')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data }) => {
-        if (!cancelled && data) setShipments(data as Shipment[])
-      })
+    fetchShipments(orgId).then(({ data }) => {
+      if (!cancelled && data) setShipments(data)
+    })
     return () => {
       cancelled = true
     }
@@ -83,14 +79,9 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('organizations')
-      .select('gst_state')
-      .eq('id', orgId)
-      .single()
-      .then(({ data }) => {
-        if (!cancelled) setOrgGstState((data as { gst_state: string | null } | null)?.gst_state ?? null)
-      })
+    fetchOrgGstState(orgId).then((state) => {
+      if (!cancelled) setOrgGstState(state)
+    })
     return () => {
       cancelled = true
     }
@@ -109,22 +100,18 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
     const shipment = shipments.find((s) => s.id === shipmentId)
     ;(async () => {
       if (shipment?.consignee_contact_id) {
-        const { data } = await supabase.from('contacts').select('state').eq('id', shipment.consignee_contact_id).maybeSingle()
-        if (!cancelled) setContactState((data as { state: string | null } | null)?.state ?? null)
+        const state = await fetchContactState(shipment.consignee_contact_id)
+        if (!cancelled) setContactState(state)
       } else if (!cancelled) {
         setContactState(null)
       }
 
-      const { data: quote } = await supabase.from('quotes').select('id, ref').eq('converted_shipment_id', shipmentId).maybeSingle()
+      const quote = await fetchQuoteByConvertedShipmentId(shipmentId)
       if (quote) {
-        const { data: quoteItems } = await supabase
-          .from('quote_line_items')
-          .select('*')
-          .eq('quote_id', (quote as { id: string }).id)
-          .order('created_at', { ascending: true })
-        if (!cancelled && quoteItems && quoteItems.length > 0) {
+        const quoteItems = await fetchQuoteLineItems(quote.id)
+        if (!cancelled && quoteItems.length > 0) {
           setLineItems(
-            (quoteItems as QuoteLineItem[]).map((qi) => ({
+            quoteItems.map((qi) => ({
               description: qi.description,
               sacCode: qi.sac_code ?? '',
               quantity: String(qi.quantity),
@@ -132,7 +119,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               gstRate: '18',
             })),
           )
-          setCarryoverNote(`Line items carried over from quote ${(quote as { ref: string }).ref} — nothing retyped.`)
+          setCarryoverNote(`Line items carried over from quote ${quote.ref} — nothing retyped.`)
           return
         }
       }
@@ -240,23 +227,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       created_by: user.id,
     }
 
-    let invoice: Invoice | null = null
-    let lastError: PostgrestError | null = null
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error: insertError } = await supabase
-        .from('invoices')
-        .insert({ ...base, ref: generateRef('INV') })
-        .select()
-        .single()
-
-      if (!insertError && data) {
-        invoice = data as Invoice
-        break
-      }
-
-      lastError = insertError
-      if (insertError?.code !== '23505') break
-    }
+    const { data: invoice, error: lastError } = await insertInvoice(base)
 
     if (!invoice) {
       if (lastError && isCheckViolation(lastError, 'invoices_amount_check')) {
@@ -272,7 +243,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
 
     const lineItemRows: Omit<InvoiceLineItem, 'id' | 'created_at'>[] = lineItems.map((li, i) => ({
       org_id: orgId,
-      invoice_id: (invoice as Invoice).id,
+      invoice_id: invoice.id,
       description: li.description.trim(),
       sac_code: li.sacCode.trim() || null,
       quantity: lineComputed[i].quantityN,
@@ -287,11 +258,11 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       created_by: user.id,
     }))
 
-    const { error: lineItemsError } = await supabase.from('invoice_line_items').insert(lineItemRows)
+    const { error: lineItemsError } = await insertInvoiceLineItems(lineItemRows)
     if (lineItemsError) {
       // Same accepted non-atomicity as QuoteModal's line-item insert — the invoice row itself is
       // real and onCreated below closes this modal regardless, so it's logged, not surfaced.
-      console.error(`Invoice ${invoice.ref} line items failed to save:`, lineItemsError.message)
+      console.error(`Invoice ${invoice.ref} line items failed to save:`, lineItemsError)
     }
 
     onCreated(invoice)

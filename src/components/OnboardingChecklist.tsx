@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties } from 'react'
-import { supabase } from '../lib/supabaseClient'
+import { dismissOnboarding, fetchOnboardingCounts, fetchOnboardingState } from '../api/onboarding'
 import type { NavPage } from '../types'
 
 interface OnboardingChecklistProps {
@@ -40,17 +40,11 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
 
   useEffect(() => {
     let cancelled = false
-    supabase
-      .from('user_onboarding_state')
-      .select('*')
-      .eq('org_id', orgId)
-      .eq('user_id', userId)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return
-        setRowId((data as { id: string } | null)?.id ?? null)
-        setDismissed((data as { dismissed: boolean } | null)?.dismissed ?? false)
-      })
+    fetchOnboardingState(orgId, userId).then((data) => {
+      if (cancelled) return
+      setRowId(data?.id ?? null)
+      setDismissed(data?.dismissed ?? false)
+    })
     return () => {
       cancelled = true
     }
@@ -58,21 +52,8 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      supabase.from('contacts').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-      supabase.from('quotes').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-      supabase.from('shipments').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-      supabase.from('invoices').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-      supabase.from('customs_filings').select('id', { count: 'exact', head: true }).eq('org_id', orgId),
-    ]).then(([contacts, quotes, shipments, invoices, customsFilings]) => {
-      if (cancelled) return
-      setCounts({
-        contacts: contacts.count ?? 0,
-        quotes: quotes.count ?? 0,
-        shipments: shipments.count ?? 0,
-        invoices: invoices.count ?? 0,
-        customsFilings: customsFilings.count ?? 0,
-      })
+    fetchOnboardingCounts(orgId).then((data) => {
+      if (!cancelled) setCounts(data)
     })
     return () => {
       cancelled = true
@@ -81,16 +62,8 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
 
   async function handleDismiss() {
     setBusy(true)
-    if (rowId) {
-      await supabase.from('user_onboarding_state').update({ dismissed: true }).eq('id', rowId)
-    } else {
-      const { data } = await supabase
-        .from('user_onboarding_state')
-        .insert({ org_id: orgId, user_id: userId, dismissed: true })
-        .select()
-        .single()
-      setRowId((data as { id: string } | null)?.id ?? null)
-    }
+    const id = await dismissOnboarding(orgId, userId, rowId)
+    setRowId(id)
     setDismissed(true)
     setBusy(false)
   }

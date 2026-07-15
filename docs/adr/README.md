@@ -42,5 +42,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0022](0022-quote-status-trigger-and-archive-not-delete.md) | Quote lifecycle enforced by a validation trigger, not a new RPC; archive not hard-delete | Accepted |
 | [0023](0023-tco-calculator-pricing-derivation-and-no-token-public-page.md) | TCO calculator: derived pricing model (proposal, not a real price) + a second no-token public-page precedent | Accepted |
 | [0024](0024-onboarding-checklist-and-scmtr-compliance-report.md) | Onboarding checklist follows the per-user RLS precedent; SCMTR compliance report is a same-shape live-document extension | Accepted |
+| [0025](0025-data-access-layer-react-query-and-hash-routing.md) | A centralized data-access layer, react-query for caching, and hash-based real routing | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.
