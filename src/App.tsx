@@ -4,6 +4,7 @@ import AuthScreen from './components/AuthScreen'
 import OrgPicker from './components/OrgPicker'
 import DashboardPage from './pages/DashboardPage'
 import PublicTrackingPage from './components/PublicTrackingPage'
+import PublicTCOCalculatorPage from './components/PublicTCOCalculatorPage'
 import ErrorBoundary from './components/ErrorBoundary'
 
 function ConfigWarning() {
@@ -60,8 +61,10 @@ function AppShell() {
 export default function App() {
   if (!supabaseConfigured) return <ConfigWarning />
 
-  const trackingToken = new URLSearchParams(window.location.search).get('track')
+  const params = new URLSearchParams(window.location.search)
+  const trackingToken = params.get('track')
   if (trackingToken) return <PublicTrackingPage token={trackingToken} />
+  if (params.has('tco')) return <PublicTCOCalculatorPage />
 
   return (
     <ErrorBoundary>

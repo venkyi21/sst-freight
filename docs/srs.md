@@ -411,6 +411,25 @@ built.
     signed documents are not legally binding until the integration is moved to a real paid
     DocuSign production plan, a decision left entirely to the user.
 
+### FR-17: Public TCO Calculator
+
+- **US-17.1** — As a prospect (no account, no login), I can enter my seat count and branch count
+  and see a real, live-computed 10-year total-cost-of-ownership comparison between SST Freight's
+  one-time buyout model and named competitors' per-seat SaaS pricing.
+  - AC (verified by real Playwright click-through in a genuinely fresh browser context, 2026-07-15):
+    visiting `?tco=1` renders the calculator directly — no login prompt, no flash of the
+    authenticated app shell first.
+  - AC (verified 2026-07-15): the default seats/branches (30, 3) reproduce the exact totals
+    already published in `docs/competitor-dashboard.html` §07 for SST and all 5 named competitors
+    (SST ₹42.0L; CargoEZ ₹78.0L; Shipthis ₹95.0L; Fresa Gold ₹1.30Cr; Freightify ₹1.60Cr;
+    CargoWise ₹2.20Cr) — confirming the generalized formula is consistent with the numbers already
+    public, not just internally self-consistent. Doubling seats to 60 left SST's total exactly
+    unchanged (still ₹42.0L, confirming the flat-fee model) while CargoEZ's total scaled linearly
+    to ₹1.56Cr as expected.
+  - AC: **Known limitation, stated plainly** (`docs/tech-debt.md`, `docs/adr/0023-...md`) — the
+    SST license price and every competitor figure are derived estimates, not real sourced quotes;
+    the page says so visibly, not only in a docs file. No lead-capture exists on this page.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

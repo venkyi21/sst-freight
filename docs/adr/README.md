@@ -40,5 +40,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0020](0020-edge-function-for-docusign-jwt-signing.md) | Supabase Edge Functions introduced solely for DocuSign RS256 JWT signing | Accepted |
 | [0021](0021-itemized-line-items-and-gst-tax-type-determination.md) | Itemized quote/invoice line items, as two concrete tables, with client-computed GST tax-type determination | Accepted |
 | [0022](0022-quote-status-trigger-and-archive-not-delete.md) | Quote lifecycle enforced by a validation trigger, not a new RPC; archive not hard-delete | Accepted |
+| [0023](0023-tco-calculator-pricing-derivation-and-no-token-public-page.md) | TCO calculator: derived pricing model (proposal, not a real price) + a second no-token public-page precedent | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

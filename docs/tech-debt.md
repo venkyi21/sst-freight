@@ -257,7 +257,23 @@ is a near-term coding task, and none of it should be attempted without that infr
 - **Edge Function secrets are a second secret store**, separate from Postgres Vault (ADR-0020) —
   anyone auditing this app's secrets needs to check both.
 
-## Test suite
+## TCO Calculator (GAP 02, ADR-0023)
+
+- **The SST license price (₹15,00,000) is a mechanical derivation, not a real, decided price.**
+  It was back-solved from an illustrative ₹42L total in `docs/competitor-dashboard.html` §07 that
+  itself had no formula behind it anywhere in this codebase — only the 18%/yr AMC rate is a real,
+  stated number. Closing this means the user setting a real, final license price and updating the
+  one constant (`SST_LICENSE_ONE_TIME_INR` in `src/lib/tcoCalculator.ts`).
+- **Competitor figures are linear per-seat estimates from a single published data point each**
+  (CargoEZ/Shipthis/Fresa Gold/Freightify/CargoWise), not sourced from any vendor's own pricing
+  page or a verified quote. A single data point can't be honestly split into a per-seat and
+  per-branch rate, so branches don't affect the competitor side of the calculator at all — only
+  seats do. Closing this means real research into each vendor's actual published/quoted pricing.
+- **No lead-capture on the calculator page.** It's a pure client-side tool with no way to record
+  who used it or follow up — a real gap for a "sales weapon + inbound magnet," per the original
+  Week 11 framing. Adding one would need a plain org-scoped table + insert grant (an anonymous
+  lead, unlike everything else in this schema, would need `anon` role write access — a genuinely
+  new RLS shape, not built this pass).
 
 - **`stage12_accounting.js`'s P&L assertion hardcodes an expected FX-converted amount.** Because
   `fetchFxRateToInr()` calls a live external API (ADR-0007), the actual rate — and therefore the
