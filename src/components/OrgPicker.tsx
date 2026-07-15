@@ -27,8 +27,17 @@ function initialOf(name: string): string {
 }
 
 export default function OrgPicker() {
-  const { organizations, orgsLoading, selectOrganization, createOrganization, joinOrganization, signOut, user } =
-    useAuth()
+  const {
+    organizations,
+    orgsLoading,
+    orgsError,
+    refreshOrganizations,
+    selectOrganization,
+    createOrganization,
+    joinOrganization,
+    signOut,
+    user,
+  } = useAuth()
   const [tab, setTab] = useState<'create' | 'join'>('create')
   const [orgName, setOrgName] = useState('')
   const [inviteCode, setInviteCode] = useState('')
@@ -99,7 +108,30 @@ export default function OrgPicker() {
 
         {orgsLoading && <div style={{ fontSize: 13, color: '#64748b' }}>Loading your organizations…</div>}
 
-        {!orgsLoading && hasOrgs && (
+        {!orgsLoading && orgsError && (
+          <div style={{ marginBottom: 20 }}>
+            <ErrorBox message={`Couldn't load your organizations: ${orgsError}`} />
+            <button
+              type="button"
+              onClick={() => void refreshOrganizations()}
+              style={{
+                width: '100%',
+                padding: 10,
+                borderRadius: 8,
+                border: '1px solid #1e293b',
+                background: 'transparent',
+                color: '#94a3b8',
+                fontSize: 12.5,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        {!orgsLoading && !orgsError && hasOrgs && (
           <>
             <div
               style={{
@@ -140,13 +172,18 @@ export default function OrgPicker() {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      overflow: 'hidden',
                       fontWeight: 700,
                       fontSize: 13,
                       color: '#fff',
-                      background: org.color,
+                      background: org.logo_url ? '#0b1220' : org.color,
                     }}
                   >
-                    {initialOf(org.name)}
+                    {org.logo_url ? (
+                      <img src={org.logo_url} alt={`${org.name} logo`} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    ) : (
+                      initialOf(org.name)
+                    )}
                   </div>
                   <div style={{ minWidth: 0 }}>
                     <div
@@ -174,7 +211,7 @@ export default function OrgPicker() {
           </>
         )}
 
-        {!orgsLoading && !hasOrgs && (
+        {!orgsLoading && !orgsError && !hasOrgs && (
           <div
             style={{
               fontSize: 13,
@@ -188,7 +225,7 @@ export default function OrgPicker() {
           </div>
         )}
 
-        {!orgsLoading && (
+        {!orgsLoading && !orgsError && (
           <>
             <div
               style={{

@@ -116,6 +116,46 @@ git push -u origin dev
   enforcement in the UI (roles are stored — `owner`/`admin`/`member` — but every member
   currently has full read/write on their org's shipments; tighten this in `schema.sql`
   before you need real access tiers).
+- 🚧 A user who belongs to two organizations could, via a direct API call (not reachable
+  through the current UI, which has no shipment-editing feature), reassign a shipment's
+  `org_id` between the two orgs they belong to — Postgres RLS can't compare old vs. new
+  row values without a trigger. Not exploitable by anyone outside those two orgs.
+- 🚧 `join_organization`'s invite codes (8 random hex chars) aren't rate-limited at the
+  database level — fine for now, but add a rate limit before invite-code brute-forcing
+  becomes a real concern at scale.
+
+## Further documentation
+
+- [`docs/srs.md`](docs/srs.md) — Software Requirements Specification: what the app actually does
+  today, as verifiable user stories with quantifiable acceptance criteria.
+- [`docs/sdd.md`](docs/sdd.md) — System Design Document: architecture diagrams (component/
+  deployment, data model, request patterns) showing how the pieces fit together.
+- [`docs/adr/`](docs/adr/) — Architecture Decision Records: the significant technical decisions
+  made in this project and why, so later work doesn't accidentally contradict one.
+- [`docs/tech-debt.md`](docs/tech-debt.md) — known, deliberate shortcuts in shipped code and what
+  it would take to close each one.
+- [`docs/dependency-manifest.md`](docs/dependency-manifest.md) — exact pinned dependency versions,
+  a per-package license inventory, and the current `npm audit` vulnerability footprint.
+- [`docs/api-reference.md`](docs/api-reference.md) — reference for every Supabase RPC function
+  the frontend calls (this app has no separate backend API beyond these). Its signature table is
+  auto-generated — run `npm run docs:gen-api` after any change to `supabase/schema.sql`.
+- [`docs/migration-runbook.md`](docs/migration-runbook.md) — how schema changes are actually
+  applied, what rolls back automatically (not much) and what doesn't, and current backup status.
+- [`docs/qa-testing.md`](docs/qa-testing.md) — technical/RLS/edge-case test results, run against
+  the real dev project, not inferred from the code.
+- [`docs/uat.md`](docs/uat.md) — persona-based user-journey acceptance results, walked through in
+  a real browser as each role.
+- [`docs/roadmap.html`](docs/roadmap.html) — the feature roadmap and competitive gap tracker.
+- [`CLAUDE.md`](CLAUDE.md) — which of the above to update for which kind of change, and this
+  project's standing architectural conventions.
+
+These are enforced, not just suggested: a pre-commit hook and a CI check both fail if
+`supabase/schema.sql` changes without a matching update to at least one docs-as-code file.
+Activate the local hook once per clone (git doesn't use `.githooks/` automatically):
+
+```bash
+git config core.hooksPath .githooks
+```
 
 ## Project structure
 

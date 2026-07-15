@@ -1,7 +1,11 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { resolveOrCreateContact } from '../api/contacts'
+import { insertShipment } from '../api/shipments'
 import { chargeableWeightKg, volumetricWeightKg } from '../lib/volumetric'
+import ContactAutocomplete from './ContactAutocomplete'
+import FieldError from './FieldError'
+import InfoTooltip from './InfoTooltip'
 import type { Shipment, ShipmentMode } from '../types'
 
 interface BookingModalProps {
@@ -29,23 +33,13 @@ const labelStyle: CSSProperties = {
   marginBottom: 5,
 }
 
-function refPrefix(mode: ShipmentMode): string {
-  if (mode === 'ocean') return 'BKG'
-  if (mode === 'air') return 'AWB'
-  return 'TRK'
-}
-
-function generateRef(mode: ShipmentMode): string {
-  const year = new Date().getFullYear()
-  const suffix = Math.floor(100 + Math.random() * 899)
-  return `${refPrefix(mode)}-${year}-${suffix}`
-}
-
 export default function BookingModal({ orgId, defaultMode, onClose, onCreated }: BookingModalProps) {
   const { user } = useAuth()
   const [mode, setMode] = useState<ShipmentMode>(defaultMode)
   const [shipper, setShipper] = useState('')
+  const [shipperContactId, setShipperContactId] = useState<string | null>(null)
   const [consignee, setConsignee] = useState('')
+  const [consigneeContactId, setConsigneeContactId] = useState<string | null>(null)
   const [origin, setOrigin] = useState('')
   const [destination, setDestination] = useState('')
   const [loadType, setLoadType] = useState<'FCL' | 'LCL'>('FCL')
@@ -60,11 +54,12 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
   const [driverPhone, setDriverPhone] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [fieldErrors, setFieldErrors] = useState<{ shipper?: string; consignee?: string; origin?: string; destination?: string }>({})
 
-  const lengthN = parseFloat(lengthCm) || 0
-  const widthN = parseFloat(widthCm) || 0
-  const heightN = parseFloat(heightCm) || 0
-  const grossN = parseFloat(grossWeight) || 0
+  const lengthN = Math.max(0, parseFloat(lengthCm) || 0)
+  const widthN = Math.max(0, parseFloat(widthCm) || 0)
+  const heightN = Math.max(0, parseFloat(heightCm) || 0)
+  const grossN = Math.max(0, parseFloat(grossWeight) || 0)
   const volumetric = volumetricWeightKg(lengthN, widthN, heightN)
   const chargeable = chargeableWeightKg(grossN, volumetric)
 
@@ -72,18 +67,32 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!valid || !user) return
-    setBusy(true)
     setError(null)
+    if (!valid) {
+      setFieldErrors({
+        shipper: shipper.trim() ? undefined : 'Shipper is required',
+        consignee: consignee.trim() ? undefined : 'Consignee is required',
+        origin: origin.trim() ? undefined : 'Origin is required',
+        destination: destination.trim() ? undefined : 'Destination is required',
+      })
+      return
+    }
+    if (!user) return
+    setFieldErrors({})
+    setBusy(true)
 
-    const status = mode === 'truck' ? 'Loading' : 'Booked'
+    const shipperId = await resolveOrCreateContact(orgId, shipperContactId, 'shipper', shipper.trim(), user.id)
+    const consigneeId = await resolveOrCreateContact(orgId, consigneeContactId, 'consignee', consignee.trim(), user.id)
+
     const base = {
       org_id: orgId,
       mode,
       client: consignee.trim(),
+      shipper_contact_id: shipperId,
+      consignee_contact_id: consigneeId,
       origin: origin.trim(),
       destination: destination.trim(),
-      status,
+      status: 'Booked' as const,
       created_by: user.id,
       load_type: mode === 'ocean' ? loadType : null,
       container_size: mode === 'ocean' ? containerSize : null,
@@ -97,32 +106,19 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
       driver_phone: mode === 'truck' ? driverPhone.trim() || null : null,
     }
 
-    let lastError: string | null = null
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const { data, error: insertError } = await supabase
-        .from('shipments')
-        .insert({ ...base, ref: generateRef(mode) })
-        .select()
-        .single()
-
-      if (!insertError && data) {
-        onCreated(data as Shipment)
-        setBusy(false)
-        return
-      }
-
-      lastError = insertError?.message ?? 'Could not create booking'
-      // 23505 = unique_violation on (org_id, ref) — regenerate and retry.
-      if (insertError?.code !== '23505') break
+    const { data, error } = await insertShipment(base, mode)
+    if (data) {
+      onCreated(data)
+      setBusy(false)
+      return
     }
-
-    setError(lastError)
+    setError(error)
     setBusy(false)
   }
 
   return (
     <div
-      onClick={onClose}
+      onClick={busy ? undefined : onClose}
       style={{
         position: 'fixed',
         inset: 0,
@@ -153,7 +149,15 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+            disabled={busy}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#64748b',
+              fontSize: 20,
+              cursor: busy ? 'not-allowed' : 'pointer',
+              lineHeight: 1,
+            }}
           >
             ×
           </button>
@@ -174,7 +178,10 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             <button
               key={m}
               type="button"
-              onClick={() => setMode(m)}
+              onClick={() => {
+                setMode(m)
+                setError(null)
+              }}
               style={{
                 flex: 1,
                 padding: 8,
@@ -196,11 +203,29 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
             <div>
               <label style={labelStyle}>Shipper</label>
-              <input type="text" value={shipper} onChange={(e) => setShipper(e.target.value)} placeholder="Shipper name" style={inputStyle} />
+              <ContactAutocomplete
+                orgId={orgId}
+                kind="shipper"
+                value={shipper}
+                onChange={setShipper}
+                onSelectContact={setShipperContactId}
+                placeholder="Shipper name"
+                inputStyle={inputStyle}
+              />
+              <FieldError message={fieldErrors.shipper} />
             </div>
             <div>
               <label style={labelStyle}>Consignee</label>
-              <input type="text" value={consignee} onChange={(e) => setConsignee(e.target.value)} placeholder="Consignee name" style={inputStyle} />
+              <ContactAutocomplete
+                orgId={orgId}
+                kind="consignee"
+                value={consignee}
+                onChange={setConsignee}
+                onSelectContact={setConsigneeContactId}
+                placeholder="Consignee name"
+                inputStyle={inputStyle}
+              />
+              <FieldError message={fieldErrors.consignee} />
             </div>
             <div>
               <label style={labelStyle}>Origin</label>
@@ -211,6 +236,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 placeholder="e.g. Chennai Port (INMAA)"
                 style={inputStyle}
               />
+              <FieldError message={fieldErrors.origin} />
             </div>
             <div>
               <label style={labelStyle}>Destination</label>
@@ -221,6 +247,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 placeholder="e.g. Rotterdam (NLRTM)"
                 style={inputStyle}
               />
+              <FieldError message={fieldErrors.destination} />
             </div>
           </div>
 
@@ -274,30 +301,36 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
                 <div>
                   <label style={labelStyle}>Length (cm)</label>
-                  <input type="number" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} style={inputStyle} />
+                  <input type="number" min="0" step="any" value={lengthCm} onChange={(e) => setLengthCm(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Width (cm)</label>
-                  <input type="number" value={widthCm} onChange={(e) => setWidthCm(e.target.value)} style={inputStyle} />
+                  <input type="number" min="0" step="any" value={widthCm} onChange={(e) => setWidthCm(e.target.value)} style={inputStyle} />
                 </div>
                 <div>
                   <label style={labelStyle}>Height (cm)</label>
-                  <input type="number" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={inputStyle} />
+                  <input type="number" min="0" step="any" value={heightCm} onChange={(e) => setHeightCm(e.target.value)} style={inputStyle} />
                 </div>
               </div>
               <div style={{ marginBottom: 14 }}>
                 <label style={labelStyle}>Gross Weight (kg)</label>
-                <input type="number" value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} style={inputStyle} />
+                <input type="number" min="0" step="any" value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} style={inputStyle} />
               </div>
               <div style={{ display: 'flex', gap: 10, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 8, padding: '11px 14px' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>Volumetric Weight</div>
+                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>
+                    Volumetric Weight
+                    <InfoTooltip text="IATA formula: (Length × Width × Height in cm) ÷ 6000." />
+                  </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#c4b5fd', fontFamily: "'IBM Plex Mono', monospace" }}>
                     {volumetric.toFixed(1)} kg
                   </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>Chargeable Weight</div>
+                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>
+                    Chargeable Weight
+                    <InfoTooltip text="Whichever is higher: gross weight or volumetric weight — the standard air-freight billing basis." />
+                  </div>
                   <div style={{ fontSize: 14, fontWeight: 600, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
                     {chargeable.toFixed(1)} kg
                   </div>
@@ -351,6 +384,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             <button
               type="button"
               onClick={onClose}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
@@ -360,24 +394,24 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 color: '#94a3b8',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: 'pointer',
+                cursor: busy ? 'not-allowed' : 'pointer',
               }}
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={!valid || busy}
+              disabled={busy}
               style={{
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: valid && !busy ? '#2563eb' : '#1e293b',
+                background: !busy ? '#2563eb' : '#1e293b',
                 color: '#fff',
                 fontWeight: 600,
                 fontSize: 13,
-                cursor: valid && !busy ? 'pointer' : 'not-allowed',
+                cursor: !busy ? 'pointer' : 'not-allowed',
               }}
             >
               {busy ? 'Creating…' : 'Create Booking'}

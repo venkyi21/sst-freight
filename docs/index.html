@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SST Freight — Documentation Hub</title>
+<style>
+  :root {
+    --paper: #f2f5fa;
+    --paper-raised: #ffffff;
+    --ink: #10151f;
+    --ink-soft: #454e5f;
+    --ink-faint: #74809a;
+    --rule: #d7deea;
+    --rule-strong: #b9c4d6;
+    --accent: #2563eb;
+    --accent-ink: #1d4fd1;
+    --accent-wash: #e6edfc;
+    --ok: #15803d;
+    --ok-wash: #e3f6ea;
+    --warn: #b45309;
+    --warn-wash: #fdf1de;
+    --pending: #be123c;
+    --pending-wash: #fce8ee;
+    --info: #1d4fd1;
+    --info-wash: #e6edfc;
+    --font-body: Iowan Old Style, Charter, Georgia, "Noto Serif", serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    --measure: 42em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0d1117; --paper-raised: #141b26; --ink: #e8ecf3; --ink-soft: #b6c0d1; --ink-faint: #7d889c;
+      --rule: #263041; --rule-strong: #35415a; --accent: #5b8cff; --accent-ink: #8fb0ff; --accent-wash: #17233d;
+      --ok: #4ade80; --ok-wash: #12261c; --warn: #fbbf24; --warn-wash: #2a2110;
+      --pending: #fb7185; --pending-wash: #2a1620; --info: #60a5fa; --info-wash: #101e33;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0d1117; --paper-raised: #141b26; --ink: #e8ecf3; --ink-soft: #b6c0d1; --ink-faint: #7d889c;
+    --rule: #263041; --rule-strong: #35415a; --accent: #5b8cff; --accent-ink: #8fb0ff; --accent-wash: #17233d;
+    --ok: #4ade80; --ok-wash: #12261c; --warn: #fbbf24; --warn-wash: #2a2110;
+    --pending: #fb7185; --pending-wash: #2a1620; --info: #60a5fa; --info-wash: #101e33;
+  }
+  :root[data-theme="light"] {
+    --paper: #f2f5fa; --paper-raised: #ffffff; --ink: #10151f; --ink-soft: #454e5f; --ink-faint: #74809a;
+    --rule: #d7deea; --rule-strong: #b9c4d6; --accent: #2563eb; --accent-ink: #1d4fd1; --accent-wash: #e6edfc;
+    --ok: #15803d; --ok-wash: #e3f6ea; --warn: #b45309; --warn-wash: #fdf1de;
+    --pending: #be123c; --pending-wash: #fce8ee; --info: #1d4fd1; --info-wash: #e6edfc;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent-ink); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  code { font-family: var(--font-mono); font-size: 0.92em; background: var(--accent-wash); color: var(--accent-ink); padding: 1px 5px; border-radius: 4px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 48px); }
+
+  .masthead { border-bottom: 1px solid var(--rule); padding: clamp(28px, 5vw, 52px) 0 clamp(22px, 4vw, 36px); }
+  .masthead .kicker {
+    font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); display: flex; align-items: center; gap: 9px; margin-bottom: 14px;
+  }
+  .masthead .kicker .mark {
+    width: 20px; height: 20px; border-radius: 6px; background: var(--accent); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-weight: 700; font-size: 12px;
+  }
+  .masthead h1 {
+    font-family: var(--font-body); font-weight: 600; font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance; max-width: 22ch;
+  }
+  .masthead .dek { font-size: 16.5px; line-height: 1.55; color: var(--ink-soft); max-width: var(--measure); margin: 0; }
+  .masthead .meta-row {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint);
+  }
+  .masthead .meta-row strong { color: var(--ink-soft); font-weight: 600; }
+
+  .layout { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); padding: clamp(28px, 5vw, 48px) 0 90px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  nav.toc { position: sticky; top: 24px; font-family: var(--font-ui); }
+  @media (max-width: 860px) { nav.toc { position: static; margin-bottom: 8px; } }
+  nav.toc .toc-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 10px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--rule); display: flex; flex-direction: column; }
+  nav.toc a { display: block; padding: 6px 0 6px 14px; margin-left: -1px; border-left: 2px solid transparent; font-size: 13px; line-height: 1.4; color: var(--ink-soft); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent-ink); border-left-color: var(--rule-strong); }
+
+  main { min-width: 0; }
+  section.chapter { padding-top: clamp(34px, 6vw, 54px); margin-top: clamp(34px, 6vw, 54px); border-top: 1px solid var(--rule); scroll-margin-top: 20px; }
+  section.chapter:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+  .chapter-num { font-family: var(--font-mono); font-size: 12px; color: var(--accent-ink); letter-spacing: 0.04em; margin-bottom: 8px; }
+  section.chapter h2 { font-family: var(--font-body); font-weight: 600; font-size: clamp(21px, 2.8vw, 26px); letter-spacing: -0.005em; margin: 0 0 6px; text-wrap: balance; }
+  .chapter-sub { color: var(--ink-faint); font-size: 14.5px; margin: 0 0 22px; max-width: var(--measure); }
+  .prose { max-width: var(--measure); }
+  .prose p { font-size: 15.5px; line-height: 1.68; color: var(--ink-soft); margin: 0 0 15px; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose ul { max-width: var(--measure); padding-left: 20px; color: var(--ink-soft); font-size: 15.5px; line-height: 1.6; }
+  .prose li { margin-bottom: 6px; }
+
+  .scorecard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; max-width: 780px; margin: 22px 0; }
+  @media (max-width: 620px) { .scorecard { grid-template-columns: repeat(2, 1fr); } }
+  .scorecard .cell { background: var(--paper-raised); padding: 16px 18px; }
+  .scorecard .num { font-family: var(--font-mono); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 6px; }
+  .scorecard .num.ok { color: var(--ok); } .scorecard .num.pending { color: var(--pending); } .scorecard .num.info { color: var(--accent-ink); }
+  .scorecard .lbl { font-family: var(--font-ui); font-size: 11.5px; color: var(--ink-faint); line-height: 1.4; }
+
+  .table-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-raised); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--font-ui); font-size: 13.5px; min-width: 560px; }
+  thead th {
+    text-align: left; padding: 11px 16px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--ink-faint); border-bottom: 1px solid var(--rule); background: var(--accent-wash); white-space: nowrap;
+  }
+  tbody td { padding: 12px 16px; border-bottom: 1px solid var(--rule); color: var(--ink-soft); vertical-align: top; line-height: 1.5; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td strong { color: var(--ink); font-weight: 600; }
+  tbody td.num-col { font-family: var(--font-mono); font-weight: 700; color: var(--accent-ink); white-space: nowrap; }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+  .chip.ok { background: var(--ok-wash); color: var(--ok); }
+  .chip.warn { background: var(--warn-wash); color: var(--warn); }
+  .chip::before { content: "●"; font-size: 7px; }
+  .tag { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: var(--info-wash); color: var(--info); margin: 2px 3px 2px 0; }
+
+  .note { max-width: var(--measure); border-left: 3px solid var(--accent); background: var(--accent-wash); padding: 13px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; font-family: var(--font-ui); font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+  .note.warn { border-color: var(--warn); background: var(--warn-wash); }
+  .note.ok { border-color: var(--ok); background: var(--ok-wash); }
+  .note b { font-weight: 700; }
+
+  .doc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; margin: 22px 0; }
+  .doc-card { border: 1px solid var(--rule); background: var(--paper-raised); border-radius: 12px; padding: 16px 18px; text-decoration: none; display: block; transition: border-color 0.15s; }
+  .doc-card:hover { border-color: var(--rule-strong); }
+  .doc-card .doc-icon { font-family: var(--font-mono); font-size: 11px; color: var(--accent-ink); letter-spacing: 0.05em; text-transform: uppercase; margin-bottom: 8px; }
+  .doc-card h3 { font-family: var(--font-ui); font-size: 14.5px; margin: 0 0 5px; color: var(--ink); }
+  .doc-card p { font-family: var(--font-ui); font-size: 12px; color: var(--ink-faint); margin: 0; line-height: 1.5; }
+
+  figure.diagram { margin: 20px 0; padding: 16px; background: var(--paper-raised); border: 1px solid var(--rule); border-radius: 12px; text-align: center; }
+  figure.diagram img { max-width: 100%; height: auto; border-radius: 6px; background: #fff; }
+  figure.diagram figcaption { font-family: var(--font-ui); font-size: 12px; color: var(--ink-faint); margin-top: 10px; }
+
+  footer.end { border-top: 1px solid var(--rule); margin-top: 60px; padding: 24px 0 60px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  ::selection { background: var(--accent-wash); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="wrap">
+    <div class="kicker"><span class="mark">S</span> SST Freight · Documentation Hub</div>
+    <h1>Engineering documentation, in one place</h1>
+    <p class="dek">
+      All 8 documents from the project's SDLC blueprint — requirements, design, decisions, API,
+      operations, and known debt — for team meetings, brainstorming sessions, and new-joiner
+      onboarding. Full files live in <code>docs/</code> in the repository; this page is a
+      presentable summary of each, not a replacement for them.
+    </p>
+    <div class="meta-row">
+      <span><strong>Repository</strong> <a href="https://github.com/venkyi21/sst-freight">github.com/venkyi21/sst-freight</a></span>
+      <span><strong>Weeks covered</strong> 1 → 7</span>
+      <span><strong>Kept in sync via</strong> pre-commit hook + CI check (see CLAUDE.md)</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="layout">
+    <nav class="toc" aria-label="Table of contents">
+      <div class="toc-label">On this page</div>
+      <ol>
+        <li><a href="#srs">1. Requirements (SRS)</a></li>
+        <li><a href="#sdd">2. System Design (SDD)</a></li>
+        <li><a href="#adr">3. Architecture Decisions</a></li>
+        <li><a href="#api">4. API Reference</a></li>
+        <li><a href="#techdebt">5. Tech Debt Registry</a></li>
+        <li><a href="#runbook">6. Migration Runbook</a></li>
+        <li><a href="#qa">7. QA Testing</a></li>
+        <li><a href="#uat">8. User Acceptance Testing</a></li>
+        <li><a href="#repo">9. Repository Essentials</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- 1. SRS -->
+      <section class="chapter" id="srs">
+        <div class="chapter-num">01</div>
+        <h2>Requirements Specification</h2>
+        <p class="chapter-sub">What the app actually does today, as user stories with quantifiable acceptance criteria — not aspirational copy. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/srs.md">docs/srs.md</a></p>
+
+        <div class="prose">
+          <p>Four actors: <strong>Member</strong> (default), <strong>Admin</strong> (can manage team membership), <strong>Owner</strong> (cannot be demoted/removed by an Admin), and an external <strong>Consignee</strong> who never has an account at all.</p>
+        </div>
+
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Module</th><th>Core requirement</th></tr></thead>
+            <tbody>
+              <tr><td><strong>Auth &amp; Orgs</strong></td><td>Signup/login/invite-code join; zero cross-org data visibility under any code path, verified with an automated 3-user/2-org test.</td></tr>
+              <tr><td><strong>Booking</strong></td><td>Ocean/Air/Truck with mode-specific fields; auto-generated mode-prefixed refs; IATA volumetric weight for Air (÷6000, chargeable = max(gross, volumetric)).</td></tr>
+              <tr><td><strong>Directory</strong></td><td>Shipper/consignee/agent/vendor contacts with autocomplete + auto-create on unmatched name, race-condition-safe.</td></tr>
+              <tr><td><strong>Roles &amp; Team</strong></td><td>Promote/demote/remove members; Owner protection and no-self-promotion enforced server-side, not just hidden in the UI.</td></tr>
+              <tr><td><strong>Status Workflow</strong></td><td>Fixed 5-stage sequence, forward-only, every transition logged; no client path can skip or reverse a stage.</td></tr>
+              <tr><td><strong>Quoting</strong></td><td>Tariff-prefilled quotes, one-click conversion to a real booking. Known gap: a double-submit race on conversion (tech debt).</td></tr>
+              <tr><td><strong>Accounting</strong></td><td>Multi-currency invoicing with live FX, Owner/Admin-only rate edits (DB-trigger enforced), 0–30/31–60/61+ day aging.</td></tr>
+              <tr><td><strong>Tracking Portal</strong></td><td>No-login shareable link; verified zero session touch, and the payload verified to exclude staff email/FX/vendor data at the network level, not just the rendered page.</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note warn">
+          <b>Honesty check on non-functional requirements:</b> tenant isolation is verified by an automated test. Performance, load capacity, and backup guarantees are <b>not measured</b> — no specific number is claimed for any of them. See the full SRS for exactly what's verified vs. assumed.
+        </div>
+      </section>
+
+      <!-- 2. SDD -->
+      <section class="chapter" id="sdd">
+        <div class="chapter-num">02</div>
+        <h2>System Design</h2>
+        <p class="chapter-sub">Architecture diagrams built directly from the real schema, each one actually rendered to confirm it's valid before being committed. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/sdd.md">docs/sdd.md</a></p>
+
+        <div class="prose">
+          <p>SST Freight is a <strong>fully static app with no backend service of its own</strong> — the browser talks directly to Supabase (Postgres + Auth) using the public anon key. Every trust boundary that matters is enforced <em>inside Postgres</em>, via Row-Level Security and <code>SECURITY DEFINER</code> functions — not by a server that doesn't exist.</p>
+        </div>
+
+        <figure class="diagram">
+          <img src="diagrams/component-deployment.png" alt="Component/deployment diagram: browser talks to GitHub Pages for static files and directly to Supabase Auth + Postgres" />
+          <figcaption>Component &amp; deployment — no server tier between the browser and Supabase.</figcaption>
+        </figure>
+
+        <figure class="diagram">
+          <img src="diagrams/two-environments.png" alt="Two environments: dev branch to preview path and dev Supabase project; main branch to root path and production Supabase project" />
+          <figcaption>Two environments, two independent Supabase projects — schema changes always go to dev first.</figcaption>
+        </figure>
+
+        <figure class="diagram">
+          <img src="diagrams/data-model-er.png" alt="Entity relationship diagram of organizations, memberships, shipments, contacts, tariffs, quotes, invoices, shipment_costs, shipment_status_history, audit_log, and platform_revenue_ledger" />
+          <figcaption>Data model — every tenant-scoped table has its own RLS policy; nullable FKs pair with denormalized name snapshots (ADR-0003).</figcaption>
+        </figure>
+
+        <div class="prose"><p><strong>Two request patterns</strong> — the rule for which one a new feature should use is in ADR-0002 and ADR-0006:</p></div>
+
+        <figure class="diagram">
+          <img src="diagrams/pattern-a-rls.png" alt="Sequence diagram: browser selects from shipments, Postgres evaluates RLS policy, returns matching rows or empty set" />
+          <figcaption>Pattern A — plain RLS-gated table access (contacts, tariffs, most of quotes/invoices/costs).</figcaption>
+        </figure>
+
+        <figure class="diagram">
+          <img src="diagrams/pattern-b-rpc.png" alt="Sequence diagram: browser calls advance_shipment_status RPC, which checks authorization then atomically updates status and inserts a history row" />
+          <figcaption>Pattern B — SECURITY DEFINER RPC (org/membership creation, team roles, status machine, public tracking).</figcaption>
+        </figure>
+      </section>
+
+      <!-- 3. ADR -->
+      <section class="chapter" id="adr">
+        <div class="chapter-num">03</div>
+        <h2>Architecture Decision Records</h2>
+        <p class="chapter-sub">Immutable once merged — a changed decision gets a new ADR that supersedes the old one, never an edit. Index: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/README.md">docs/adr/README.md</a></p>
+
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>#</th><th>Decision</th><th>Why it matters</th></tr></thead>
+            <tbody>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0001-multi-tenancy-via-row-level-security.md">0001</a></td><td><strong>Multi-tenancy via Postgres RLS</strong></td><td>Isolation is provable, not conventional — a frontend bug can't leak cross-tenant data.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0002-rpc-only-privileged-mutations.md">0002</a></td><td><strong>SECURITY DEFINER RPCs for privileged mutations</strong></td><td>The set of things a client can do is exactly the set of RPCs that exist — no broader grant to reach around.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0003-contact-reference-plus-denormalized-name.md">0003</a></td><td><strong>Contact FK + denormalized name snapshot</strong></td><td>A renamed/deleted contact never rewrites historical bookings, quotes, or invoices.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0004-shipment-status-forward-only-state-machine.md">0004</a></td><td><strong>Forward-only shipment status machine</strong></td><td>Direct <code>UPDATE</code> revoked from the client entirely — the state machine can't be bypassed, only used correctly.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0005-platform-super-admin-manual-provisioning.md">0005</a></td><td><strong>Platform Super-Admin, manually provisioned</strong></td><td>Zero client-reachable path exists to grant or discover it — no attack surface to later lock down.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0006-quote-conversion-without-dedicated-rpc.md">0006</a></td><td><strong>Quote conversion skips a dedicated RPC</strong></td><td>Draws the actual line for when ADR-0002 applies vs. when plain RLS-gated calls are enough.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0007-live-fx-rates-with-role-gated-override.md">0007</a></td><td><strong>Live FX rates, role-gated override</strong></td><td>Documents a real lesson: <code>curl</code> verifying an API's CORS support is not the same as a browser verifying it.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0008-dedicated-public-tracking-token.md">0008</a></td><td><strong>Dedicated public tracking token</strong></td><td>A leaked customer link is revocable independently of the shipment record itself.</td></tr>
+              <tr><td class="num-col"><a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/adr/0009-query-param-public-routing.md">0009</a></td><td><strong>Query-param public routing, not a path</strong></td><td>A path-based link would 404 on GitHub Pages — no router, no server-side rewrites.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- 4. API -->
+      <section class="chapter" id="api">
+        <div class="chapter-num">04</div>
+        <h2>API Reference</h2>
+        <p class="chapter-sub">Every <code>supabase.rpc()</code>-callable function — this app's real API surface, since there's no separate backend. Signature table is auto-generated from <code>schema.sql</code>. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/api-reference.md">docs/api-reference.md</a></p>
+
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Function</th><th>Granted to</th></tr></thead>
+            <tbody>
+              <tr><td><code>create_organization(p_name, p_color)</code></td><td>authenticated</td></tr>
+              <tr><td><code>join_organization(p_invite_code)</code></td><td>authenticated</td></tr>
+              <tr><td><code>list_org_members(p_org_id)</code></td><td>authenticated</td></tr>
+              <tr><td><code>update_member_role(p_membership_id, p_new_role)</code></td><td>authenticated</td></tr>
+              <tr><td><code>remove_member(p_membership_id)</code></td><td>authenticated</td></tr>
+              <tr><td><code>advance_shipment_status(p_shipment_id)</code></td><td>authenticated</td></tr>
+              <tr><td><code>list_shipment_status_history(p_shipment_id)</code></td><td>authenticated</td></tr>
+              <tr><td><code>get_public_shipment_tracking(p_token)</code></td><td><strong>anon</strong>, authenticated</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="note">
+          <b>Only one function is public.</b> Every other row requires an authenticated session — <code>get_public_shipment_tracking</code> is the sole no-login entry point, and its payload is hand-curated to exclude anything not meant for a stranger with just a link.
+        </div>
+      </section>
+
+      <!-- 5. TECH DEBT -->
+      <section class="chapter" id="techdebt">
+        <div class="chapter-num">05</div>
+        <h2>Tech Debt Registry</h2>
+        <p class="chapter-sub">Deliberate shortcuts in shipped code — not silent oversights, and not the same as <code>roadmap.html</code>'s "not yet built" gaps. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/tech-debt.md">docs/tech-debt.md</a></p>
+
+        <div class="prose">
+          <ul>
+            <li><strong>No delete/archive anywhere</strong> — every table supports select/insert/update only.</li>
+            <li><strong>Converted bookings miss mode-specific fields</strong> — quotes never captured container size, vessel name, etc.</li>
+            <li><strong>Invoice <code>amount_inr</code> can go stale</strong> if <code>fx_rate</code> is edited after creation — no UI updates both together.</li>
+            <li><strong>No status "go back" path</strong> — the forward-only machine (ADR-0004) has no correction flow.</li>
+            <li><strong>Quotes are single-rate</strong>, no itemized line items, and have no sent/accepted/rejected states.</li>
+            <li><strong>Quote-conversion double-submit race</strong> — verified against the actual code, not assumed: the update lacks a <code>status = 'draft'</code> guard.</li>
+            <li><strong>No GST/tax handling</strong> anywhere in Accounting.</li>
+            <li><strong>P&amp;L is org-wide totals only</strong> — no per-shipment profitability view yet.</li>
+            <li><strong>No "leave organization" or ownership-transfer flow.</strong></li>
+            <li><strong>One test suite has a live-API fragility</strong> — an FX-rate assertion hardcodes an expected value from a source that legitimately changes.</li>
+            <li><strong>One open dependency vulnerability</strong> (found via <code>npm audit</code>) — see the note below.</li>
+            <li><strong>Audit log's <code>DELETE</code> branch is currently unreachable</strong> — none of the four audited tables have a client delete grant yet (ADR-0010).</li>
+            <li><strong>No error-log vendor wired in yet</strong> — errors land in the browser console today; see the note below.</li>
+            <li><strong>No real money moves in the Dual-Engine Monetization Core</strong> — FX spread/cargo insurance/instant payout are simulated ledger math only (ADR-0013); float yield isn't built at all; recurring fee collection, real rake settlement, and GST/TDS e-filing all need external partnerships this project doesn't have.</li>
+            <li><strong>ML-driven dunning, ASC 606 RevRec, cohort analytics, competitor-billing migration, and a public webhook/SDK layer</strong> — explicitly phased out of Week 8, not silently dropped.</li>
+            <li><strong>No real carrier rate-fetch or e-booking, and no free path to either</strong> — researched directly, not assumed. Only carrier tracking has a real free tier (Terminal49).</li>
+            <li><strong>Live carrier tracking status isn't readable in-app</strong> — Terminal49's free plan can register tracking but not read it back via API (confirmed live). Status is viewed on their own dashboard.</li>
+          </ul>
+        </div>
+
+        <div class="note warn">
+          <b>Real, currently-open vulnerability:</b> <code>esbuild &lt;=0.24.2</code> (transitive via <code>vite &lt;=6.4.2</code>), moderate severity — the Vite <b>dev server</b> accepts requests from any website and returns the response. <b>Dev-only exposure</b>: doesn't affect the production static build GitHub Pages actually serves. The fix (<code>npm audit fix --force</code>) force-upgrades to <code>vite@8.1.4</code>, a breaking major-version jump not yet verified against this project's plugin versions — deferred deliberately for a solo-developer project, revisit before onboarding anyone who runs <code>npm run dev</code> on a shared/untrusted network. Full details: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/tech-debt.md">docs/tech-debt.md</a>.
+        </div>
+
+        <div class="note ok">
+          <b>Closed:</b> dependency version pinning and a license inventory, both previously open gaps here, are now done — every <code>package.json</code> entry is an exact pin (no caret ranges), and every production-shipped dependency is MIT or 0BSD (fully permissive). Full detail: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/dependency-manifest.md">docs/dependency-manifest.md</a>.
+        </div>
+      </section>
+
+      <!-- 6. RUNBOOK -->
+      <section class="chapter" id="runbook">
+        <div class="chapter-num">06</div>
+        <h2>Migration Runbook</h2>
+        <p class="chapter-sub">How schema changes actually get applied, and what does/doesn't roll back. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/migration-runbook.md">docs/migration-runbook.md</a></p>
+
+        <div class="prose">
+          <p><strong>Standing rule: dev first, always.</strong> Verify against the dev Supabase project before touching production — no exceptions, regardless of how small a change looks.</p>
+        </div>
+
+        <div class="note ok">
+          <b>Verified, not assumed:</b> applying <code>schema.sql</code> via a single <code>client.query()</code> call is atomic — a live test confirmed a deliberately-broken multi-statement script left zero trace after failing. <b>This is not confirmed for the Supabase Dashboard SQL Editor path</b> that new setups use instead — don't assume the two behave the same.
+        </div>
+
+        <div class="note warn">
+          <b>Real gaps, stated plainly:</b> no automated rollback exists for schema changes (additive-only in practice); backup status must be reconfirmed directly in Supabase before relying on it; no formal recovery SLA is defined at this project's current scale.
+        </div>
+      </section>
+
+      <!-- 7. QA TESTING -->
+      <section class="chapter" id="qa">
+        <div class="chapter-num">07</div>
+        <h2>QA Testing</h2>
+        <p class="chapter-sub">Technical/RLS/edge-case verification, run against the real dev Supabase project — not inferred from reading the code. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/qa-testing.md">docs/qa-testing.md</a></p>
+
+        <div class="prose">
+          <p>Two distinct test tenants ("Client A," Model 1; "Client B," Model 2), six role identities (Owner/Admin/Member × 2 orgs, plus a separate Platform Admin), exercised with direct Postgres/RPC calls that bypass the UI entirely — so a passing check proves server-side enforcement, not just that a button is hidden.</p>
+        </div>
+
+        <div class="note ok">
+          <b>38/38 checks passed</b> across Weeks 1–8 plus the audit-trail/error-logging module (2026-07-13): cross-org isolation, role-escalation blocks, the forward-only status machine, module-gating on Quotes/Accounting, FX-rate edit restrictions, the public tracking portal's zero-session guarantee, and the Week 8 rake-ledger math, all checked directly against the database — not assumed from the UI.
+        </div>
+      </section>
+
+      <!-- 8. UAT -->
+      <section class="chapter" id="uat">
+        <div class="chapter-num">08</div>
+        <h2>User Acceptance Testing</h2>
+        <p class="chapter-sub">Persona-based, real-browser user journeys — does a real person doing their real job get what they need from the screen in front of them. Full file: <a href="https://github.com/venkyi21/sst-freight/blob/dev/docs/uat.md">docs/uat.md</a></p>
+
+        <div class="prose">
+          <p>Seven personas — an Owner, an Admin, and a Member each at a Model 1 and a Model 2 organization, a Platform Admin, and an anonymous consignee with no account at all — each walked through their own real workflow in a live Chromium browser.</p>
+        </div>
+
+        <div class="note ok">
+          <b>20/20 scenarios accepted</b> (2026-07-13), including confirming that restricted screens (Audit Log for a plain Member, Platform Admin for anyone but the platform operator) correctly show nothing, not just that permitted screens work for the roles who should see them.
+        </div>
+      </section>
+
+      <!-- 9. REPO ESSENTIALS -->
+      <section class="chapter" id="repo">
+        <div class="chapter-num">09</div>
+        <h2>Repository Essentials</h2>
+        <p class="chapter-sub">The two blueprint items that are just standard project files, not something built specifically for this initiative.</p>
+
+        <div class="doc-cards">
+          <a class="doc-card" href="https://github.com/venkyi21/sst-freight/blob/dev/README.md">
+            <div class="doc-icon">Root README</div>
+            <h3>README.md</h3>
+            <p>Setup, hosting, two-environment deploy workflow, and links to every doc on this page.</p>
+          </a>
+          <a class="doc-card" href="https://github.com/venkyi21/sst-freight/blob/dev/docs/dependency-manifest.md">
+            <div class="doc-icon">Dependency Manifest</div>
+            <h3>dependency-manifest.md</h3>
+            <p>Exact pinned versions, a per-package license inventory (all MIT/0BSD), and the current vulnerability footprint — <code>package.json</code> itself has the deliberately minimal runtime list this is generated from.</p>
+          </a>
+          <a class="doc-card" href="https://github.com/venkyi21/sst-freight/blob/dev/CLAUDE.md">
+            <div class="doc-icon">Maintenance rules</div>
+            <h3>CLAUDE.md</h3>
+            <p>Which document to update for which kind of change — the map that keeps everything on this page from going stale.</p>
+          </a>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer class="end">
+  <div class="wrap">SST Freight — documentation hub · generated to accompany Weeks 1–7 · source files in <code>docs/</code></div>
+</footer>
+
+</body>
+</html>

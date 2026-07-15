@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SST Freight — Roadmap &amp; Gap Reference</title>
+<style>
+  :root {
+    --paper: #f2f5fa;
+    --paper-raised: #ffffff;
+    --ink: #10151f;
+    --ink-soft: #454e5f;
+    --ink-faint: #74809a;
+    --rule: #d7deea;
+    --rule-strong: #b9c4d6;
+    --accent: #2563eb;
+    --accent-ink: #1d4fd1;
+    --accent-wash: #e6edfc;
+    --ok: #15803d;
+    --ok-wash: #e3f6ea;
+    --warn: #b45309;
+    --warn-wash: #fdf1de;
+    --pending: #be123c;
+    --pending-wash: #fce8ee;
+    --info: #1d4fd1;
+    --info-wash: #e6edfc;
+    --font-body: Iowan Old Style, Charter, Georgia, "Noto Serif", serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, monospace;
+    --measure: 42em;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #0d1117; --paper-raised: #141b26; --ink: #e8ecf3; --ink-soft: #b6c0d1; --ink-faint: #7d889c;
+      --rule: #263041; --rule-strong: #35415a; --accent: #5b8cff; --accent-ink: #8fb0ff; --accent-wash: #17233d;
+      --ok: #4ade80; --ok-wash: #12261c; --warn: #fbbf24; --warn-wash: #2a2110;
+      --pending: #fb7185; --pending-wash: #2a1620; --info: #60a5fa; --info-wash: #101e33;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #0d1117; --paper-raised: #141b26; --ink: #e8ecf3; --ink-soft: #b6c0d1; --ink-faint: #7d889c;
+    --rule: #263041; --rule-strong: #35415a; --accent: #5b8cff; --accent-ink: #8fb0ff; --accent-wash: #17233d;
+    --ok: #4ade80; --ok-wash: #12261c; --warn: #fbbf24; --warn-wash: #2a2110;
+    --pending: #fb7185; --pending-wash: #2a1620; --info: #60a5fa; --info-wash: #101e33;
+  }
+  :root[data-theme="light"] {
+    --paper: #f2f5fa; --paper-raised: #ffffff; --ink: #10151f; --ink-soft: #454e5f; --ink-faint: #74809a;
+    --rule: #d7deea; --rule-strong: #b9c4d6; --accent: #2563eb; --accent-ink: #1d4fd1; --accent-wash: #e6edfc;
+    --ok: #15803d; --ok-wash: #e3f6ea; --warn: #b45309; --warn-wash: #fdf1de;
+    --pending: #be123c; --pending-wash: #fce8ee; --info: #1d4fd1; --info-wash: #e6edfc;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  a { color: var(--accent-ink); }
+  a:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 48px); }
+
+  .masthead { border-bottom: 1px solid var(--rule); padding: clamp(28px, 5vw, 52px) 0 clamp(22px, 4vw, 36px); }
+  .masthead .kicker {
+    font-family: var(--font-mono); font-size: 12.5px; letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--accent-ink); display: flex; align-items: center; gap: 9px; margin-bottom: 14px;
+  }
+  .masthead .kicker .mark {
+    width: 20px; height: 20px; border-radius: 6px; background: var(--accent); color: #fff;
+    display: inline-flex; align-items: center; justify-content: center; font-family: var(--font-ui); font-weight: 700; font-size: 12px;
+  }
+  .masthead h1 {
+    font-family: var(--font-body); font-weight: 600; font-size: clamp(28px, 4vw, 42px);
+    line-height: 1.1; letter-spacing: -0.01em; margin: 0 0 14px; text-wrap: balance; max-width: 22ch;
+  }
+  .masthead .dek { font-size: 16.5px; line-height: 1.55; color: var(--ink-soft); max-width: var(--measure); margin: 0; }
+  .masthead .meta-row {
+    display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 22px;
+    font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint);
+  }
+  .masthead .meta-row strong { color: var(--ink-soft); font-weight: 600; }
+
+  .layout { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: clamp(28px, 5vw, 64px); padding: clamp(28px, 5vw, 48px) 0 90px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+  nav.toc { position: sticky; top: 24px; font-family: var(--font-ui); }
+  @media (max-width: 860px) { nav.toc { position: static; margin-bottom: 8px; } }
+  nav.toc .toc-label { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 10px; }
+  nav.toc ol { list-style: none; margin: 0; padding: 0; border-left: 1px solid var(--rule); display: flex; flex-direction: column; }
+  nav.toc a { display: block; padding: 6px 0 6px 14px; margin-left: -1px; border-left: 2px solid transparent; font-size: 13px; line-height: 1.4; color: var(--ink-soft); text-decoration: none; }
+  nav.toc a:hover { color: var(--accent-ink); border-left-color: var(--rule-strong); }
+
+  main { min-width: 0; }
+  section.chapter { padding-top: clamp(34px, 6vw, 54px); margin-top: clamp(34px, 6vw, 54px); border-top: 1px solid var(--rule); scroll-margin-top: 20px; }
+  section.chapter:first-child { border-top: none; margin-top: 0; padding-top: 0; }
+  .chapter-num { font-family: var(--font-mono); font-size: 12px; color: var(--accent-ink); letter-spacing: 0.04em; margin-bottom: 8px; }
+  section.chapter h2 { font-family: var(--font-body); font-weight: 600; font-size: clamp(21px, 2.8vw, 26px); letter-spacing: -0.005em; margin: 0 0 6px; text-wrap: balance; }
+  .chapter-sub { color: var(--ink-faint); font-size: 14.5px; margin: 0 0 22px; max-width: var(--measure); }
+  .prose { max-width: var(--measure); }
+  .prose p { font-size: 15.5px; line-height: 1.68; color: var(--ink-soft); margin: 0 0 15px; }
+  .prose p:last-child { margin-bottom: 0; }
+  .prose strong { color: var(--ink); font-weight: 600; }
+  .prose ul { max-width: var(--measure); padding-left: 20px; color: var(--ink-soft); font-size: 15.5px; line-height: 1.6; }
+  .prose li { margin-bottom: 6px; }
+
+  /* ── scorecard ─────────────────────────────────────────── */
+  .scorecard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 12px; overflow: hidden; max-width: 780px; margin: 22px 0; }
+  @media (max-width: 620px) { .scorecard { grid-template-columns: repeat(2, 1fr); } }
+  .scorecard .cell { background: var(--paper-raised); padding: 16px 18px; }
+  .scorecard .num { font-family: var(--font-mono); font-size: 26px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 6px; }
+  .scorecard .num.ok { color: var(--ok); } .scorecard .num.pending { color: var(--pending); } .scorecard .num.info { color: var(--accent-ink); }
+  .scorecard .lbl { font-family: var(--font-ui); font-size: 11.5px; color: var(--ink-faint); line-height: 1.4; }
+
+  /* ── tables ────────────────────────────────────────────── */
+  .table-scroll { overflow-x: auto; margin: 20px 0; border: 1px solid var(--rule); border-radius: 12px; background: var(--paper-raised); }
+  table { width: 100%; border-collapse: collapse; font-family: var(--font-ui); font-size: 13.5px; min-width: 640px; }
+  thead th {
+    text-align: left; padding: 11px 16px; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--ink-faint); border-bottom: 1px solid var(--rule); background: var(--accent-wash); white-space: nowrap;
+  }
+  tbody td { padding: 12px 16px; border-bottom: 1px solid var(--rule); color: var(--ink-soft); vertical-align: top; line-height: 1.5; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td.week { font-family: var(--font-mono); font-weight: 700; color: var(--accent-ink); white-space: nowrap; }
+  tbody td strong { color: var(--ink); font-weight: 600; }
+
+  .chip { display: inline-flex; align-items: center; gap: 5px; font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; padding: 2px 9px; border-radius: 20px; white-space: nowrap; }
+  .chip.status-not-started { background: var(--rule); color: var(--ink-faint); }
+  .chip.status-complete { background: var(--ok-wash); color: var(--ok); }
+  .chip::before { content: "●"; font-size: 7px; }
+  .tag { display: inline-block; font-size: 11.5px; padding: 1px 8px; border-radius: 6px; background: var(--info-wash); color: var(--info); margin: 2px 3px 2px 0; }
+  .tag.risk { background: var(--warn-wash); color: var(--warn); }
+  .tag.gap { background: var(--pending-wash); color: var(--pending); }
+  .tag.ok { background: var(--ok-wash); color: var(--ok); }
+
+  /* ── option compare ───────────────────────────────────── */
+  .cols-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 820px; margin: 18px 0; }
+  @media (max-width: 620px) { .cols-2 { grid-template-columns: 1fr; } }
+  .col-card { border: 1px solid var(--rule); background: var(--paper-raised); border-radius: 12px; padding: 18px 20px; }
+  .col-card .eyebrow { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 6px; }
+  .col-card h4 { font-family: var(--font-ui); font-size: 15px; margin: 0 0 10px; color: var(--ink); }
+  .col-card ul { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--ink-soft); line-height: 1.65; }
+  .col-card .diff { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--rule); font-family: var(--font-mono); font-size: 11.5px; font-weight: 700; }
+  .col-card.hard .diff { color: var(--pending); }
+  .col-card.moderate .diff { color: var(--warn); }
+
+  .note { max-width: var(--measure); border-left: 3px solid var(--accent); background: var(--accent-wash); padding: 13px 18px; border-radius: 0 8px 8px 0; margin: 18px 0; font-family: var(--font-ui); font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+  .note.warn { border-color: var(--warn); background: var(--warn-wash); }
+  .note.ok { border-color: var(--ok); background: var(--ok-wash); }
+  .note b { font-weight: 700; }
+
+  footer.end { border-top: 1px solid var(--rule); margin-top: 60px; padding: 24px 0 60px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  ::selection { background: var(--accent-wash); color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="wrap">
+    <div class="kicker"><span class="mark">S</span> SST Freight · Internal reference</div>
+    <h1>Feature roadmap &amp; competitive gap tracker</h1>
+    <p class="dek">
+      Where the platform stands after Week 1, what Weeks 2–10 are committed to building, what stays
+      a gap even after that, and the one scope decision (US/Japan customs) that needs an answer before
+      it goes on any future roadmap.
+    </p>
+    <div class="meta-row">
+      <span><strong>Baseline</strong> Week 1 MVP, live</span>
+      <span><strong>Benchmarked against</strong> Logitude World, Shipthis, GoFreight, Magaya</span>
+      <span><strong>Horizon</strong> Week 2 → Week 12</span>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="layout">
+    <nav class="toc" aria-label="Table of contents">
+      <div class="toc-label">On this page</div>
+      <ol>
+        <li><a href="#state">1. Where things stand</a></li>
+        <li><a href="#plan">2. Week 2–10 plan</a></li>
+        <li><a href="#gaps">3. Gaps that remain</a></li>
+        <li><a href="#customs">4. US/Japan customs</a></li>
+        <li><a href="#not-gap">5. Not actually a gap</a></li>
+      </ol>
+    </nav>
+
+    <main>
+
+      <!-- 1. STATE -->
+      <section class="chapter" id="state">
+        <div class="chapter-num">01</div>
+        <h2>Where things stand today</h2>
+        <p class="chapter-sub">Week 1 MVP is live: real auth, real multi-tenant isolation, Ocean/Air/Truck booking. Weeks 2–11 (Directory, roles &amp; permissions, shipment status workflow, rate management &amp; quoting, accounting, customer tracking portal, platform monetization, carrier tracking, customs filing simulator, document management) are now live too, plus an audit trail &amp; error-logging module inserted ahead of Week 8, an inline-validation/tooltip UX pass inserted ahead of Week 10, and Week 12's Reporting &amp; Custom Dashboards — the roadmap's last committed week.</p>
+
+        <div class="scorecard">
+          <div class="cell"><div class="num ok">17</div><div class="lbl">core modules live<br>(auth, org isolation, booking, search, directory, roles, status workflow, quoting, accounting, tracking portal, audit trail, error logging, platform monetization, carrier tracking, customs filing simulator, document management, reporting &amp; dashboards)</div></div>
+          <div class="cell"><div class="num ok">0</div><div class="lbl">weeks remaining<br>all 12 committed weeks shipped</div></div>
+          <div class="cell"><div class="num pending">6</div><div class="lbl">gaps remain vs.<br>competitors (see §3)</div></div>
+          <div class="cell"><div class="num">1</div><div class="lbl">open scope decision<br>(US/Japan customs)</div></div>
+        </div>
+
+        <div class="prose">
+          <p>
+            The one genuinely defensible claim today: multi-tenancy is enforced at the <strong>database
+            layer via Postgres Row-Level Security</strong>, not client-side filtering — this directly answers
+            the market gap your own competitor research flagged ("lacks robust multi-tenant white-labeling").
+            Everything else below is about closing distance on feature breadth.
+          </p>
+        </div>
+      </section>
+
+      <!-- 2. PLAN -->
+      <section class="chapter" id="plan">
+        <div class="chapter-num">02</div>
+        <h2>Week 2 → Week 12 implementation plan</h2>
+        <p class="chapter-sub">Weeks 3 and 4 were the true blockers everything else depends on — both done; 5/6/9 can still reorder freely against each other. Weeks 11–12 added after review — see note below the table.</p>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Week</th><th>Theme</th><th>Key deliverables</th><th>Closes gap vs.</th><th>Status</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="week">02</td>
+                <td><strong>Directory</strong> <span class="tag ok">expanded</span></td>
+                <td>Shipper / consignee / overseas-agent records, <strong>plus vendor records</strong> (trucking companies, CFS agents) as a distinct contact type; autocomplete into booking form instead of free text</td>
+                <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span><span class="tag">Magaya</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">03</td>
+                <td><strong>Real roles &amp; permissions</strong></td>
+                <td>Enforce owner/admin/member in RLS + UI (today it's a label only); add a platform-level Super-Admin role</td>
+                <td><span class="tag ok">Foundational — blocks Week 8</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">04</td>
+                <td><strong>Shipment status workflow</strong></td>
+                <td>Real state machine (Booked → Docs → Cleared → In Transit → Delivered) + status-change notifications</td>
+                <td><span class="tag">Shipthis</span><span class="tag">GoFreight</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">05</td>
+                <td><strong>Rate management &amp; quoting</strong></td>
+                <td>Tariff entry, quote generation, quote → booking conversion</td>
+                <td><span class="tag">GoFreight</span><span class="tag">Magaya</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">06</td>
+                <td><strong>Accounting basics</strong> <span class="tag ok">expanded</span></td>
+                <td>Invoice generation from a shipment, paid/unpaid state, basic P&amp;L view (revenue minus real shipment costs, not just invoiced revenue), <strong>plus multi-currency quoting and invoicing</strong> with live-fetched, Owner/Admin-editable FX rates (customer-facing — distinct from Week 8's internal FX billing infrastructure), <strong>plus a payment aging dashboard</strong> (0–30/31–60/61+ days overdue) as a differentiator beyond competitor parity</td>
+                <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span><span class="tag">Magaya</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">07</td>
+                <td><strong>Customer tracking portal</strong></td>
+                <td>Read-only, shareable link per shipment — no login required for the consignee, <strong>plus a visual status timeline and payment/invoice visibility</strong> as differentiators beyond a bare status word</td>
+                <td><span class="tag">Logitude</span><span class="tag">Shipthis</span><span class="tag">GoFreight</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">—</td>
+                <td><strong>Audit Trail &amp; Error Logging</strong> <span class="tag ok">inserted ahead of Week 8</span></td>
+                <td>Generic, append-only audit ledger (who changed what, before/after values) across contacts, team roles, invoices, and shipment costs — Owner/Admin-only, <strong>plus</strong> client-side error capture (global handler, React error boundary, external-API failures) with the log vendor deliberately deferred behind a config-only integration point</td>
+                <td><span class="tag ok">Regulatory accountability + operational observability — not a competitor-parity item</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">08</td>
+                <td><strong>Dual-Engine Monetization Core</strong> <span class="tag ok">scoped v2</span></td>
+                <td>Platform Super-Admin picks per-org <strong>Model 1</strong> (fixed fee, server-enforced module gating on Directory/Quotes/Accounting) or <strong>Model 2</strong> (₹0 base, all modules unlocked), with a live "Meter-Flip" switch auditable via Week 8's own audit-log reuse, <strong>plus</strong> a simulated FinTech Slice rake ledger (FX spread, cargo insurance, instant vendor payout — real math, no real money movement) and a "Revenue DNA" per-invoice trace (shipment → invoice → rake → audit history). <strong>Explicitly not built this pass</strong> (see <code>docs/tech-debt.md</code>): real recurring-fee collection, real rake settlement, float yield, GST/TDS e-filing, ML-driven dunning, ASC 606 RevRec, cohort analytics, competitor-billing migration tooling, and a public webhook/SDK layer — all need real external infrastructure (a licensed payment aggregator, an inked insurance partner, a government e-filing integration) this solo project doesn't have yet.</td>
+                <td><span class="tag ok">Own differentiator — not a competitor-parity item</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
+              </tr>
+              <tr>
+                <td class="week">09</td>
+                <td><strong>Carrier / EDI integration</strong> <span class="tag ok">scoped</span></td>
+                <td>Real, live tracking registration with Terminal49 (100+ ocean carriers, one unified API) directly from the shipment detail view — one click instead of visiting a separate carrier site per shipment. Server-side key storage via Supabase Vault + the Postgres <code>http</code> extension, since this app has no backend to hide a secret in otherwise. <strong>Narrower than the original wording</strong>: no free API exists anywhere for live rate-fetch or e-booking (researched directly, not assumed) — only tracking has a real free tier, and even that free tier is write-only (can register tracking, cannot read status back via API), so live status is viewed on Terminal49's own dashboard, not in-app. Both gaps stated plainly in <code>docs/tech-debt.md</code>, not silently substituted.</td>
+                <td><span class="tag">GoFreight</span> <span class="tag risk">highest execution risk</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
+              </tr>
+              <tr>
+                <td class="week">—</td>
+                <td><strong>Inline Validation &amp; Contextual Tooltips</strong> <span class="tag ok">inserted ahead of Week 10</span></td>
+                <td>Competitor-analysis-driven UX pass (GoFreight, Logitude World, Magaya, Shipthis all treat this as core strategy): all 6 core forms (Booking, Contact, Tariff, Quote, Invoice, Cost) now show validation errors under the specific field, sourced from real Postgres errors already enforced server-side — not a new frontend validation layer. Contextual tooltips added on every calculation field (volumetric weight, FX rate, the Week 8 rake breakdowns). <strong>Wizards deliberately not retrofitted</strong> onto these forms (ADR-0015) — an audit found them 5–8 fields each, not the complex multi-section documents the pattern is meant for; that design is reserved for Week 10's Customs Filing screens instead.</td>
+                <td><span class="tag ok">Competitor parity (UX layer) — not a feature gap</span></td>
+                <td><span class="chip status-complete">Complete</span></td>
+              </tr>
+              <tr>
+                <td class="week">10</td>
+                <td><strong>Customs Filing Simulator</strong> <span class="tag ok">scoped</span></td>
+                <td>Bill of Entry (import) / Shipping Bill (export) filings via a real first-ever step-by-step wizard (ADR-0015), linked to an existing shipment so shipper/consignee auto-populate. <strong>Differentiator</strong>: a real, seeded HS-code reference table (~22 codes, real published BCD/IGST/Social Welfare Surcharge rates) searchable by keyword or code, with duty computed transparently the moment a code is picked — directly targeting the sourced industry pain point that HS-code misclassification (often silent, sometimes copied straight off the invoice) is the #1 cause of unexpected duty bills and audit exposure. <strong>Narrower than the row title implies, stated plainly</strong>: no real ICEGATE/CHA/DSC registration exists today (confirmed directly, not assumed — ADR-0016), so this is a genuine simulator, not a live government filing — the same honesty pattern as Week 8's rake ledger.</td>
+                <td><span class="tag">GoFreight</span> <span class="tag">(India scope — see §4)</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
+              </tr>
+              <tr>
+                <td class="week">11</td>
+                <td><strong>Document Management</strong> <span class="tag ok">scoped</span></td>
+                <td>Bill of Lading, Packing List, Certificate of Origin, and Commercial Invoice — generated and attached across the shipment lifecycle. <strong>Differentiator</strong>: generated documents are rendered <em>live</em> from the shipment's own existing data (shipper, consignee, cargo, linked Week 10 customs filing) rather than persisted/re-typed — directly targeting the sourced #1 industry pain point (cross-document data inconsistency; a single mismatched packing list vs. commercial invoice can trigger a real CBP customs hold costing $2,000&ndash;4,000 in demurrage). Real file attachments via the app's first-ever Supabase Storage bucket (ADR-0017), with the same org-isolation RLS pattern as every Postgres table. The public tracking portal (Week 7) now shows a real-time document checklist, answering the sourced "customer portal visibility gap" finding. <strong>Scope cut, stated plainly</strong>: the public portal shows document visibility only, not full render/download of uploaded files — that needs a token-gated Storage-access design deferred to a later pass (`docs/tech-debt.md`).</td>
+                <td><span class="tag">Shipthis</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
+              </tr>
+              <tr>
+                <td class="week">12</td>
+                <td><strong>Reporting &amp; Custom Dashboards</strong> <span class="tag ok">scoped</span></td>
+                <td>KPI tiles, volume/status breakdowns, and a 6-month revenue trend, all queried live (no batch sync anywhere in this app), plus per-customer and per-route profitability. <strong>Differentiator</strong>: every profitability row expands in place to the real underlying shipments/invoices/costs — directly targeting the sourced pain point that existing dashboards (Magaya) "cannot see the details of every shipment" behind a summary number, and that forwarders otherwise get a shipment's real P&amp;L "three weeks later" once it's too late to act. Dashboards are genuinely configurable <em>per user</em> (ADR-0018 — the first RLS policy in this app scoped by user, not just org), with real CSV export. <strong>Scope cut, stated plainly</strong>: widget reordering (drag-and-drop) not built, only show/hide; charts are styled bars, not a charting library (`docs/tech-debt.md`).</td>
+                <td><span class="tag">Logitude</span></td>
+                <td><span class="chip status-complete">Complete (scoped)</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note ok">
+          <b>Updated this pass:</b> Vendor management folded into Week 2, multi-currency folded into
+          Week 6, and two new weeks added — Document Management (11) and Reporting &amp; Dashboards (12).
+          These four were previously listed as deferred gaps; they're now committed roadmap items.
+        </div>
+
+        <div class="note">
+          <b>Warehouse management (Magaya's core strength) is deliberately excluded</b> from this roadmap —
+          it's a different product category. Worth an explicit call on whether SST Freight ever competes
+          there before it lands on a future version of this table.
+        </div>
+      </section>
+
+      <!-- 3. GAPS -->
+      <section class="chapter" id="gaps">
+        <div class="chapter-num">03</div>
+        <h2>Gaps that remain after Week 12</h2>
+        <p class="chapter-sub">What the plan above does <em>not</em> close, even once fully shipped. Four items that were here last version — reporting/dashboards, document management, vendor management, multi-currency — are now committed in §2 instead.</p>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Gap</th><th>Who has it</th><th>Why it's not covered</th><th>Priority read</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Rail / multimodal mode</strong></td>
+                <td>Shipthis</td>
+                <td>Roadmap only ever adds Ocean/Air/Truck</td>
+                <td>Low, unless customers actually move rail freight</td>
+              </tr>
+              <tr>
+                <td><strong>Warehouse management</strong></td>
+                <td>Magaya</td>
+                <td>Explicitly out of scope — different product category</td>
+                <td>Only relevant if directly competing with Magaya</td>
+              </tr>
+              <tr>
+                <td><strong>Native mobile app</strong></td>
+                <td>Shipthis</td>
+                <td>Week 7 ships a web tracking link, not an app</td>
+                <td>Medium — a good mobile-web link covers most of this need</td>
+              </tr>
+              <tr>
+                <td><strong>Broad multi-carrier EDI</strong></td>
+                <td>GoFreight (MSC, Maersk, CMA&nbsp;CGM, COSCO + air e-AWB)</td>
+                <td>Week 9 commits to one connection, not a network</td>
+                <td>Real gap — GoFreight's core differentiator</td>
+              </tr>
+              <tr>
+                <td><strong>Automated carrier tracking ingestion</strong></td>
+                <td>Logitude (container tracking module)</td>
+                <td>Week 4 is staff-driven status updates, not auto-pulled from carrier feeds</td>
+                <td>Meaningful — becomes part of Week 9's integration work eventually</td>
+              </tr>
+              <tr>
+                <td><strong>Rules / automation engine</strong></td>
+                <td>Logitude ("automations")</td>
+                <td>No generic workflow-automation feature planned</td>
+                <td>Lower priority initially</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="note ok">
+          <b>Post-Week-12 "enterprise close" backlog (separate from the competitor-gap table
+          above):</b> of the four items raised — real carrier-tracking read access, e-signature on
+          quote/BL, white-label branding, a public REST + webhook layer —
+          <strong>white-label logo/color config</strong> (ADR-0019; per-org custom domain
+          explicitly split out as its own future hosting/DNS decision, not part of this) and
+          <strong>e-signature on Quotes and the Bill of Lading</strong> (ADR-0020, via a real
+          DocuSign sandbox account — this app's first Supabase Edge Function, introduced solely
+          because DocuSign's JWT auth needs RS256 signing no Postgres extension can do) are now
+          shipped. Carrier-tracking read access needs a paid Terminal49 upgrade (declined for now
+          — no free-tier read path exists, confirmed Week 9). The webhook layer needs its own ADR
+          once picked up — REST/API-key access is nearly free (PostgREST is already there) but
+          reliable outbound webhook delivery is genuinely new architecture.
+        </div>
+      </section>
+
+      <!-- 4. CUSTOMS DIFFICULTY -->
+      <section class="chapter" id="customs">
+        <div class="chapter-num">04</div>
+        <h2>US / Japan customs — how much harder, really</h2>
+        <p class="chapter-sub">Meaningfully harder than Week 10's ICEGATE work, and mostly for regulatory reasons, not engineering ones.</p>
+
+        <div class="prose">
+          <p>
+            Week 10 is viable because SST Freight already operates (or is building toward operating) as a
+            licensed CHA in India with ICEGATE access. That foundation doesn't exist for the US or Japan —
+            it's a new regulatory relationship, not a new screen.
+          </p>
+          <ul>
+            <li><strong>US filing (ABI)</strong> generally requires a licensed US Customs Broker and a customs bond — a real financial surety instrument, not a feature toggle.</li>
+            <li>US alone splits into <strong>three</strong> separate systems — AES (export declarations), ISF/"10+2" (import security filing, due 24h before vessel loading), and AMS/ABI (entry filing) — each with its own CBP certification cycle, typically months long.</li>
+            <li><strong>Japan's AFR</strong> via NACCS is a fourth, entirely separate proprietary system, generally requiring local presence or a Japan-based partner.</li>
+            <li>None of this is one-time — bonds and licenses need renewing, regulations change. It's an ongoing operational/legal commitment, not a shipped feature.</li>
+          </ul>
+        </div>
+
+        <h3 style="font-family:var(--font-ui);font-weight:700;font-size:13px;letter-spacing:0.03em;text-transform:uppercase;color:var(--ink);margin:26px 0 12px;">The real scope decision</h3>
+        <div class="cols-2">
+          <div class="col-card hard">
+            <div class="eyebrow">Option A</div>
+            <h4>Become a certified filer</h4>
+            <ul>
+              <li>SST Freight itself files AES/ISF/ABI/AFR for customers</li>
+              <li>Requires licensing, bonding, multi-system CBP/NACCS certification</li>
+              <li>Likely 6–12+ months, new hires or broker partnerships</li>
+            </ul>
+            <div class="diff">Difficulty: this is a different business, not a feature</div>
+          </div>
+          <div class="col-card moderate">
+            <div class="eyebrow">Option B</div>
+            <h4>Integrate with existing filers</h4>
+            <ul>
+              <li>Customers coordinate with a US/Japan-side broker who already files</li>
+              <li>SST Freight exchanges status/data with that broker's system for visibility only</li>
+              <li>Shape of work is close to Week 9's carrier EDI integration</li>
+            </ul>
+            <div class="diff">Difficulty: tractable — a future roadmap item, not a new business</div>
+          </div>
+        </div>
+
+        <div class="note warn">
+          If the goal is matching GoFreight's filing claim directly, that's <b>Option A</b>. If the goal is
+          "our Indian customers can see US-side customs status without leaving our platform," that's
+          <b>Option B</b>. Worth deciding which one is meant before either goes on a future version of this roadmap.
+        </div>
+      </section>
+
+      <!-- 5. NOT A GAP -->
+      <section class="chapter" id="not-gap">
+        <div class="chapter-num">05</div>
+        <h2>Not actually a gap</h2>
+        <p class="chapter-sub">One thing worth naming so it doesn't get mistaken for missing work.</p>
+        <div class="note ok">
+          <b>US/Japan-specific customs systems are not a gap for SST Freight's current positioning.</b>
+          The platform is built around Indian ports and Indian customs terminology (Bill of Entry / Shipping
+          Bill, CHA workflow) — that's a different regulatory market than GoFreight's AES/ISF/AFR JP24
+          support, not a feature you're missing for your actual target customer.
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer class="end">
+  <div class="wrap">SST Freight — internal roadmap &amp; gap reference · compiled from Week 1 launch-night planning</div>
+</footer>
+
+</body>
+</html>

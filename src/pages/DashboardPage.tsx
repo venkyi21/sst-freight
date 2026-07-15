@@ -1,11 +1,28 @@
-import { useEffect, useMemo, useState, type CSSProperties } from 'react'
+import { useMemo, useState, type CSSProperties } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../context/AuthContext'
-import { supabase } from '../lib/supabaseClient'
+import { shipmentsQueryKey, useShipments } from '../hooks/useShipments'
 import Sidebar from '../components/Sidebar'
 import ShipmentsTable from '../components/ShipmentsTable'
 import BookingModal from '../components/BookingModal'
+import DirectoryPage from '../components/DirectoryPage'
+import TeamPage from '../components/TeamPage'
+import ShipmentDetailModal from '../components/ShipmentDetailModal'
+import RatesQuotesPage from '../components/RatesQuotesPage'
+import AccountingPage from '../components/AccountingPage'
+import AuditLogPage from '../components/AuditLogPage'
+import PlatformAdminPage from '../components/PlatformAdminPage'
+import CustomsFilingsPage from '../components/CustomsFilingsPage'
+import ReportingPage from '../components/ReportingPage'
+import OrgSettingsPage from '../components/OrgSettingsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
-import type { NavPage, Shipment, ShipmentMode } from '../types'
+import OnboardingChecklist from '../components/OnboardingChecklist'
+import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
+
+function isModuleEnabled(org: OrganizationWithRole, module: PlatformModule): boolean {
+  return org.billing_model === 'model_2' || org.enabled_modules.includes(module)
+}
 
 type ModeFilter = 'all' | ShipmentMode
 
@@ -20,36 +37,40 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   color: active ? '#f1f5f9' : '#8291a6',
 })
 
+const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'settings', 'auditlog', 'platformadmin']
+
+function navPageFromPath(pathname: string): NavPage {
+  const segment = pathname.split('/')[1]
+  return (NAV_PAGES as string[]).includes(segment) ? (segment as NavPage) : 'dashboard'
+}
+
+function shipmentIdFromPath(pathname: string): string | null {
+  const match = pathname.match(/^\/shipments\/([^/]+)$/)
+  return match ? match[1] : null
+}
+
 export default function DashboardPage() {
-  const { currentOrg, clearSelectedOrganization } = useAuth()
-  const [navPage, setNavPage] = useState<NavPage>('dashboard')
+  const { currentOrg, clearSelectedOrganization, user, isPlatformAdmin } = useAuth()
+  const location = useLocation()
+  const navigate = useNavigate()
+  // The sidebar/modal render logic below is unchanged from the pre-router version — only how
+  // navPage/selectedShipment are *derived* changed (from the URL, not local state), so
+  // Sidebar.tsx needed no changes at all (ADR-0025).
+  const navPage = navPageFromPath(location.pathname)
+  function setNavPage(page: NavPage) {
+    navigate(`/${page}`)
+  }
   const [modeFilter, setModeFilter] = useState<ModeFilter>('all')
   const [search, setSearch] = useState('')
-  const [shipments, setShipments] = useState<Shipment[]>([])
-  const [loading, setLoading] = useState(true)
   const [bookingOpen, setBookingOpen] = useState(false)
   const [bookingDefaultMode, setBookingDefaultMode] = useState<ShipmentMode>('ocean')
 
   const orgId = currentOrg?.id ?? null
-
-  useEffect(() => {
-    if (!orgId) return
-    let cancelled = false
-    setLoading(true)
-    supabase
-      .from('shipments')
-      .select('*')
-      .eq('org_id', orgId)
-      .order('created_at', { ascending: false })
-      .then(({ data, error }) => {
-        if (cancelled) return
-        if (!error && data) setShipments(data as Shipment[])
-        setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [orgId])
+  const queryClient = useQueryClient()
+  const { data: shipments = [], isLoading: loading, error: loadErrorObj, refetch } = useShipments(orgId)
+  const loadError = loadErrorObj instanceof Error ? loadErrorObj.message : null
+  const selectedShipmentId = shipmentIdFromPath(location.pathname)
+  const selectedShipment = selectedShipmentId ? shipments.find((s) => s.id === selectedShipmentId) ?? null : null
 
   const modeCounts = useMemo(
     () => ({
@@ -75,14 +96,20 @@ export default function DashboardPage() {
     setBookingOpen(true)
   }
 
-  function handleCreated(shipment: Shipment) {
-    setShipments((prev) => [shipment, ...prev])
+  function handleCreated(_shipment: Shipment) {
+    if (orgId) void queryClient.invalidateQueries({ queryKey: shipmentsQueryKey(orgId) })
     setBookingOpen(false)
   }
 
   return (
     <div style={{ display: 'flex', height: '100vh', width: '100%' }}>
-      <Sidebar org={currentOrg} navPage={navPage} onNavigate={setNavPage} onSwitchOrg={clearSelectedOrganization} />
+      <Sidebar
+        org={currentOrg}
+        navPage={navPage}
+        onNavigate={setNavPage}
+        onSwitchOrg={clearSelectedOrganization}
+        isPlatformAdmin={isPlatformAdmin}
+      />
 
       <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
         <header
@@ -150,6 +177,7 @@ export default function DashboardPage() {
 
         {navPage === 'dashboard' && (
           <div style={{ padding: '28px 32px', flex: 1 }}>
+            {user && <OnboardingChecklist orgId={currentOrg.id} userId={user.id} onNavigate={setNavPage} />}
             <div
               style={{
                 display: 'flex',
@@ -176,23 +204,77 @@ export default function DashboardPage() {
                 </button>
               </div>
             </div>
-            <ShipmentsTable shipments={filtered} loading={loading} />
+            {loadError ? (
+              <div
+                style={{
+                  background: 'rgba(244,63,94,0.08)',
+                  border: '1px solid rgba(244,63,94,0.3)',
+                  borderRadius: 12,
+                  padding: 24,
+                  textAlign: 'center',
+                }}
+              >
+                <div style={{ color: '#fb7185', fontSize: 13.5, marginBottom: 12 }}>
+                  Couldn't load shipments: {loadError}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void refetch()}
+                  style={{
+                    padding: '8px 16px',
+                    borderRadius: 8,
+                    border: '1px solid #1e293b',
+                    background: 'transparent',
+                    color: '#e2e8f0',
+                    fontSize: 12.5,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <ShipmentsTable shipments={filtered} loading={loading} onRowClick={(s) => navigate(`/shipments/${s.id}`)} />
+            )}
           </div>
         )}
 
-        {navPage === 'directory' && (
-          <PlaceholderPage
-            title="Client & Vendor Directory"
-            description="Shipper, consignee and overseas-agent records land here in Week 2 of the release plan."
-          />
+        {navPage === 'directory' && <DirectoryPage orgId={currentOrg.id} />}
+
+        {navPage === 'team' && user && (
+          <TeamPage orgId={currentOrg.id} currentRole={currentOrg.role} currentUserId={user.id} />
         )}
 
-        {navPage === 'customs' && (
+        {navPage === 'quotes' && user && !isModuleEnabled(currentOrg, 'quotes') && (
           <PlaceholderPage
-            title="Customs Filing Simulator"
-            description="Bill of Entry / Shipping Bill filing workflows ship in Week 10 of the release plan."
+            title="Rates & Quoting isn't enabled"
+            description="This module isn't enabled for your organization's plan — contact your account admin."
           />
         )}
+        {navPage === 'quotes' && user && isModuleEnabled(currentOrg, 'quotes') && (
+          <RatesQuotesPage orgId={currentOrg.id} userId={user.id} onBookingCreated={handleCreated} />
+        )}
+
+        {navPage === 'accounting' && !isModuleEnabled(currentOrg, 'accounting') && (
+          <PlaceholderPage
+            title="Accounting isn't enabled"
+            description="This module isn't enabled for your organization's plan — contact your account admin."
+          />
+        )}
+        {navPage === 'accounting' && isModuleEnabled(currentOrg, 'accounting') && (
+          <AccountingPage orgId={currentOrg.id} currentRole={currentOrg.role} billingModel={currentOrg.billing_model} />
+        )}
+
+        {navPage === 'auditlog' && <AuditLogPage orgId={currentOrg.id} currentRole={currentOrg.role} />}
+
+        {navPage === 'platformadmin' && <PlatformAdminPage isPlatformAdmin={isPlatformAdmin} />}
+
+        {navPage === 'customs' && <CustomsFilingsPage orgId={currentOrg.id} />}
+
+        {navPage === 'reporting' && <ReportingPage orgId={currentOrg.id} />}
+
+        {navPage === 'settings' && <OrgSettingsPage org={currentOrg} />}
       </main>
 
       {bookingOpen && (
@@ -201,6 +283,17 @@ export default function DashboardPage() {
           defaultMode={bookingDefaultMode}
           onClose={() => setBookingOpen(false)}
           onCreated={handleCreated}
+        />
+      )}
+
+      {selectedShipment && (
+        <ShipmentDetailModal
+          shipment={selectedShipment}
+          billingModel={currentOrg.billing_model}
+          onClose={() => navigate('/dashboard')}
+          onUpdated={() => {
+            void queryClient.invalidateQueries({ queryKey: shipmentsQueryKey(currentOrg.id) })
+          }}
         />
       )}
     </div>

@@ -1,0 +1,9 @@
+#!/bin/sh
+# Docs-as-code check: fails the commit if supabase/schema.sql is staged without a matching
+# docs-as-code update. See scripts/check-docs-sync.js for the actual rule.
+#
+# One-time setup to activate (this directory is not used automatically by git):
+#   git config core.hooksPath .githooks
+
+staged_files=$(git diff --cached --name-only --diff-filter=ACMR)
+node scripts/check-docs-sync.js $staged_files
