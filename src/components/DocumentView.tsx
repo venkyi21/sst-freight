@@ -9,7 +9,12 @@ interface DocumentViewProps {
   onClose: () => void
 }
 
-const EMPTY_DATA: ShipmentDocumentData = { contacts: { shipper: null, consignee: null }, invoice: null, customsFiling: null }
+const EMPTY_DATA: ShipmentDocumentData = {
+  contacts: { shipper: null, consignee: null },
+  invoice: null,
+  customsFiling: null,
+  hsCodeReference: null,
+}
 
 export default function DocumentView({ shipment, documentType, documentRef: docRef, onClose }: DocumentViewProps) {
   const [data, setData] = useState<ShipmentDocumentData>(EMPTY_DATA)

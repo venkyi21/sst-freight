@@ -15,6 +15,7 @@ import CustomsFilingsPage from '../components/CustomsFilingsPage'
 import ReportingPage from '../components/ReportingPage'
 import OrgSettingsPage from '../components/OrgSettingsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
+import OnboardingChecklist from '../components/OnboardingChecklist'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
 
 function isModuleEnabled(org: OrganizationWithRole, module: PlatformModule): boolean {
@@ -179,6 +180,7 @@ export default function DashboardPage() {
 
         {navPage === 'dashboard' && (
           <div style={{ padding: '28px 32px', flex: 1 }}>
+            {user && <OnboardingChecklist orgId={currentOrg.id} userId={user.id} onNavigate={setNavPage} />}
             <div
               style={{
                 display: 'flex',

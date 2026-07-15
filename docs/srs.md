@@ -338,6 +338,21 @@ built.
     generated/uploaded documents.
   - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — the public portal shows
     visibility only; full document render and uploaded-file download remain behind org login.
+- **US-13.4** — As a Member, I can generate a standalone SCMTR Compliance Report for a shipment,
+  showing the shipper/consignee, HS code, goods description, assessable value, and the BCD/SWS/
+  IGST duty rates and amounts from that shipment's customs filing — the buildable substitute for
+  GAP 05's blocked CargoWise/Magaya API-bridge ask (ADR-0024), viewable/exportable by a
+  forwarder's own staff alongside their existing CargoWise workflow.
+  - AC (verified by real Playwright click-through against the dev Supabase project, 2026-07-15):
+    generating the report for shipment `TRK-QA-1783948187811` (a real `customs_filings` row, HS
+    code `8517.12`) rendered BCD 0%/₹0, SWS 10%/₹0, IGST 18%/₹18,000, Total Duty ₹18,000,
+    Assessable Value ₹1,00,000 — matching that filing's actual stored row and the joined `hs_codes`
+    percentages exactly, not approximated.
+  - AC (verified 2026-07-15): generating the report for shipment `BKG-STATUS-1783948187811` (no
+    `customs_filings` row) rendered the plain message "No customs filing exists yet for this
+    shipment," not an error or fabricated data.
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — no e-signature support for this
+    document type; no real CargoWise/Magaya API integration (still blocked, see ADR-0024).
 
 ### FR-14: Reporting & Custom Dashboards
 
@@ -429,6 +444,36 @@ built.
   - AC: **Known limitation, stated plainly** (`docs/tech-debt.md`, `docs/adr/0023-...md`) — the
     SST license price and every competitor figure are derived estimates, not real sourced quotes;
     the page says so visibly, not only in a docs file. No lead-capture exists on this page.
+
+### FR-18: Onboarding Checklist
+
+- **US-18.1** — As a Member, on first landing on the Dashboard I see a "Getting Started" checklist
+  of 5 real setup steps (add a contact, create a quote, create a booking, generate an invoice, run
+  a customs filing), each showing done/not-done based on whether my organization has genuinely
+  done it — not a self-reported checkbox — directly answering GAP 03's "no onboarding guidance"
+  gap (ADR-0024).
+  - AC (verified by real Playwright click-through against the dev Supabase project, 2026-07-15):
+    on a fresh org with only a customs filing on record, the checklist showed "1 of 5 done" with
+    only the customs step checked; adding a real contact via Directory flipped the checklist to
+    "2 of 5 done" and removed that step's "Go to Directory" button, in the same SPA session with
+    no page reload.
+  - AC (verified 2026-07-15): on an org where all 5 underlying tables already had real rows, the
+    checklist did not render at all — confirming it stops nudging once genuinely complete, without
+    requiring an explicit dismiss.
+  - AC: Each step's "Go to X" button navigates to the correct page via the existing in-app
+    navigation (no router, no full page reload).
+- **US-18.2** — As a Member, I can dismiss the checklist ("Hide this"), and it stays hidden for me
+  specifically on future visits, without affecting any teammate's view.
+  - AC (verified 2026-07-15): clicking "Hide this" hid the checklist immediately; a real browser
+    reload (session persisted, org persisted via `localStorage`) kept it hidden — confirming
+    `dismissed = true` was actually written and read back, not just a client-side toggle.
+  - AC (verified 2026-07-15, direct `@supabase/supabase-js` calls against the dev project, 6/6
+    checks passed): a second member of the same org could not read or update the first member's
+    `user_onboarding_state` row (0 rows returned/affected in both cases); a member of a different
+    organization entirely could neither read that row nor insert into the first org's id — RLS
+    shape confirmed identical to `dashboard_preferences` (ADR-0018/0024).
+  - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — the checklist only renders on
+    the Dashboard page; there is no "show onboarding again" entry point once dismissed.
 
 ## 3. Non-Functional Requirements
 

@@ -2,6 +2,7 @@ import { supabase } from './supabaseClient'
 import {
   SHIPMENT_DOCUMENT_TYPE_META,
   type CustomsFiling,
+  type HsCode,
   type Invoice,
   type Quote,
   type QuoteLineItem,
@@ -26,6 +27,11 @@ export interface ShipmentDocumentData {
   contacts: ContactNames
   invoice: Invoice | null
   customsFiling: CustomsFiling | null
+  // GAP 05 (ADR-0024): the real published duty-rate percentages, not just the computed INR
+  // amounts already on customsFiling — needed for the SCMTR compliance report's "BCD: 7.5% →
+  // ₹31,500" style transparency. Only fetched once customsFiling.hs_code is known, so it can't
+  // join in the same Promise.all as the other three.
+  hsCodeReference: HsCode | null
 }
 
 // Shared by DocumentView.tsx (in-app viewer) and the e-signature flow (Bill of Lading), so both
@@ -40,13 +46,22 @@ export async function fetchShipmentDocumentData(shipment: Shipment): Promise<Shi
     supabase.from('customs_filings').select('*').eq('shipment_id', shipment.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
   ])
   const byId = new Map((contactsRes.data ?? []).map((c) => [c.id, c.name]))
+  const customsFiling = (filingRes as { data: CustomsFiling | null }).data ?? null
+
+  let hsCodeReference: HsCode | null = null
+  if (customsFiling?.hs_code) {
+    const { data } = await supabase.from('hs_codes').select('*').eq('hs_code', customsFiling.hs_code).maybeSingle()
+    hsCodeReference = (data as HsCode | null) ?? null
+  }
+
   return {
     contacts: {
       shipper: shipment.shipper_contact_id ? byId.get(shipment.shipper_contact_id) ?? null : null,
       consignee: shipment.consignee_contact_id ? byId.get(shipment.consignee_contact_id) ?? null : shipment.client,
     },
     invoice: (invoiceRes as { data: Invoice | null }).data ?? null,
-    customsFiling: (filingRes as { data: CustomsFiling | null }).data ?? null,
+    customsFiling,
+    hsCodeReference,
   }
 }
 
@@ -105,6 +120,35 @@ export function computeDocumentRows(
         { label: 'Description of Goods', value: goodsDescription },
         { label: 'Certificate No.', value: docRef },
       ]
+    // GAP 05 (ADR-0024): the buildable substitute for a real CargoWise/Magaya API bridge (blocked
+    // — neither publishes an open developer API, same enterprise-gated wall GAP 01 hit). A
+    // standalone export of this app's real duty-transparency data (ADR-0016), for a global
+    // forwarder's own staff to reference manually alongside their existing platform.
+    case 'scmtr_compliance_report': {
+      if (!data.customsFiling) {
+        return [
+          { label: 'Shipper', value: shipperLine },
+          { label: 'Consignee', value: consigneeLine },
+          { label: 'Status', value: 'No customs filing exists yet for this shipment.' },
+        ]
+      }
+      const f = data.customsFiling
+      const ref = data.hsCodeReference
+      const pct = (v: number | null | undefined) => (v == null ? '—' : `${v}%`)
+      return [
+        { label: 'Shipper', value: shipperLine },
+        { label: 'Consignee', value: consigneeLine },
+        { label: 'Filing Ref.', value: f.ref },
+        { label: 'Filing Status', value: f.status },
+        { label: 'HS Code', value: f.hs_code ?? '—' },
+        { label: 'Description of Goods', value: goodsDescription },
+        { label: 'Assessable Value', value: `₹${f.assessable_value_inr.toLocaleString('en-IN')}` },
+        { label: `Basic Customs Duty (${pct(ref?.basic_customs_duty_pct)})`, value: `₹${f.bcd_amount_inr.toLocaleString('en-IN')}` },
+        { label: `Social Welfare Surcharge (${pct(ref?.social_welfare_surcharge_pct)})`, value: `₹${f.sws_amount_inr.toLocaleString('en-IN')}` },
+        { label: `IGST (${pct(ref?.igst_pct)})`, value: `₹${f.igst_amount_inr.toLocaleString('en-IN')}` },
+        { label: 'Total Duty', value: `₹${f.total_duty_inr.toLocaleString('en-IN')}` },
+      ]
+    }
     case 'commercial_invoice':
     default:
       return [

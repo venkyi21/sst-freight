@@ -37,7 +37,8 @@ accepted gap — cross-referenced to `docs/tech-debt.md`, not silently left unst
 - **Date of this pass**: 2026-07-13 (Weeks 1–8 below); **refreshed 2026-07-14** with a
   regression spot-check on Weeks 1–8 plus full fresh coverage of every module shipped since
   (Week 9 onward, plus the two post-roadmap features) — see the new sections below the original
-  Week 8 summary.
+  Week 8 summary. **Refreshed again 2026-07-15** for GAP 03/GAP 05 (Onboarding Checklist + SCMTR
+  Compliance Report, ADR-0024) — see that section near the end of this file.
 
 ## Week 1 — Auth, Multi-tenant Isolation, Booking
 
@@ -351,3 +352,44 @@ would not exercise anything the direct-API race test above doesn't already cover
 Security testing is covered by cases 15–17 above. Usability is covered qualitatively by the
 Playwright screenshots (pipeline strip and status pills read clearly at a glance) rather than a
 separate formal usability study.
+
+## GAP 03 (Onboarding Checklist) + GAP 05 (SCMTR Compliance Report), ADR-0024
+
+Tooling, same split as every prior pass: real Playwright (headless Chromium) click-through against
+the dev server + real dev Supabase for UI/behavior scenarios, plus a direct
+`@supabase/supabase-js` script (bypassing the UI) for RLS isolation on the new
+`user_onboarding_state` table. Run against real, pre-existing QA tenant data rather than
+freshly-seeded fixtures — deliberately, so the checklist's "derived from real data, not a
+checkbox" claim was actually exercised against organically-varied state (one org with 1-of-5
+steps done, one org with all 5 already done), not a hand-crafted happy path.
+
+**A real bug was caught and fixed mid-pass, not glossed over**: the first attempt to generate a
+SCMTR Compliance Report failed with `new row for relation "shipment_documents" violates check
+constraint "shipment_documents_document_type_check"` — the TypeScript type and RLS/UI layers had
+all been updated to know about `'scmtr_compliance_report'`, but the actual Postgres `check`
+constraint on `shipment_documents.document_type` (predating this feature) had been missed. Fixed
+in `supabase/schema.sql` and applied live via `ALTER TABLE ... DROP CONSTRAINT ... ADD
+CONSTRAINT ...`; re-tested immediately after — all cases below passed on the re-run.
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Fresh checklist state on an org with only a customs filing on record shows "1 of 5 done," with only the "Try the SCMTR compliance check" step checked and no "Go to X" button on it | ✅ Verified |
+| 2 | Every not-yet-done step shows its own "Go to X" button (e.g. "Go to Directory" on the contact step) | ✅ Verified |
+| 3 | Adding a real contact via Directory, then navigating back to Dashboard in the same SPA session (no page reload), flips the checklist to "2 of 5 done" and removes that step's button | ✅ Verified |
+| 4 | Clicking "Hide this" hides the checklist immediately | ✅ Verified |
+| 5 | A real browser reload (session + org selection both persist) keeps the checklist hidden — `dismissed=true` was actually written and read back, not a client-only toggle | ✅ Verified |
+| 6 | On an org where all 5 underlying tables already have real rows, the checklist doesn't render at all, with no explicit dismiss required | ✅ Verified |
+| 7 | A second member of the same org (`qa-adminA`) reads 0 rows querying the first member's (`qa-ownerA`) `user_onboarding_state` by `org_id` | ✅ Verified |
+| 8 | That second member's attempted `update` against the same row affects 0 rows; the original row is confirmed unchanged afterward | ✅ Verified |
+| 9 | A member of a **different organization entirely** (`qa-ownerB`) reads 0 rows querying Org A's `user_onboarding_state` | ✅ Verified |
+| 10 | That different-org member's `insert` attempt into Org A's `org_id` is rejected by RLS (`new row violates row-level security policy`) | ✅ Verified |
+| 11 | SCMTR report for a shipment with a real `customs_filings` row (HS `8517.12`) renders BCD 0%/₹0, SWS 10%/₹0, IGST 18%/₹18,000, Total Duty ₹18,000, Assessable Value ₹1,00,000 — exactly matching the filing's stored values and the joined `hs_codes` percentages | ✅ Verified |
+| 12 | SCMTR report for a shipment with **no** `customs_filings` row shows "No customs filing exists yet for this shipment," not an error | ✅ Verified |
+
+**12/12 passed** on the corrected run. Screenshots confirm both checklist states and both SCMTR
+report states render cleanly with no layout defects.
+
+**Explicitly out of scope for this pass**: performance/load testing (this feature is 5 lightweight
+`count`-only queries plus one small table's CRUD — no load-testing infrastructure exists in this
+project, and nothing here suggests it's needed). Usability is covered qualitatively by the
+Playwright screenshots rather than a separate formal study.

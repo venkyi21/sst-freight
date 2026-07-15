@@ -281,6 +281,25 @@ is a near-term coding task, and none of it should be attempted without that infr
   for this reason. Should assert against the rate the test itself observes from the fetch/API
   response, not a number baked in at authoring time.
 
+## Onboarding checklist & SCMTR compliance report (GAP 03 / GAP 05, ADR-0024)
+
+- **The onboarding checklist only renders on the Dashboard page.** A user who navigates straight
+  to another module after login won't see it until they return to Dashboard — a deliberate
+  scoping choice (ADR-0024) to keep this additive rather than touching every page's render tree.
+- **No "show onboarding again" entry point.** Once a user clicks "Hide this," the only way to
+  bring the checklist back is a direct database write (`update user_onboarding_state set
+  dismissed = false ...`) — there's no settings toggle for it.
+- **Chennai-based/local onboarding support and Tamil-language localization remain unbuilt and
+  unplanned.** Both are the genuinely out-of-scope half of GAP 03 — the former is a staffing/GTM
+  decision, not code; the latter needs a full i18n framework this app has none of today.
+- **The SCMTR compliance report has no e-signature support.** `EsignPanel`'s DocuSign flow
+  (ADR-0020) is hardcoded to the Bill of Lading document type; extending it to this report is
+  separate, unstarted work.
+- **A real bidirectional CargoWise One / Magaya API bridge remains blocked, not built.** Neither
+  platform publishes an open developer API (confirmed directly) — the same enterprise-gated wall
+  as GAP 01's carrier-tracking APIs (ADR-0014). The SCMTR report is the buildable substitute, not
+  a workaround for this specific blocker.
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in

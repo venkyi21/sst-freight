@@ -15,6 +15,7 @@ export function documentRefPrefix(documentType: ShipmentDocumentType): string {
   if (documentType === 'packing_list') return 'PKL'
   if (documentType === 'certificate_of_origin') return 'COO'
   if (documentType === 'commercial_invoice') return 'CINV'
+  if (documentType === 'scmtr_compliance_report') return 'SCR'
   return 'DOC'
 }
 

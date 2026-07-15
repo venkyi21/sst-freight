@@ -430,7 +430,13 @@ export interface CustomsFiling {
   created_at: string
 }
 
-export type ShipmentDocumentType = 'bill_of_lading' | 'packing_list' | 'certificate_of_origin' | 'commercial_invoice' | 'other'
+export type ShipmentDocumentType =
+  | 'bill_of_lading'
+  | 'packing_list'
+  | 'certificate_of_origin'
+  | 'commercial_invoice'
+  | 'scmtr_compliance_report'
+  | 'other'
 export type ShipmentDocumentSource = 'generated' | 'uploaded'
 
 export const SHIPMENT_DOCUMENT_TYPE_META: Record<ShipmentDocumentType, { label: string }> = {
@@ -438,6 +444,10 @@ export const SHIPMENT_DOCUMENT_TYPE_META: Record<ShipmentDocumentType, { label: 
   packing_list: { label: 'Packing List' },
   certificate_of_origin: { label: 'Certificate of Origin' },
   commercial_invoice: { label: 'Commercial Invoice' },
+  // GAP 05 (ADR-0024): a standalone duty-transparency export a forwarder's own staff can use
+  // manually alongside CargoWise/Magaya — no API integration with those platforms, real API
+  // access to either is partner-agreement-gated (same wall GAP 01 hit).
+  scmtr_compliance_report: { label: 'SCMTR Compliance Report' },
   other: { label: 'Other' },
 }
 
@@ -446,6 +456,7 @@ export const GENERATED_DOCUMENT_TYPES: ShipmentDocumentType[] = [
   'packing_list',
   'certificate_of_origin',
   'commercial_invoice',
+  'scmtr_compliance_report',
 ]
 
 export interface ShipmentDocument {
@@ -494,6 +505,17 @@ export interface DashboardPreference {
   widget_key: DashboardWidgetKey
   visible: boolean
   sort_order: number
+  created_at: string
+}
+
+// GAP 03 (ADR-0024): same auth.uid() = user_id + is_org_member(org_id) RLS shape as
+// DashboardPreference above. Step completion itself is derived client-side from real org data
+// (contacts/quotes/shipments/invoices counts), not stored here — this row only tracks dismissal.
+export interface UserOnboardingState {
+  id: string
+  org_id: string
+  user_id: string
+  dismissed: boolean
   created_at: string
 }
 

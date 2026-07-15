@@ -435,7 +435,7 @@ create table if not exists shipment_documents (
   id uuid primary key default gen_random_uuid(),
   org_id uuid not null references organizations (id) on delete cascade,
   shipment_id uuid not null references shipments (id) on delete cascade,
-  document_type text not null check (document_type in ('bill_of_lading', 'packing_list', 'certificate_of_origin', 'commercial_invoice', 'other')),
+  document_type text not null check (document_type in ('bill_of_lading', 'packing_list', 'certificate_of_origin', 'commercial_invoice', 'scmtr_compliance_report', 'other')),
   source text not null check (source in ('generated', 'uploaded')),
   ref text,
   file_name text,
@@ -484,6 +484,23 @@ create table if not exists dashboard_preferences (
 );
 create index if not exists dashboard_preferences_org_user_idx on dashboard_preferences (org_id, user_id);
 alter table dashboard_preferences enable row level security;
+
+-- user_onboarding_state (GAP 03, ADR-0024): the second user-scoped table in this schema, same
+-- auth.uid() = user_id + is_org_member(org_id) shape ADR-0018 established for
+-- dashboard_preferences above. Unlike that table (per-widget rows), this is a flat one-row-per-
+-- user flag — step completion itself is derived client-side from whether the org already has
+-- real contacts/quotes/shipments/invoices, not stored here, so the only thing worth persisting is
+-- whether the user dismissed the checklist.
+create table if not exists user_onboarding_state (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  user_id uuid not null references auth.users (id) on delete cascade,
+  dismissed boolean not null default false,
+  created_at timestamptz not null default now(),
+  unique (org_id, user_id)
+);
+create index if not exists user_onboarding_state_org_user_idx on user_onboarding_state (org_id, user_id);
+alter table user_onboarding_state enable row level security;
 
 -- esign_requests (ADR-0020): tracks a DocuSign envelope sent for a Quote or a Bill of Lading.
 -- The actual DocuSign call (JWT signing + Envelopes API) happens in the docusign-envelope Edge
@@ -862,6 +879,23 @@ create policy "users can insert their own dashboard preferences"
 drop policy if exists "users can update their own dashboard preferences" on dashboard_preferences;
 create policy "users can update their own dashboard preferences"
   on dashboard_preferences for update
+  using (auth.uid() = user_id and is_org_member(org_id));
+
+-- user_onboarding_state: identical shape to dashboard_preferences above (ADR-0024) — a teammate
+-- in the same org must never see or dismiss another member's own onboarding checklist.
+drop policy if exists "users can view their own onboarding state" on user_onboarding_state;
+create policy "users can view their own onboarding state"
+  on user_onboarding_state for select
+  using (auth.uid() = user_id and is_org_member(org_id));
+
+drop policy if exists "users can insert their own onboarding state" on user_onboarding_state;
+create policy "users can insert their own onboarding state"
+  on user_onboarding_state for insert
+  with check (auth.uid() = user_id and is_org_member(org_id));
+
+drop policy if exists "users can update their own onboarding state" on user_onboarding_state;
+create policy "users can update their own onboarding state"
+  on user_onboarding_state for update
   using (auth.uid() = user_id and is_org_member(org_id));
 
 -- esign_requests: scoped strictly to org membership, same shape as customs_filings/
@@ -1617,4 +1651,5 @@ grant select on hs_codes to authenticated;
 grant select, insert, update on customs_filings to authenticated;
 grant select, insert on shipment_documents to authenticated;
 grant select, insert, update on dashboard_preferences to authenticated;
+grant select, insert, update on user_onboarding_state to authenticated;
 grant select, insert, update on esign_requests to authenticated;
