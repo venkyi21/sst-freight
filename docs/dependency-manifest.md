@@ -28,6 +28,11 @@ bumps a version.
 | `@types/react-dom` | `18.3.7` | devDependency |
 | `@vitejs/plugin-react` | `4.7.0` | devDependency |
 | `oxlint` | `0.9.10` | devDependency |
+| `@testing-library/dom` | `10.4.1` | devDependency |
+| `@testing-library/jest-dom` | `6.9.1` | devDependency |
+| `@testing-library/react` | `16.3.2` | devDependency |
+| `@testing-library/user-event` | `14.6.1` | devDependency |
+| `jsdom` | `26.1.0` | devDependency |
 | `typescript` | `5.9.3` | devDependency |
 | `vite` | `5.4.21` | devDependency |
 | `vitest` | `3.2.7` | devDependency |
@@ -42,6 +47,14 @@ cache/dedupe layer and hash-based client-side routing, both pinned to the exact 
 initially-resolved `3.2.4`) because versions below 3.2.6 carry a critical advisory
 (GHSA-5xrq-8626-4rwp, Vitest UI server arbitrary file read/execute) — dev-only exposure, but a
 free fix within the same minor line, so taken immediately rather than deferred.
+
+**Added 2026-07-16 (ADR-0028)**: the RTL component-testing stack (`@testing-library/react` +
+`dom` + `jest-dom` + `user-event`, plus `jsdom`) — pre-installed so the first client-bug
+regression test starts from verified machinery. `jsdom` is pinned to `26.1.0`, **not** the
+current 29.x, because 27+ requires Node's `require(esm)` support (Node ≥ 20.19 / ≥ 22.12) and
+this machine runs Node 20.15.0 — the initially-installed `jsdom@29.1.1` failed at runtime with
+`ERR_REQUIRE_ESM` (verified, not theoretical). Bump jsdom together with the Node upgrade already
+recommended above for the supabase-js engine warning.
 
 **Trade-off, stated plainly**: pinning trades "automatically pick up patch fixes" for "nothing
 changes until a human decides it should." For a solo-developer project where an unreviewed patch

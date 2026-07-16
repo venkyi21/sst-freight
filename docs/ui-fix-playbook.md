@@ -43,36 +43,38 @@ are true:
   previously fixed.
 
 Logic bugs → `src/lib/` + node-environment test (existing setup, nothing to install).
-Wiring bugs → an RTL component test. The first one requires the one-time setup below.
+Wiring bugs → an RTL component test — the machinery is already installed and verified
+(ADR-0028); start from the template noted below.
 
-## First-time RTL setup (do this only when the first wiring-bug test is needed)
+## RTL setup — already done and verified (ADR-0028)
 
-Nothing RTL-related is installed today — deliberately (ADR-0027). When the first component test
-is justified:
+The machinery is pre-installed and proven working — there is **no setup step** between "bug
+reported" and "write the test":
 
-1. Install, then **pin the exact resolved versions** in `package.json` (no carets — same
-   convention as every other dependency, and update `docs/dependency-manifest.md` in the same
-   commit):
+- Packages installed, pinned exact (see `docs/dependency-manifest.md`):
+  `@testing-library/react`, `@testing-library/dom`, `@testing-library/jest-dom`,
+  `@testing-library/user-event`, `jsdom@26.1.0` (26.x, not 27+ — newer jsdom needs Node ≥ 20.19;
+  this machine runs 20.15, verified failure `ERR_REQUIRE_ESM` on 29.x).
+- **`src/components/InfoTooltip.test.tsx` is the working template** — a real render + real
+  `userEvent.hover` interaction + jest-dom matchers, passing in the committed suite. Copy its
+  header pattern for any new component test.
+- The global Vitest environment stays `node` (pure-logic tests remain DOM-free and fast); each
+  component test file opts into jsdom with a docblock on its **first line**:
 
-   `npm install --save-dev --save-exact @testing-library/react @testing-library/jest-dom @testing-library/user-event jsdom`
+  ```ts
+  // @vitest-environment jsdom
+  import '@testing-library/jest-dom/vitest'
+  import { render, screen } from '@testing-library/react'
+  import userEvent from '@testing-library/user-event'
+  ```
 
-2. **Don't change the global Vitest environment** — `vite.config.ts` keeps
-   `environment: 'node'` so the existing pure-logic tests stay DOM-free and fast. Instead, each
-   component test file opts into jsdom with a docblock on its first line:
-
-   ```ts
-   // @vitest-environment jsdom
-   import '@testing-library/jest-dom/vitest'
-   import { render, screen } from '@testing-library/react'
-   import userEvent from '@testing-library/user-event'
-   ```
-
-3. Colocate the test next to the component: `src/components/QuoteModal.test.tsx` etc. The
-   existing `npm test` / CI / deploy gate pick it up automatically — zero workflow changes.
-
-4. Mock at the **`src/api/` boundary** (`vi.mock('../api/quotes')` etc.) — never mock the
-   Supabase client directly. The api layer exists precisely to be this seam (ADR-0025);
-   components under test then exercise real user behavior against a controlled data layer.
+- Colocate the test next to the component: `src/components/QuoteModal.test.tsx` etc. The
+  existing `npm test` / CI / deploy gate pick it up automatically — zero workflow changes.
+- Mock at the **`src/api/` boundary** (`vi.mock('../api/quotes')` etc.) — never mock the
+  Supabase client directly. The api layer exists precisely to be this seam (ADR-0025);
+  components under test then exercise real user behavior against a controlled data layer.
+  (`InfoTooltip.test.tsx` needs no mock at all — a component that calls `src/api/` functions
+  is where `vi.mock` comes in.)
 
 ## Writing the regression test itself
 

@@ -44,6 +44,7 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0024](0024-onboarding-checklist-and-scmtr-compliance-report.md) | Onboarding checklist follows the per-user RLS precedent; SCMTR compliance report is a same-shape live-document extension | Accepted |
 | [0025](0025-data-access-layer-react-query-and-hash-routing.md) | A centralized data-access layer, react-query for caching, and hash-based real routing | Accepted |
 | [0026](0026-vitest-unit-testing-scoped-to-pure-logic.md) | Vitest for unit testing, scoped to pure business-logic modules | Accepted |
-| [0027](0027-defensive-component-tests-and-gated-production-deploys.md) | Defensive-only component regression tests; unit suite gates production deploys | Accepted |
+| [0027](0027-defensive-component-tests-and-gated-production-deploys.md) | Defensive-only component regression tests; unit suite gates production deploys | Amended by ADR-0028 (install timing only) |
+| [0028](0028-rtl-machinery-preinstalled.md) | RTL machinery pre-installed and pre-verified; defensive-only usage unchanged | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.
