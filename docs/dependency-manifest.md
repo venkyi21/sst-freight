@@ -32,7 +32,7 @@ bumps a version.
 | `@testing-library/jest-dom` | `6.9.1` | devDependency |
 | `@testing-library/react` | `16.3.2` | devDependency |
 | `@testing-library/user-event` | `14.6.1` | devDependency |
-| `jsdom` | `26.1.0` | devDependency |
+| `jsdom` | `29.1.1` | devDependency |
 | `typescript` | `5.9.3` | devDependency |
 | `vite` | `5.4.21` | devDependency |
 | `vitest` | `3.2.7` | devDependency |
@@ -50,11 +50,11 @@ free fix within the same minor line, so taken immediately rather than deferred.
 
 **Added 2026-07-16 (ADR-0028)**: the RTL component-testing stack (`@testing-library/react` +
 `dom` + `jest-dom` + `user-event`, plus `jsdom`) — pre-installed so the first client-bug
-regression test starts from verified machinery. `jsdom` is pinned to `26.1.0`, **not** the
-current 29.x, because 27+ requires Node's `require(esm)` support (Node ≥ 20.19 / ≥ 22.12) and
-this machine runs Node 20.15.0 — the initially-installed `jsdom@29.1.1` failed at runtime with
-`ERR_REQUIRE_ESM` (verified, not theoretical). Bump jsdom together with the Node upgrade already
-recommended above for the supabase-js engine warning.
+regression test starts from verified machinery. `jsdom` was initially pinned to `26.1.0` because
+27+ requires Node's `require(esm)` support (≥ 20.19 / ≥ 22.12) and the machine then ran Node
+20.15.0 — `jsdom@29.1.1` failed at runtime with `ERR_REQUIRE_ESM` (verified, not theoretical).
+**Resolved the same day**: after the Node 24.18.0 upgrade (see the engine-mismatch note above),
+jsdom was bumped to `29.1.1` and the RTL machinery test re-verified passing on it.
 
 **Trade-off, stated plainly**: pinning trades "automatically pick up patch fixes" for "nothing
 changes until a human decides it should." For a solo-developer project where an unreviewed patch
@@ -62,12 +62,12 @@ bump breaking the build is a worse day than a missed security patch, that's the 
 but it means dependency updates are now a deliberate, occasional task (`npm outdated`, review, bump,
 re-test), not something that happens silently on `npm install`.
 
-**Known engine mismatch, discovered while pinning**: `@supabase/supabase-js@2.110.2` (and its
-`@supabase/*` sub-packages) declare `"engines": { "node": ">=22.0.0" }`. This project's dev
-environment runs Node 20.15.0 — `npm install` emits a non-blocking `EBADENGINE` warning, and the
-build succeeds anyway (verified: `npm run build` completed clean on Node 20.15.0 after this pin).
-Not a current problem, but a future `supabase-js` version could make this a hard requirement —
-upgrade local/CI Node to 22.x before that becomes a build break rather than a warning.
+**Engine mismatch — RESOLVED 2026-07-16**: `@supabase/supabase-js@2.110.2` declares
+`"engines": { "node": ">=22.0.0" }`, which the dev environment's former Node 20.15.0 didn't meet
+(non-blocking `EBADENGINE` warnings on every install). Local Node is now **24.18.0** (current
+LTS, installed via winget) and all three CI workflows were aligned from Node 22 → 24 in the same
+pass — no more engine warnings, and the full suite (`npm ci` + 28 tests + build + lint) was
+re-verified clean on 24.18.0.
 
 ## 2. License inventory
 
