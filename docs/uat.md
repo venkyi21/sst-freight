@@ -201,3 +201,40 @@ One real test-script bug was found and fixed during this pass, not a product def
 detail modal left open from a prior check blocked a later click in the same browser session
 ("element intercepts pointer events") — fixed by explicitly closing the modal before moving to the
 next scenario. Noted here for the same transparency reason as prior passes' script fixes.
+
+## Week 18 pass — Public API & Webhooks / Integrations page (ADR-0029, 2026-07-16)
+
+## Priya — Owner, Client A Logistics
+
+- **"I want to connect our accounting system so it can pull invoices itself — without asking a
+  developer to reverse-engineer anything."** Opened the new Integrations page from the sidebar,
+  created an API key with a recognizable label; the full key appeared exactly once with a copy
+  button and an explicit "you will not see this again" warning, and after a reload only the
+  masked prefix remained anywhere on the page. ✅ Accepted.
+- **"When our ERP goes down for a weekend, I don't want to lose the events — and I don't want my
+  own invoicing to slow down either."** Registered a webhook endpoint, clicked **Send test
+  event**, and watched the delivery history flip to a green DELIVERED chip (21 seconds, HTTP 200
+  recorded) — while the separately-measured QA pass confirmed an invoice insert stayed at 119ms
+  even with an unreachable endpoint registered, and failed deliveries visibly walk a retry
+  schedule instead of vanishing. ✅ Accepted.
+- **"My integration partner needs the signing secret to verify it's really us."** The endpoint
+  card's "Reveal signing secret" shows the `whsec_` value with a one-line explanation of exactly
+  how to verify the signature header. ✅ Accepted.
+
+## Meera — Member, Client A Logistics
+
+- **"API keys for the whole company's data are not my call — I shouldn't even see that page."**
+  No Integrations item in her sidebar at all; navigating straight to `#/integrations` by URL
+  showed a clear "Only an Owner or Admin can manage API keys and webhooks" explanation — not a
+  broken page, not an error wall, and no key or secret material anywhere. ✅ Accepted
+  (correctly restricted).
+
+### Week 18 pass summary
+
+**4/4 UAT scenarios accepted** across two personas (Owner, Member) — the full admin journey
+(create key → register endpoint → send test → verified delivery → reveal secret → disable) and
+the Member negative case, all in a real Playwright-driven browser against the dev Supabase
+project. This pass also closes a long-standing gap in this file's coverage pattern: it's the
+first feature whose *external consumer* (an ERP/CRM system) isn't a persona who can click through
+a UI — for that side, the QA-B gate's real webhook.site receiver and raw-HTTP API calls in
+`docs/qa-testing.md` stand in as the "persona."

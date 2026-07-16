@@ -385,9 +385,13 @@
           DocuSign sandbox account — this app's first Supabase Edge Function, introduced solely
           because DocuSign's JWT auth needs RS256 signing no Postgres extension can do) are now
           shipped. Carrier-tracking read access needs a paid Terminal49 upgrade (declined for now
-          — no free-tier read path exists, confirmed Week 9). The webhook layer needs its own ADR
-          once picked up — REST/API-key access is nearly free (PostgREST is already there) but
-          reliable outbound webhook delivery is genuinely new architecture.
+          — no free-tier read path exists, confirmed Week 9).
+          <strong>The public REST + webhook layer is now shipped too</strong> (Week 18,
+          ADR-0029): org-scoped API keys resolved inside anon-granted read RPCs, plus outbound
+          webhooks via a transactional outbox delivered by the project's first pg_cron job —
+          HMAC-signed, retried on a backoff ladder, and verified never to block the originating
+          user transaction (measured 119ms invoice insert with a dead endpoint registered). With
+          that, <strong>every item on this backlog is either shipped or explicitly declined</strong>.
         </div>
       </section>
 

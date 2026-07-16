@@ -92,6 +92,11 @@ erDiagram
   organizations ||--o{ shipment_documents : "owns"
   organizations ||--o{ dashboard_preferences : "owns"
   organizations ||--o{ esign_requests : "owns"
+  organizations ||--o{ api_keys : "owns"
+  organizations ||--o{ webhook_endpoints : "owns"
+  organizations ||--o{ webhook_deliveries : "owns"
+
+  webhook_endpoints ||--o{ webhook_deliveries : "queued for"
 
   shipments ||--o{ shipment_status_history : "logs transitions of"
   shipments ||--o{ invoices : "billed via"
@@ -283,6 +288,58 @@ sequenceDiagram
   EF-->>U: esign_requests row
 ```
 
+**Pattern D — API-key RPC gateway** (Week 18, ADR-0029): an *external system* (no browser, no
+user session) calls one of the `api_*` read RPCs over plain HTTPS with Supabase's public anon
+key in the header and an org-scoped `sst_live_` key as a parameter. The internal resolver maps
+key→org; everything returned is filtered to that org. This is Pattern B's shape with the
+credential moved from a JWT to an opaque bearer key — the `get_public_shipment_tracking`
+precedent scaled from one shipment to one org.
+
+```mermaid
+sequenceDiagram
+  participant EXT as External system (ERP/CRM)
+  participant RPC as api_list_shipments() [security definer, granted to anon]
+  participant K as api_keys
+  participant T as shipments
+  EXT->>RPC: POST /rest/v1/rpc/api_list_shipments { p_api_key }
+  RPC->>K: resolve_api_key(): hash match + not revoked
+  alt key valid
+    RPC->>T: select ... where org_id = key.org_id
+    RPC-->>EXT: org-scoped JSON (refs, never internal uuids)
+  else invalid or revoked
+    RPC-->>EXT: exception "Invalid or revoked API key"
+  end
+```
+
+**Pattern E — outbox + scheduled delivery** (Week 18, ADR-0029): the only pattern where the
+database *initiates* outbound traffic on a schedule. Capture triggers snapshot events into the
+`webhook_deliveries` outbox inside the user's transaction (cheap insert, no network); pg_cron
+runs `deliver_pending_webhooks()` every minute, which POSTs due rows to org-registered endpoints
+with an HMAC signature and walks a retry ladder on failure. A dead endpoint can never slow down
+or roll back the originating user action — verified by timing (119ms invoice insert with an
+unreachable endpoint registered).
+
+```mermaid
+sequenceDiagram
+  participant U as Browser (user action)
+  participant T as invoices (AFTER trigger)
+  participant OB as webhook_deliveries (outbox)
+  participant CRON as pg_cron (every minute)
+  participant D as deliver_pending_webhooks()
+  participant EXT as Client endpoint (https)
+  U->>T: insert invoice (normal Pattern A write)
+  T->>OB: enqueue_webhook_event(): one row per subscribed endpoint
+  T-->>U: insert returns immediately (no network in this transaction)
+  CRON->>D: select deliver_pending_webhooks()
+  D->>OB: claim due rows (FOR UPDATE SKIP LOCKED)
+  D->>EXT: POST payload + X-SST-Signature (HMAC-SHA256)
+  alt 2xx
+    D->>OB: status = delivered
+  else failure
+    D->>OB: attempts+1, backoff 1m/5m/30m/2h, failed after 5
+  end
+```
+
 The rule for which pattern a new feature should use is in `docs/adr/0002-rpc-only-privileged-
 mutations.md` and `docs/adr/0006-quote-conversion-without-dedicated-rpc.md` — don't reach for an
 RPC by default; reach for one when authorization genuinely can't be expressed as "does this row
@@ -293,9 +350,13 @@ belong to my org."
 - **Tenant isolation**: Postgres RLS on every tenant-scoped table (ADR-0001).
 - **Privilege escalation surfaces**: team role changes and platform-admin status both have no
   client-reachable path to grant `'owner'` or platform-admin at all (ADR-0002, ADR-0005).
-- **Public/no-auth surface**: exactly one function, `get_public_shipment_tracking`, granted to
-  the `anon` role — its payload is a deliberately minimal, hand-curated subset of the data,
-  documented field-by-field in `docs/api-reference.md`.
+- **Public/no-auth surface**: `get_public_shipment_tracking` (token = the credential, ADR-0008)
+  plus, since Week 18 (ADR-0029), the four `api_*` read RPCs (org API key = the credential) —
+  all granted to `anon`, all returning deliberately minimal, hand-curated payloads documented
+  field-by-field in `docs/api-reference.md`. Three internal functions (`resolve_api_key`,
+  `enqueue_webhook_event`, `deliver_pending_webhooks`) carry explicit
+  `revoke execute ... from public, anon, authenticated` — the schema's first function revokes,
+  needed because Postgres's default grants EXECUTE to PUBLIC.
 - **Platform-admin write surface** (Week 8, ADR-0012): `is_platform_admin()` previously only
   appeared as a read-side `or` clause in RLS policies (ADR-0005); `set_org_billing_model` and
   `set_org_config` are the first RPCs where it gates an actual `UPDATE`. Module gating
@@ -307,10 +368,12 @@ belong to my org."
 
 ## 6. Known architectural constraints
 
-- No backend/server-side compute — see §1. Anything needing a scheduled job or long-running work
-  does not fit this architecture as-is. A secret can be hidden narrowly (Postgres Vault + the
-  `http` extension inside a single `SECURITY DEFINER` RPC, ADR-0014) but this is not a general
-  backend — no request routing, no long-running processes, no arbitrary server-side logic.
+- No backend/server-side compute — see §1. A secret can be hidden narrowly (Postgres Vault + the
+  `http` extension inside a single `SECURITY DEFINER` RPC, ADR-0014), and since Week 18 a
+  *scheduled database job* exists (pg_cron driving webhook delivery, ADR-0029 — Pattern E), but
+  this is still not a general backend — no request routing, no long-running processes, no
+  arbitrary server-side logic. pg_cron's granularity is one minute; anything needing
+  finer-grained or heavier background work still doesn't fit this architecture as-is.
 - No automated schema rollback — see `docs/migration-runbook.md`.
 - `HashRouter`, not `BrowserRouter` — see §7. A future move to clean (non-`#`) URLs needs a
   404.html SPA-fallback shim tested against both this app's base paths (`/` and `/preview/`)

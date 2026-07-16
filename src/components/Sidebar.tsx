@@ -123,6 +123,12 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg, isPlatf
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Reporting
           </button>
+          {(org.role === 'owner' || org.role === 'admin') && (
+            <button type="button" onClick={() => onNavigate('integrations')} style={navButtonStyle(navPage === 'integrations')}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+              Integrations
+            </button>
+          )}
           <button type="button" onClick={() => onNavigate('settings')} style={navButtonStyle(navPage === 'settings')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Settings

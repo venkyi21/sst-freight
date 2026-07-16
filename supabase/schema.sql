@@ -1653,3 +1653,612 @@ grant select, insert on shipment_documents to authenticated;
 grant select, insert, update on dashboard_preferences to authenticated;
 grant select, insert, update on user_onboarding_state to authenticated;
 grant select, insert, update on esign_requests to authenticated;
+
+-- ============================================================================================
+-- Week 18 (ADR-0029), Phase A — Public API keys: org-scoped bearer keys resolved inside
+-- SECURITY DEFINER read RPCs granted to `anon`. Scales the get_public_shipment_tracking
+-- precedent (ADR-0008: possession of an opaque credential IS the authorization) from one token
+-- per shipment to one key per org. Grants/revokes are colocated here (not in the central block
+-- above) so this section is one self-contained, re-runnable snippet for the SQL editor.
+-- ============================================================================================
+
+-- api_keys: zero-client-reachable, same shape as audit_log — RLS on, NO policies, NO grants.
+-- The plaintext key never exists in any row (only its SHA-256 hex digest); even the hash is
+-- unreachable except through the definer RPCs below. key_prefix exists purely so the UI can
+-- show "sst_live_a1b2c3…" for recognition.
+create table if not exists api_keys (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  label text not null,
+  key_prefix text not null,
+  key_hash text not null unique,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz,
+  last_used_at timestamptz
+);
+create index if not exists api_keys_org_id_idx on api_keys (org_id);
+alter table api_keys enable row level security;
+
+-- create_api_key: Owner/Admin only (same is_org_admin gate as list_audit_log — a live API key
+-- reads the org's whole shipment/quote/invoice surface, firmly not a Member power). Returns the
+-- full plaintext key exactly once, in this response; only the hash is stored.
+-- search_path includes `extensions`: Supabase installs pgcrypto there, not in public —
+-- gen_random_bytes()/digest() are invisible under a bare `public` search_path (found the hard
+-- way in QA-A: "function gen_random_bytes(integer) does not exist").
+create or replace function create_api_key(p_org_id uuid, p_label text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text;
+  v_id uuid;
+begin
+  if not is_org_admin(p_org_id) then
+    raise exception 'Only an Owner or Admin can create API keys';
+  end if;
+  if coalesce(trim(p_label), '') = '' then
+    raise exception 'API key label is required';
+  end if;
+
+  -- hex, not base64: base64's +/= are hostile inside curl commands and HTTP headers.
+  v_key := 'sst_live_' || encode(gen_random_bytes(24), 'hex');
+
+  insert into api_keys (org_id, label, key_prefix, key_hash, created_by)
+  values (p_org_id, trim(p_label), left(v_key, 15), encode(digest(v_key, 'sha256'), 'hex'), auth.uid())
+  returning id into v_id;
+
+  return jsonb_build_object('id', v_id, 'label', trim(p_label), 'key_prefix', left(v_key, 15), 'api_key', v_key);
+end;
+$$;
+
+-- list_api_keys: prefix only — the hash never leaves the table, the plaintext never existed.
+create or replace function list_api_keys(p_org_id uuid)
+returns table (id uuid, label text, key_prefix text, created_by_email text, created_at timestamptz, revoked_at timestamptz, last_used_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (is_org_admin(p_org_id) or is_platform_admin()) then
+    raise exception 'Only an Owner or Admin can view API keys';
+  end if;
+
+  return query
+    select k.id, k.label, k.key_prefix, u.email::text, k.created_at, k.revoked_at, k.last_used_at
+    from api_keys k
+    left join auth.users u on u.id = k.created_by
+    where k.org_id = p_org_id
+    order by k.created_at desc;
+end;
+$$;
+
+-- revoke_api_key: revoke-not-delete (ADR-0022's archive stance applied to credentials) — the
+-- row stays as a record of the key's existence and last use. Idempotent on re-call.
+create or replace function revoke_api_key(p_key_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org_id uuid;
+begin
+  select org_id into v_org_id from api_keys where id = p_key_id;
+  if v_org_id is null then
+    raise exception 'API key not found';
+  end if;
+  if not is_org_admin(v_org_id) then
+    raise exception 'Only an Owner or Admin can revoke API keys';
+  end if;
+
+  update api_keys set revoked_at = coalesce(revoked_at, now()) where id = p_key_id;
+end;
+$$;
+
+-- resolve_api_key: internal-only resolver shared by every api_* read RPC. NOT client-callable —
+-- see the explicit revoke below (Postgres grants EXECUTE to PUBLIC on new functions by default,
+-- and this is the first function in this schema where that default is genuinely dangerous: it
+-- returns the stored row, and PostgREST would otherwise expose it at /rpc/resolve_api_key).
+-- The last_used_at touch is throttled to once a minute so a chatty integration doesn't turn
+-- every read into a write.
+create or replace function resolve_api_key(p_api_key text)
+returns api_keys
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key api_keys;
+begin
+  select * into v_key
+  from api_keys
+  where key_hash = encode(digest(coalesce(p_api_key, ''), 'sha256'), 'hex')
+    and revoked_at is null;
+
+  if v_key.id is null then
+    raise exception 'Invalid or revoked API key';
+  end if;
+
+  if v_key.last_used_at is null or v_key.last_used_at < now() - interval '1 minute' then
+    update api_keys set last_used_at = now() where id = v_key.id;
+  end if;
+
+  return v_key;
+end;
+$$;
+
+-- api_list_shipments / api_get_shipment / api_list_quotes / api_list_invoices: the public read
+-- surface. Payload minimalism copies get_public_shipment_tracking (ADR-0017 stance): org-unique
+-- `ref` is the external identifier — no internal uuids, no storage_path/file_name, no fx_rate
+-- beyond invoice basics, no staff emails. p_limit clamps to 200.
+create or replace function api_list_shipments(p_api_key text, p_status text default null, p_limit int default 100, p_offset int default 0)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key api_keys;
+begin
+  v_key := resolve_api_key(p_api_key);
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ref', s.ref, 'mode', s.mode, 'client', s.client, 'origin', s.origin,
+      'destination', s.destination, 'status', s.status, 'vessel_name', s.vessel_name,
+      'voyage_no', s.voyage_no, 'created_at', s.created_at
+    ) order by s.created_at desc)
+    from (
+      select * from shipments s2
+      where s2.org_id = v_key.org_id and (p_status is null or s2.status = p_status)
+      order by s2.created_at desc
+      limit least(coalesce(p_limit, 100), 200) offset greatest(coalesce(p_offset, 0), 0)
+    ) s
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function api_get_shipment(p_api_key text, p_ref text)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key api_keys;
+  v_shipment shipments;
+begin
+  v_key := resolve_api_key(p_api_key);
+
+  select * into v_shipment from shipments where org_id = v_key.org_id and ref = p_ref;
+  if v_shipment.id is null then
+    raise exception 'Shipment not found';
+  end if;
+
+  return jsonb_build_object(
+    'ref', v_shipment.ref,
+    'mode', v_shipment.mode,
+    'client', v_shipment.client,
+    'origin', v_shipment.origin,
+    'destination', v_shipment.destination,
+    'status', v_shipment.status,
+    'vessel_name', v_shipment.vessel_name,
+    'voyage_no', v_shipment.voyage_no,
+    'created_at', v_shipment.created_at,
+    'history', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'from_status', h.from_status, 'to_status', h.to_status, 'created_at', h.created_at
+      ) order by h.created_at asc), '[]'::jsonb)
+      from shipment_status_history h where h.shipment_id = v_shipment.id
+    ),
+    'invoices', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'ref', i.ref, 'currency', i.currency, 'amount', i.amount,
+        'amount_inr', i.amount_inr, 'status', i.status, 'due_date', i.due_date
+      ) order by i.created_at asc), '[]'::jsonb)
+      from invoices i where i.shipment_id = v_shipment.id
+    ),
+    'documents', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'document_type', d.document_type, 'ref', d.ref, 'created_at', d.created_at
+      ) order by d.created_at asc), '[]'::jsonb)
+      from shipment_documents d where d.shipment_id = v_shipment.id
+    )
+  );
+end;
+$$;
+
+create or replace function api_list_quotes(p_api_key text, p_status text default null, p_limit int default 100, p_offset int default 0)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key api_keys;
+begin
+  v_key := resolve_api_key(p_api_key);
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ref', q.ref, 'mode', q.mode, 'origin', q.origin, 'destination', q.destination,
+      'shipper_name', q.shipper_name, 'consignee_name', q.consignee_name,
+      'total', q.total, 'currency', q.currency, 'status', q.status,
+      'rejection_reason', q.rejection_reason, 'created_at', q.created_at
+    ) order by q.created_at desc)
+    from (
+      select * from quotes q2
+      where q2.org_id = v_key.org_id and (p_status is null or q2.status = p_status)
+      order by q2.created_at desc
+      limit least(coalesce(p_limit, 100), 200) offset greatest(coalesce(p_offset, 0), 0)
+    ) q
+  ), '[]'::jsonb);
+end;
+$$;
+
+create or replace function api_list_invoices(p_api_key text, p_status text default null, p_limit int default 100, p_offset int default 0)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_key api_keys;
+begin
+  v_key := resolve_api_key(p_api_key);
+
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'ref', i.ref, 'shipment_ref', i.shipment_ref, 'client_name', i.client_name,
+      'currency', i.currency, 'amount', i.amount, 'amount_inr', i.amount_inr,
+      'status', i.status, 'due_date', i.due_date, 'paid_at', i.paid_at,
+      'created_at', i.created_at
+    ) order by i.created_at desc)
+    from (
+      select i2.*, s.ref as shipment_ref from invoices i2
+      join shipments s on s.id = i2.shipment_id
+      where i2.org_id = v_key.org_id and (p_status is null or i2.status = p_status)
+      order by i2.created_at desc
+      limit least(coalesce(p_limit, 100), 200) offset greatest(coalesce(p_offset, 0), 0)
+    ) i
+  ), '[]'::jsonb);
+end;
+$$;
+
+-- Grants & revokes for this section. The revoke is load-bearing: without it, PUBLIC's default
+-- EXECUTE would let anon call resolve_api_key directly via PostgREST.
+revoke execute on function resolve_api_key(text) from public, anon, authenticated;
+grant execute on function create_api_key(uuid, text) to authenticated;
+grant execute on function list_api_keys(uuid) to authenticated;
+grant execute on function revoke_api_key(uuid) to authenticated;
+grant execute on function api_list_shipments(text, text, int, int) to anon, authenticated;
+grant execute on function api_get_shipment(text, text) to anon, authenticated;
+grant execute on function api_list_quotes(text, text, int, int) to anon, authenticated;
+grant execute on function api_list_invoices(text, text, int, int) to anon, authenticated;
+
+-- ============================================================================================
+-- Week 18 (ADR-0029), Phase B — Outbound webhooks: transactional outbox + pg_cron poller.
+-- Capture triggers (log_audit_event shape) snapshot event payloads into webhook_deliveries;
+-- deliver_pending_webhooks() POSTs them (register_carrier_tracking's http() shape) on a
+-- pg_cron minute schedule with exponential backoff. Delivery NEVER runs inside the user's
+-- transaction — a dead endpoint can never block an invoice insert.
+--
+-- PREREQUISITE (one-time, manual): enable the pg_cron extension in the Supabase dashboard
+-- (Database -> Extensions -> pg_cron) BEFORE running this section — see docs/migration-runbook.md.
+-- ============================================================================================
+
+-- webhook_endpoints: org-scoped, admin-only (the signing secret is admin-eyes-only, so even
+-- SELECT is is_org_admin-gated — stricter than the usual is_org_member read policy). The secret
+-- is server-generated by the column default; pgcrypto lives in the `extensions` schema on
+-- Supabase, hence the qualified call. No delete grant — disable via enabled=false (ADR-0022).
+create table if not exists webhook_endpoints (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  url text not null check (url like 'https://%'),
+  secret text not null default 'whsec_' || encode(extensions.gen_random_bytes(24), 'hex'),
+  event_types text[] not null default array['shipment.status_changed','quote.sent','quote.accepted','quote.rejected','invoice.created','invoice.paid','document.uploaded'],
+  enabled boolean not null default true,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  check (event_types <@ array['shipment.status_changed','quote.sent','quote.accepted','quote.rejected','invoice.created','invoice.paid','document.uploaded']::text[])
+);
+create index if not exists webhook_endpoints_org_id_idx on webhook_endpoints (org_id);
+alter table webhook_endpoints enable row level security;
+
+drop policy if exists "admins can view org webhook endpoints" on webhook_endpoints;
+create policy "admins can view org webhook endpoints" on webhook_endpoints for select
+  using (is_org_admin(org_id) or is_platform_admin());
+drop policy if exists "admins can insert org webhook endpoints" on webhook_endpoints;
+create policy "admins can insert org webhook endpoints" on webhook_endpoints for insert
+  with check (is_org_admin(org_id) and created_by = auth.uid());
+drop policy if exists "admins can update org webhook endpoints" on webhook_endpoints;
+create policy "admins can update org webhook endpoints" on webhook_endpoints for update
+  using (is_org_admin(org_id));
+
+grant select, insert, update on webhook_endpoints to authenticated;
+
+-- webhook_deliveries: the outbox. Zero-client-reachable (audit_log shape — RLS on, no policies,
+-- no grants): written only by the capture triggers, updated only by the poller, read only via
+-- the admin-gated list_webhook_deliveries() below. payload is snapshotted at capture time
+-- (event semantics — a later edit to the row doesn't rewrite history), wrapped in a versioned
+-- envelope: {"version":"1","event_type":...,"occurred_at":...,"data":{...}}.
+create table if not exists webhook_deliveries (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  endpoint_id uuid not null references webhook_endpoints (id) on delete cascade,
+  event_type text not null,
+  payload jsonb not null,
+  status text not null default 'pending' check (status in ('pending', 'delivered', 'failed')),
+  attempts int not null default 0,
+  next_attempt_at timestamptz not null default now(),
+  last_status_code int,
+  last_error text,
+  delivered_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists webhook_deliveries_pending_idx on webhook_deliveries (next_attempt_at) where status = 'pending';
+create index if not exists webhook_deliveries_endpoint_idx on webhook_deliveries (endpoint_id, created_at desc);
+create index if not exists webhook_deliveries_org_id_idx on webhook_deliveries (org_id);
+alter table webhook_deliveries enable row level security;
+
+-- enqueue_webhook_event: fan-out helper shared by every capture trigger — one outbox row per
+-- enabled endpoint whose event_types matches. Orgs with no webhooks pay one cheap indexed
+-- select per event, zero rows. Internal-only (revoked below, same reasoning as resolve_api_key).
+create or replace function enqueue_webhook_event(p_org_id uuid, p_event_type text, p_data jsonb)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  insert into webhook_deliveries (org_id, endpoint_id, event_type, payload)
+  select p_org_id, e.id, p_event_type,
+         jsonb_build_object('version', '1', 'event_type', p_event_type, 'occurred_at', now(), 'data', p_data)
+  from webhook_endpoints e
+  where e.org_id = p_org_id and e.enabled and p_event_type = any (e.event_types);
+end;
+$$;
+
+-- Capture triggers: all AFTER (they must observe the final row and coexist with the *_audit
+-- triggers), all SECURITY DEFINER, one small function each (log_fx_spread_revenue shape).
+
+-- shipment.status_changed: hooked on shipment_status_history rather than shipments — one hook
+-- catches both writers (the initial-status insert trigger and advance_shipment_status()), and
+-- from_status/to_status are already first-class columns. from_status null = shipment created.
+create or replace function capture_shipment_status_webhook()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ref text;
+begin
+  select ref into v_ref from shipments where id = new.shipment_id;
+  perform enqueue_webhook_event(new.org_id, 'shipment.status_changed',
+    jsonb_build_object('shipment_ref', v_ref, 'from_status', new.from_status, 'to_status', new.to_status));
+  return new;
+end;
+$$;
+drop trigger if exists shipment_status_history_webhook on shipment_status_history;
+create trigger shipment_status_history_webhook after insert on shipment_status_history
+  for each row execute function capture_shipment_status_webhook();
+
+-- quote.sent / quote.accepted / quote.rejected: status-change updates only (the WHEN guard means
+-- archiving or editing a quote never enqueues anything). draft/converted transitions are
+-- deliberately not events — 'converted' is visible as the resulting shipment's own events.
+create or replace function capture_quote_status_webhook()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.status in ('sent', 'accepted', 'rejected') then
+    perform enqueue_webhook_event(new.org_id, 'quote.' || new.status,
+      jsonb_build_object('ref', new.ref, 'status', new.status, 'total', new.total,
+        'currency', new.currency, 'shipper_name', new.shipper_name,
+        'consignee_name', new.consignee_name, 'rejection_reason', new.rejection_reason));
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists quotes_webhook on quotes;
+create trigger quotes_webhook after update on quotes
+  for each row when (old.status is distinct from new.status)
+  execute function capture_quote_status_webhook();
+
+-- invoice.created / invoice.paid
+create or replace function capture_invoice_webhook()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  perform enqueue_webhook_event(new.org_id,
+    case when tg_op = 'INSERT' then 'invoice.created' else 'invoice.paid' end,
+    jsonb_build_object('ref', new.ref, 'client_name', new.client_name, 'currency', new.currency,
+      'amount', new.amount, 'amount_inr', new.amount_inr, 'status', new.status,
+      'due_date', new.due_date, 'paid_at', new.paid_at));
+  return new;
+end;
+$$;
+drop trigger if exists invoices_webhook_insert on invoices;
+create trigger invoices_webhook_insert after insert on invoices
+  for each row execute function capture_invoice_webhook();
+drop trigger if exists invoices_webhook_update on invoices;
+create trigger invoices_webhook_update after update on invoices
+  for each row when (old.status is distinct from new.status and new.status = 'paid')
+  execute function capture_invoice_webhook();
+
+-- document.uploaded: real uploads only ('generated' documents are rendered live per ADR-0017 —
+-- their creation isn't an integration-worthy event). Never storage_path (same stance as the
+-- public tracking payload).
+create or replace function capture_document_webhook()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_ref text;
+begin
+  select ref into v_ref from shipments where id = new.shipment_id;
+  perform enqueue_webhook_event(new.org_id, 'document.uploaded',
+    jsonb_build_object('shipment_ref', v_ref, 'document_type', new.document_type,
+      'ref', new.ref, 'file_name', new.file_name));
+  return new;
+end;
+$$;
+drop trigger if exists shipment_documents_webhook on shipment_documents;
+create trigger shipment_documents_webhook after insert on shipment_documents
+  for each row when (new.source = 'uploaded')
+  execute function capture_document_webhook();
+
+-- deliver_pending_webhooks: the poller. Claims due rows with FOR UPDATE SKIP LOCKED (overlapping
+-- cron runs are safe), POSTs each with an HMAC-SHA256 signature over the exact body, and books
+-- the outcome per row inside its own exception block — one endpoint's failure never rolls back
+-- another's bookkeeping. Backoff ladder 1m/5m/30m/2h; 'failed' after 5 attempts. Semantics are
+-- at-least-once (an HTTP side effect can't be rolled back) — consumers dedupe on the
+-- X-SST-Delivery-Id header. Returns the number of rows attempted (handy for manual runs).
+create or replace function deliver_pending_webhooks()
+returns int
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_row record;
+  v_body text;
+  v_response http_response;
+  v_count int := 0;
+  v_new_attempts int;
+begin
+  -- 5s per-request cap: without it one hung endpoint stalls the whole run (the Week 9 call at
+  -- register_carrier_tracking sets no timeout, but it handles one interactive request, not a
+  -- batch). If this curlopt name is rejected by the installed pgsql-http version, the exception
+  -- handler below simply proceeds with the extension's default timeout.
+  begin
+    perform http_set_curlopt('CURLOPT_TIMEOUT_MSEC', '5000');
+  exception when others then
+    null;
+  end;
+
+  for v_row in
+    select d.id, d.event_type, d.payload, d.attempts, e.url, e.secret
+    from webhook_deliveries d
+    join webhook_endpoints e on e.id = d.endpoint_id
+    where d.status = 'pending' and d.next_attempt_at <= now() and e.enabled
+    order by d.created_at
+    limit 20
+    for update of d skip locked
+  loop
+    v_count := v_count + 1;
+    v_body := v_row.payload::text;
+    begin
+      select * into v_response from http((
+        'POST',
+        v_row.url,
+        array[
+          http_header('X-SST-Event', v_row.event_type),
+          http_header('X-SST-Delivery-Id', v_row.id::text),
+          http_header('X-SST-Signature', 'sha256=' || encode(hmac(v_body, v_row.secret, 'sha256'), 'hex'))
+        ],
+        'application/json',
+        v_body
+      )::http_request);
+
+      if v_response.status between 200 and 299 then
+        update webhook_deliveries
+          set status = 'delivered', delivered_at = now(), last_status_code = v_response.status, last_error = null
+          where id = v_row.id;
+      else
+        v_new_attempts := v_row.attempts + 1;
+        update webhook_deliveries
+          set attempts = v_new_attempts,
+              last_status_code = v_response.status,
+              last_error = left(coalesce(v_response.content, ''), 500),
+              status = case when v_new_attempts >= 5 then 'failed' else 'pending' end,
+              next_attempt_at = now() + (array[interval '1 minute', interval '5 minutes', interval '30 minutes', interval '2 hours'])[least(v_new_attempts, 4)]
+          where id = v_row.id;
+      end if;
+    exception when others then
+      v_new_attempts := v_row.attempts + 1;
+      update webhook_deliveries
+        set attempts = v_new_attempts,
+            last_status_code = null,
+            last_error = left(sqlerrm, 500),
+            status = case when v_new_attempts >= 5 then 'failed' else 'pending' end,
+            next_attempt_at = now() + (array[interval '1 minute', interval '5 minutes', interval '30 minutes', interval '2 hours'])[least(v_new_attempts, 4)]
+        where id = v_row.id;
+    end;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+-- list_webhook_deliveries: the only reader of the outbox (list_audit_log shape).
+create or replace function list_webhook_deliveries(p_org_id uuid, p_endpoint_id uuid default null, p_limit int default 50)
+returns table (id uuid, endpoint_id uuid, event_type text, status text, attempts int, last_status_code int, last_error text, next_attempt_at timestamptz, delivered_at timestamptz, created_at timestamptz)
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not (is_org_admin(p_org_id) or is_platform_admin()) then
+    raise exception 'Only an Owner or Admin can view webhook deliveries';
+  end if;
+
+  return query
+    select d.id, d.endpoint_id, d.event_type, d.status, d.attempts, d.last_status_code,
+           d.last_error, d.next_attempt_at, d.delivered_at, d.created_at
+    from webhook_deliveries d
+    where d.org_id = p_org_id
+      and (p_endpoint_id is null or d.endpoint_id = p_endpoint_id)
+    order by d.created_at desc
+    limit least(coalesce(p_limit, 50), 200);
+end;
+$$;
+
+-- send_test_webhook: enqueues a test.ping for one endpoint (bypasses the event_types filter —
+-- a test should always arrive), delivered by the same poller/signature path as real events.
+create or replace function send_test_webhook(p_endpoint_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_endpoint webhook_endpoints;
+begin
+  select * into v_endpoint from webhook_endpoints where id = p_endpoint_id;
+  if v_endpoint.id is null then
+    raise exception 'Webhook endpoint not found';
+  end if;
+  if not is_org_admin(v_endpoint.org_id) then
+    raise exception 'Only an Owner or Admin can send a test webhook';
+  end if;
+
+  insert into webhook_deliveries (org_id, endpoint_id, event_type, payload)
+  values (v_endpoint.org_id, v_endpoint.id, 'test.ping',
+    jsonb_build_object('version', '1', 'event_type', 'test.ping', 'occurred_at', now(),
+      'data', jsonb_build_object('message', 'SST Freight webhook test')));
+end;
+$$;
+
+-- pg_cron schedule: cron.schedule() upserts by job name (idempotent re-runs, consistent with
+-- this file's re-runnable contract). Requires the pg_cron extension to be enabled first — see
+-- the section banner above.
+create extension if not exists pg_cron;
+select cron.schedule('deliver-webhooks', '* * * * *', $$select deliver_pending_webhooks()$$);
+
+-- Grants & revokes for this section.
+revoke execute on function enqueue_webhook_event(uuid, text, jsonb) from public, anon, authenticated;
+revoke execute on function deliver_pending_webhooks() from public, anon, authenticated;
+grant execute on function list_webhook_deliveries(uuid, uuid, int) to authenticated;
+grant execute on function send_test_webhook(uuid) to authenticated;
