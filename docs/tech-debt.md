@@ -326,6 +326,35 @@ is a near-term coding task, and none of it should be attempted without that infr
   (ADR-0025) — revisit only if a future need for clean URLs justifies adding and testing a
   404.html SPA-fallback shim across both this app's base paths (`/` and `/preview/`).
 
+## Public API & webhooks (Week 18, ADR-0029)
+
+- **No rate limiting on the anon-granted `api_*` RPCs.** A leaked (but unrevoked) key, or plain
+  abuse of the endpoint with garbage keys, can hammer the database — the only current defenses
+  are the SHA-256 lookup being cheap, the 200-row clamp, and revocation. Closing it: Supabase
+  API gateway rate limits or a per-key counters table checked in `resolve_api_key` — revisit
+  before publishing API access to real external customers.
+- **No delivery-history retention/pruning.** `webhook_deliveries` grows forever (every event ×
+  every subscribed endpoint). Fine at current volume; closing it is a small pg_cron cleanup job
+  deleting delivered/failed rows older than N days.
+- **At-least-once delivery, no replay protection.** Consumers must dedupe on `X-SST-Delivery-Id`
+  (documented in `docs/api-reference.md`); the HMAC signature covers the body only — no
+  timestamp, so a captured request could be replayed to the consumer. Closing it: add a signed
+  timestamp header and a tolerance window (the Stripe pattern).
+- **No auto-disable of chronically failing endpoints.** Each delivery gives up after 5 attempts,
+  but a dead endpoint keeps receiving (and failing) *new* events forever. Closing it: disable an
+  endpoint after N consecutive terminal failures, surfaced in the Integrations UI.
+- **Endpoint URLs are arbitrary https targets — SSRF-shaped egress from the database.** An org
+  admin can point a webhook at any https URL, including internal-looking hosts; mitigation today
+  is only the `https://` check constraint and the fact that registration is admin-gated per org.
+  Closing it: a deny-list of private IP ranges resolved at delivery time, if this ever hosts
+  untrusted tenants.
+- **pg_cron minute granularity bounds webhook latency at ~60–90s.** Measured 21–60s in QA;
+  accepted deliberately over running dedicated delivery infrastructure. Revisit only if a real
+  integration needs sub-minute latency.
+- **Rotating the Supabase anon key breaks external API consumers** — they send it as the
+  `apikey` header. Any future anon-key rotation must be communicated to integrators (noted in
+  `docs/api-reference.md`).
+
 ## Unit testing (ADR-0026)
 
 - **Automated unit coverage is real but deliberately narrow: 4 `src/lib/` modules, nothing else.**

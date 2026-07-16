@@ -475,6 +475,47 @@ built.
   - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — the checklist only renders on
     the Dashboard page; there is no "show onboarding again" entry point once dismissed.
 
+### FR-19: Public API & Outbound Webhooks (Week 18, ADR-0029)
+
+- **US-19.1** — As an Owner/Admin, I can create org-scoped API keys (and revoke them) so my
+  company's own systems can read our shipments, quotes, and invoices over plain HTTPS without a
+  user session.
+  - AC (verified 2026-07-16, direct-API QA-A gate, 11/11 scenarios): key creation returns the
+    full `sst_live_` plaintext exactly once; listing shows prefix-only; a plain Member is rejected
+    from create/list/revoke server-side; a revoked key is rejected on the immediately following
+    call; a garbage key is rejected; direct `select` on `api_keys` is denied even for an Owner;
+    the internal `resolve_api_key` resolver is not callable by any client role.
+  - AC (verified 2026-07-16): cross-tenant isolation both directions — Org A's key returned
+    exactly Org A's rows (1/1) and Org B's key exactly Org B's (2/2), with zero overlap, called
+    anonymously with no Supabase session; Org B's key could not fetch an Org A shipment ref
+    ("Shipment not found").
+  - AC (verified 2026-07-16): `p_limit=100000` / `p_offset=-5` clamp safely (≤200 rows, no
+    error); `last_used_at` populates on use.
+- **US-19.2** — As an Owner/Admin, I can register HTTPS webhook endpoints and receive signed
+  event notifications (shipment status, quote lifecycle, invoice created/paid, document
+  uploaded) in my own systems, reliably, without SST Freight's UI being involved.
+  - AC (verified 2026-07-16, QA-B gate, 12/12): all 7 event types delivered to a real external
+    receiver; every delivery's `X-SST-Signature` verified by independently recomputing
+    HMAC-SHA256 over the received body with the stored secret; `X-SST-Delivery-Id` unique per
+    delivery; non-events (quote archive, invoice due-date edit, `generated` documents) fired
+    nothing.
+  - AC (**measured**, 2026-07-16): an invoice insert with an unreachable endpoint registered
+    completed in **119ms** — delivery provably never blocks the user's transaction. Delivery to a
+    reachable endpoint arrived within the pg_cron minute window (measured 21–60s end-to-end).
+  - AC (verified 2026-07-16): the unreachable endpoint's deliveries walked the real backoff
+    ladder (attempt 1 → retry ~1 min, attempt 2 → retry ~5 min, observed live) with the DNS error
+    recorded per row; Org A events were never delivered to Org B's endpoint; a disabled endpoint
+    accumulates nothing new.
+- **US-19.3** — As an Owner/Admin, I manage all of this from an Integrations page; as a Member, I
+  correctly can't.
+  - AC (verified 2026-07-16, Playwright QA/UAT-C gate, 11/11): full Owner journey — create key
+    (plaintext shown once with copy-now warning; after reload the plaintext appears nowhere in
+    the DOM, only the masked prefix), register a webhook endpoint, Send test event, watch the
+    delivery row flip to DELIVERED in the UI (21s), reveal the signing secret with its
+    verification hint, disable the endpoint. A Member sees no Integrations nav item, and direct
+    `#/integrations` navigation shows a clear not-authorized explanation with zero key/secret
+    material in the DOM.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

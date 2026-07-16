@@ -46,5 +46,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0026](0026-vitest-unit-testing-scoped-to-pure-logic.md) | Vitest for unit testing, scoped to pure business-logic modules | Accepted |
 | [0027](0027-defensive-component-tests-and-gated-production-deploys.md) | Defensive-only component regression tests; unit suite gates production deploys | Amended by ADR-0028 (install timing only) |
 | [0028](0028-rtl-machinery-preinstalled.md) | RTL machinery pre-installed and pre-verified; defensive-only usage unchanged | Accepted |
+| [0029](0029-api-key-rpc-gateway-and-outbox-webhooks.md) | Public API keys as an RPC gateway; outbound webhooks as an outbox + pg_cron poller | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

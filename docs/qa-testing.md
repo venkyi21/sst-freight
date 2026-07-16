@@ -400,3 +400,60 @@ report states render cleanly with no layout defects.
 `count`-only queries plus one small table's CRUD — no load-testing infrastructure exists in this
 project, and nothing here suggests it's needed). Usability is covered qualitatively by the
 Playwright screenshots rather than a separate formal study.
+
+## Week 18 — Public API Keys + Outbound Webhooks (ADR-0029), 2026-07-16
+
+Three gated passes (QA-A after the API-key schema, QA-B after the webhook schema, QA/UAT-C after
+the UI), each run for real against the dev project before the next phase was built. Direct-API
+node scripts (`@supabase/supabase-js` + raw `fetch` for the anon calls) plus webhook.site as a
+real external receiver; the UI pass used Playwright (headless Chromium) against `npm run dev`.
+
+**A real environment bug was caught and fixed by the first QA-A run, not glossed over**: every
+function using pgcrypto (`gen_random_bytes`/`digest`/`hmac`) initially failed with
+`function gen_random_bytes(integer) does not exist` — Supabase installs pgcrypto in the
+`extensions` schema, which a bare `set search_path = public` hides. Fixed by widening those
+functions' search_path to `public, extensions`; re-applied and re-run.
+
+### QA-A — API keys (11/11 passed)
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Owner creates a key: full `sst_live_` plaintext (57 chars) returned exactly once; `list_api_keys` afterward shows prefix only — no plaintext, no hash, anywhere | ✅ Verified |
+| 2 | Plain Member rejected server-side from create/list/revoke (three distinct is_org_admin errors) | ✅ Verified |
+| 3 | Cross-tenant isolation, anonymously (no Supabase session): Org A's key returned exactly Org A's shipments (1/1), Org B's exactly Org B's (2/2), zero overlap — ground-truthed against each owner's own RLS-scoped view | ✅ Verified |
+| 4 | `api_get_shipment` detail payload carries `history[]` (incl. the initial Booked entry) and no `storage_path`; Org B's key cannot fetch an Org A ref ("Shipment not found") | ✅ Verified |
+| 5 | Garbage key rejected; revoked key rejected on the immediately following call ("Invalid or revoked API key") | ✅ Verified |
+| 6 | Direct `select * from api_keys` denied even for an Owner (no grant exists) | ✅ Verified |
+| 7 | `resolve_api_key` not callable by anon or authenticated (`permission denied for function`) — the schema's first explicit function revoke, proven effective | ✅ Verified |
+| 8 | `last_used_at` populates on use; `p_limit=100000`/`p_offset=-5` clamp safely (≤200 rows, no error) | ✅ Verified |
+
+### QA-B — outbound webhooks (12/12 passed)
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | All 7 event types (test.ping, shipment.status_changed, quote.sent, quote.accepted, invoice.created, invoice.paid, document.uploaded) delivered to a real webhook.site receiver — already delivered by the verifier's first poll (cron had run within the minute) | ✅ Verified |
+| 2 | Every delivery's `X-SST-Signature` verified by independently recomputing HMAC-SHA256 over the received raw body with the stored `whsec_` secret — 7/7 match | ✅ Verified |
+| 3 | Payload envelope versioned (`"version":"1"`); document.uploaded carries file_name but never storage_path; shipment.status_changed carries ref + from/to; `X-SST-Delivery-Id` unique per delivery | ✅ Verified |
+| 4 | Non-events fired nothing: quote archive toggle, invoice due-date edit, a `generated` document row — exactly the 7 expected requests arrived, nothing else | ✅ Verified |
+| 5 | **Non-blocking guarantee (measured)**: invoice insert with 1 live + 1 unreachable endpoint registered completed in **119ms** | ✅ Verified |
+| 6 | Delivery bookkeeping: live endpoint 7/7 `delivered` with HTTP 200 recorded; unreachable endpoint rows `pending` with attempts incremented and the real DNS error stored | ✅ Verified |
+| 7 | Backoff ladder observed live: attempt 1 → retry ~1 min, attempt 2 → next retry scheduled 4.6 min out (~5m rung), status still `pending` | ✅ Verified |
+| 8 | Cross-org isolation: Org B's endpoint received zero Org A events; Org B's admin rejected from `list_webhook_deliveries(orgA)` | ✅ Verified |
+| 9 | Member: endpoint select returns 0 rows (admin-only RLS), insert rejected, delivery-list RPC rejected; direct `select` on `webhook_deliveries` denied even for an Owner | ✅ Verified |
+| 10 | Disabled endpoint: a fresh invoice.created enqueued nothing for it (delivery count unchanged) | ✅ Verified |
+
+### QA/UAT-C — Integrations UI, Playwright (11/11 passed)
+
+Recorded persona-side in `docs/uat.md` (same pass); technical highlights: after a page reload the
+full key plaintext appears nowhere in the DOM (only the masked prefix); the send-test journey
+flipped to DELIVERED in the UI in 21s with the external bin confirming receipt; a Member sees no
+Integrations nav item and direct `#/integrations` navigation shows a clear not-authorized state
+with zero key/secret material; zero uncaught page errors across the whole Owner journey.
+
+**Cleanup**: every QA key revoked and every QA endpoint disabled at the end of the pass — nothing
+active remains in the dev project from this QA run.
+
+**Explicitly out of scope for this pass**: load testing the anon RPCs (no rate limiting exists —
+recorded in `docs/tech-debt.md`, not hidden); walking the backoff ladder all the way to `failed`
+after 5 attempts (the full ladder spans hours by design; the first two rungs and the terminal
+logic were verified directly, the rest is the same code path).

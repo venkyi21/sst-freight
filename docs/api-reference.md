@@ -41,6 +41,8 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `is_platform_admin()` | `boolean` | `authenticated` |
 | `is_module_enabled(p_org_id uuid, p_module text)` | `boolean` | _(no grant found)_ |
 | `create_organization(p_name text, p_color text default '#2563eb')` | `organizations` | `authenticated` |
+| `update_org_branding(p_org_id uuid, p_color text, p_logo_url text default null)` | `organizations` | `authenticated` |
+| `update_org_gst_settings(p_org_id uuid, p_gst_state text)` | `organizations` | `authenticated` |
 | `join_organization(p_invite_code text)` | `organizations` | `authenticated` |
 | `list_org_members(p_org_id uuid)` | `table (membership_id uuid, user_id uuid, email text, role text, created_at timestamptz)` | `authenticated` |
 | `update_member_role(p_membership_id uuid, p_new_role text)` | `void` | `authenticated` |
@@ -56,6 +58,18 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `opt_in_cargo_insurance(p_shipment_id uuid)` | `void` | `authenticated` |
 | `mark_cost_instant_payout(p_shipment_cost_id uuid)` | `void` | `authenticated` |
 | `register_carrier_tracking(p_shipment_id uuid, p_scac text, p_request_number text)` | `shipments` | `authenticated` |
+| `create_api_key(p_org_id uuid, p_label text)` | `jsonb` | `authenticated` |
+| `list_api_keys(p_org_id uuid)` | `table (id uuid, label text, key_prefix text, created_by_email text, created_at timestamptz, revoked_at timestamptz, last_used_at timestamptz)` | `authenticated` |
+| `revoke_api_key(p_key_id uuid)` | `void` | `authenticated` |
+| `resolve_api_key(p_api_key text)` | `api_keys` | _(no grant found)_ |
+| `api_list_shipments(p_api_key text, p_status text default null, p_limit int default 100, p_offset int default 0)` | `jsonb` | `anon`, `authenticated` |
+| `api_get_shipment(p_api_key text, p_ref text)` | `jsonb` | `anon`, `authenticated` |
+| `api_list_quotes(p_api_key text, p_status text default null, p_limit int default 100, p_offset int default 0)` | `jsonb` | `anon`, `authenticated` |
+| `api_list_invoices(p_api_key text, p_status text default null, p_limit int default 100, p_offset int default 0)` | `jsonb` | `anon`, `authenticated` |
+| `enqueue_webhook_event(p_org_id uuid, p_event_type text, p_data jsonb)` | `void` | _(no grant found)_ |
+| `deliver_pending_webhooks()` | `int` | _(no grant found)_ |
+| `list_webhook_deliveries(p_org_id uuid, p_endpoint_id uuid default null, p_limit int default 50)` | `table (id uuid, endpoint_id uuid, event_type text, status text, attempts int, last_status_code int, last_error text, next_attempt_at timestamptz, delivered_at timestamptz, created_at timestamptz)` | `authenticated` |
+| `send_test_webhook(p_endpoint_id uuid)` | `void` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -260,3 +274,88 @@ app.
 ```ts
 const { data, error } = await supabase.rpc('register_carrier_tracking', { p_shipment_id: shipmentId, p_scac: 'HLCU', p_request_number: 'HLCUIT1251213429' })
 ```
+
+## Public REST API — API keys (Week 18, ADR-0029)
+
+The first programmatic surface intended for **external systems** (a client org's ERP/CRM/
+accounting software), not this app's own UI. Access is an org-scoped bearer key — `sst_live_…`,
+created by an Owner/Admin, shown in full exactly once, stored only as a SHA-256 hash — resolved
+inside SECURITY DEFINER read RPCs granted to `anon` (the `get_public_shipment_tracking`
+precedent, scaled to a whole org).
+
+**Calling convention** (works from any HTTP client, no Supabase SDK needed):
+
+```bash
+curl -s -X POST "https://<project>.supabase.co/rest/v1/rpc/api_list_shipments" \
+  -H "apikey: <supabase anon key>" \
+  -H "Content-Type: application/json" \
+  -d '{"p_api_key": "sst_live_...", "p_status": "In Transit", "p_limit": 50}'
+```
+
+Two credentials appear, deliberately unequal: the `apikey` **header** is Supabase's public anon
+key — it ships in every copy of this app's JS bundle and is not a secret (but note: rotating it
+breaks external integrators, who must be told the new value). The `p_api_key` **parameter** is
+the real credential. All list RPCs clamp `p_limit` to 200 and accept `p_offset` for paging;
+`ref` (org-unique) is the external identifier throughout — internal uuids are never exposed.
+
+### `create_api_key(p_org_id uuid, p_label text) → jsonb` / `list_api_keys(p_org_id uuid)` / `revoke_api_key(p_key_id uuid)`
+
+Owner/Admin only (`is_org_admin` gate — a live key reads the org's whole shipment/quote/invoice
+surface). `create_api_key` returns `{id, label, key_prefix, api_key}` — the only time the
+plaintext exists; `list_api_keys` returns prefix-only rows with creator email and `last_used_at`
+(touched at most once a minute by use); `revoke_api_key` sets `revoked_at` (revoke-not-delete,
+idempotent) and takes effect on the very next external call.
+
+### `api_list_shipments` / `api_get_shipment(p_api_key, p_ref)` / `api_list_quotes` / `api_list_invoices`
+
+Granted to `anon` — the API key is the authorization. Each resolves the key (rejecting garbage
+and revoked keys with `Invalid or revoked API key`), scopes strictly to the key's org, and
+returns minimal JSON: shipments (ref/mode/client/route/status/vessel), one shipment with full
+status history + invoices + document metadata (never `storage_path`/`file_name` — ADR-0017's
+stance), quotes (incl. `rejection_reason`), invoices (incl. `shipment_ref`, joined server-side).
+`resolve_api_key` itself is internal-only — EXECUTE explicitly revoked from `public`/`anon`/
+`authenticated`, verified rejected in QA.
+
+## Outbound webhooks (Week 18, ADR-0029)
+
+SST Freight POSTs signed JSON events to org-registered HTTPS endpoints as they happen. Event
+catalog: `shipment.status_changed`, `quote.sent`, `quote.accepted`, `quote.rejected`,
+`invoice.created`, `invoice.paid`, `document.uploaded`, plus `test.ping` (from
+`send_test_webhook`). Endpoint CRUD is plain RLS-gated table access on `webhook_endpoints`
+(admin-only policies — the signing secret is admin-eyes-only); delivery runs out-of-band via a
+pg_cron minute schedule, **never inside the transaction that caused the event** (measured: an
+invoice insert took 119ms with an unreachable endpoint registered).
+
+**Payload envelope** (versioned from day one — additive changes only within a version):
+
+```json
+{
+  "version": "1",
+  "event_type": "invoice.paid",
+  "occurred_at": "2026-07-16T09:30:00.000Z",
+  "data": { "ref": "INV-0007", "client_name": "…", "amount_inr": 5000, "status": "paid", "…": "…" }
+}
+```
+
+**Headers on every delivery**: `X-SST-Event` (the event type), `X-SST-Delivery-Id` (unique per
+delivery row — **dedupe on this**: semantics are at-least-once, a retry after a lost response
+re-sends the same id), and `X-SST-Signature`. Verify the signature by recomputing an HMAC-SHA256
+of the **raw request body** with the endpoint's `whsec_…` secret:
+
+```js
+const expected = 'sha256=' + crypto.createHmac('sha256', endpointSecret).update(rawBody).digest('hex')
+if (request.headers['x-sst-signature'] !== expected) reject()
+```
+
+**Retry behavior**: non-2xx responses and connection failures retry on a 1m/5m/30m/2h backoff
+ladder; after 5 attempts the delivery is marked `failed` (visible in the app's Integrations page
+and via `list_webhook_deliveries`). Disabled endpoints accumulate nothing new; their pending
+retries pause until re-enabled.
+
+### `list_webhook_deliveries(p_org_id uuid, p_endpoint_id uuid default null, p_limit int default 50)` / `send_test_webhook(p_endpoint_id uuid)`
+
+Owner/Admin only. The delivery ledger (status/attempts/last error/timestamps, capped at 200
+rows) and the "send a test.ping now" action the UI's Integrations page is built on.
+`enqueue_webhook_event` and `deliver_pending_webhooks` are internal-only (EXECUTE revoked from
+all client roles) — the former is called by capture triggers, the latter by the pg_cron job
+`deliver-webhooks`.

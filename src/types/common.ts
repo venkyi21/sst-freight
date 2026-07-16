@@ -1,4 +1,4 @@
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'settings' | 'auditlog' | 'platformadmin'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'integrations' | 'settings' | 'auditlog' | 'platformadmin'
 
 export const TENANT_COLORS = ['#2563eb', '#10b981', '#8b5cf6', '#f59e0b', '#ef4444', '#06b6d4']
 

@@ -16,6 +16,7 @@ import PlatformAdminPage from '../components/PlatformAdminPage'
 import CustomsFilingsPage from '../components/CustomsFilingsPage'
 import ReportingPage from '../components/ReportingPage'
 import OrgSettingsPage from '../components/OrgSettingsPage'
+import IntegrationsPage from '../components/IntegrationsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import OnboardingChecklist from '../components/OnboardingChecklist'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
@@ -37,7 +38,7 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   color: active ? '#f1f5f9' : '#8291a6',
 })
 
-const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'settings', 'auditlog', 'platformadmin']
+const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'integrations', 'settings', 'auditlog', 'platformadmin']
 
 function navPageFromPath(pathname: string): NavPage {
   const segment = pathname.split('/')[1]
@@ -273,6 +274,8 @@ export default function DashboardPage() {
         {navPage === 'customs' && <CustomsFilingsPage orgId={currentOrg.id} />}
 
         {navPage === 'reporting' && <ReportingPage orgId={currentOrg.id} />}
+
+        {navPage === 'integrations' && <IntegrationsPage org={currentOrg} />}
 
         {navPage === 'settings' && <OrgSettingsPage org={currentOrg} />}
       </main>

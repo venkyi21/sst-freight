@@ -216,7 +216,7 @@
           <tr><th>Testing Type</th><th>Category</th><th>Does TDD (Red-Green-Refactor) cover it?</th><th>Status in this project</th></tr>
         </thead>
         <tbody>
-          <tr><td class="type-name">Unit Testing</td><td class="category">Functional</td><td><span class="tdd-yes">✓ Yes</span> — TDD's native, core use case</td><td>Real but narrow automation since ADR-0026: Vitest suite (<code>npm test</code>, 28 tests — 4 <code>src/lib/*.test.ts</code> pure-logic files covering volumetric/GST/TCO/invoice aging, plus one RTL machinery-verification component test, ADR-0028), CI-enforced and gating production deploys (ADR-0027). Component tests grow defensively only, per <code>docs/ui-fix-playbook.md</code>.</td></tr>
+          <tr><td class="type-name">Unit Testing</td><td class="category">Functional</td><td><span class="tdd-yes">✓ Yes</span> — TDD's native, core use case</td><td>Real but narrow automation since ADR-0026: Vitest suite (<code>npm test</code>, 38 tests — 5 <code>src/lib/*.test.ts</code> pure-logic files covering volumetric/GST/TCO/invoice aging/integrations helpers, plus one RTL machinery-verification component test, ADR-0028), CI-enforced and gating production deploys (ADR-0027). Component tests grow defensively only, per <code>docs/ui-fix-playbook.md</code>.</td></tr>
           <tr><td class="type-name">Integration Testing</td><td class="category">Functional</td><td><span class="tdd-partial">◐ Partially</span> — needs real-dependency setup beyond the basic cycle</td><td>Ad-hoc only — real direct-API scripts against dev Supabase, written fresh per QA pass and discarded (see <code>docs/qa-testing.md</code>'s own stated methodology).</td></tr>
           <tr><td class="type-name">System Testing</td><td class="category">Functional</td><td><span class="tdd-no">✕ No</span> — too slow/broad for a red-green loop</td><td>Ad-hoc only — real Playwright (headless Chromium) click-throughs, not committed, not run in CI.</td></tr>
           <tr><td class="type-name">Acceptance Testing</td><td class="category">Functional</td><td><span class="tdd-no">✕ No</span> (needs ATDD/BDD)</td><td>Practiced informally as UAT — persona-based journeys in <code>docs/uat.md</code>, real browser, not Gherkin/BDD-tooled.</td></tr>
@@ -239,12 +239,12 @@
     <h2 class="chapter-title">§02 — Application-wide rollup</h2>
     <div class="scorecard">
       <div class="cell"><div class="num pending">1 / 8</div><div class="lbl">Testing types with any real automation (CI-run, committed test code) — Unit, since ADR-0026</div></div>
-      <div class="cell"><div class="num ok">18 / 18</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 17 fully verified, 1 partial</div></div>
-      <div class="cell"><div class="num pending">11 / 18</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
-      <div class="cell"><div class="num info">17 / 18</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
-      <div class="cell"><div class="num zero">0 / 18</div><div class="lbl">Modules with any Performance, Load, or Stress testing</div></div>
-      <div class="cell"><div class="num ok">130+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md)</div></div>
-      <div class="cell"><div class="num ok">31 / 31</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4)</div></div>
+      <div class="cell"><div class="num ok">19 / 19</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 18 fully verified, 1 partial</div></div>
+      <div class="cell"><div class="num pending">12 / 19</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
+      <div class="cell"><div class="num info">18 / 19</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
+      <div class="cell"><div class="num pending">1 / 19</div><div class="lbl">Modules with any Performance, Load, or Stress evidence (FR-19's measured 119ms non-blocking check — partial, not load testing)</div></div>
+      <div class="cell"><div class="num ok">160+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md)</div></div>
+      <div class="cell"><div class="num ok">35 / 35</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4)</div></div>
       <div class="cell"><div class="num pending">1</div><div class="lbl">Known, accepted gap still tracked as open (quote-conversion race, ADR-0006 — since narrowed by ADR-0022, not fully closed)</div></div>
     </div>
   </section>
@@ -698,6 +698,31 @@
         </dl>
       </div>
 
+      <!-- FR-19 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-19</span><span class="fr-name">Public API &amp; Webhooks</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Unit</dt><dd>Automated (ADR-0026 pattern) — <code>src/lib/integrations.test.ts</code>, 10 tests: key masking, https URL validation (mirrors the DB check), event labels, retry-schedule narration. Runs in CI, gates production deploys.</dd>
+          <dt>QAT</dt><dd>Week 18, three gated passes: QA-A 11/11 (key lifecycle, cross-tenant isolation via anonymous raw-HTTP calls, revocation, the schema's first function revoke proven); QA-B 12/12 (all 7 event types delivered to a real webhook.site receiver, HMAC independently recomputed and matched on every delivery, backoff ladder observed live); QA/UAT-C 11/11 (Playwright).</dd>
+          <dt>UAT</dt><dd>Week 18 pass, 4/4 — Priya's full admin journey (key shown once → endpoint → send test → DELIVERED chip in 21s → reveal secret → disable); Meera correctly sees no nav item and a clear not-authorized state on direct URL navigation.</dd>
+          <dt>Performance</dt><dd>Partial — one real measured property: an invoice insert with an unreachable webhook endpoint registered completed in 119ms (delivery provably out-of-transaction). Not load testing; the anon RPCs have no rate limiting (<code>docs/tech-debt.md</code>).</dd>
+          <dt>Security</dt><dd>Keys stored as SHA-256 hashes only; api_keys/webhook_deliveries tables zero-client-reachable (verified permission denied); internal functions explicitly revoked from all client roles (verified); admin-only endpoint RLS; HMAC-signed deliveries; cross-tenant isolation verified in both directions at both layers.</dd>
+          <dt>Gaps</dt><dd>No load/stress testing; at-least-once duplicates and replay protection documented as consumer responsibilities; backoff ladder verified to rung 2, terminal 'failed' state by code path only (full ladder spans hours by design).</dd>
+        </dl>
+      </div>
+
     </div>
 
     <div class="legend">
@@ -710,7 +735,7 @@
 
   <footer class="doc-footer">
     <div>SST Freight · Internal engineering doc · Not for distribution</div>
-    <div>18 modules · 8 testing types + QAT + UAT</div>
+    <div>19 modules · 8 testing types + QAT + UAT</div>
     <div id="last-synced">Last synced · 16 Jul 2026</div>
   </footer>
 

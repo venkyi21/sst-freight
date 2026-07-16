@@ -69,6 +69,24 @@ Supabase project (a fresh prod project, for instance) from scratch, **this step 
 separately** for every secret-dependent function, or that function will fail at runtime with
 "not configured in Vault" — a real, easy-to-forget step when standing up a new environment.
 
+### pg_cron extension (Week 18, ADR-0029)
+
+The webhook-delivery section of `schema.sql` (Week 18, Phase B) requires the **pg_cron**
+extension, which must be enabled **before** that section is applied: Supabase Dashboard →
+Database → Extensions → search "pg_cron" → toggle on. This is a one-time, per-project manual
+step (done on **dev** 2026-07-16, verified — the `select cron.schedule(...)` at the end of the
+section returned a job id; **not yet done on production**, which must happen when this feature
+ships there). The schedule call itself is idempotent — `cron.schedule` upserts by job name
+(`deliver-webhooks`), so re-running `schema.sql` never creates duplicate jobs. Verified fact,
+not assumption: applying the Phase B section *without* pg_cron enabled fails at the
+`create extension`/`cron.schedule` statements; everything before them in the same run still
+applies (the SQL Editor is not atomic across statements — see "How to apply it" above).
+
+Also learned during this feature's QA, relevant to any future schema work: **Supabase installs
+pgcrypto in the `extensions` schema**, so any function using `gen_random_bytes`/`digest`/`hmac`
+needs `set search_path = public, extensions` — a bare `public` search_path fails at runtime with
+"function does not exist" (verified live, QA-A 2026-07-16).
+
 ### Edge Function deployment (E-signature, ADR-0020)
 
 `supabase/functions/docusign-envelope/` is **not** part of `supabase/schema.sql` and is **not**
