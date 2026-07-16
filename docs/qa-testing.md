@@ -34,6 +34,13 @@ accepted gap — cross-referenced to `docs/tech-debt.md`, not silently left unst
   session's scratch space and discarded afterward. This file is the durable record of what was
   checked and what the result was; reproducing a check means re-deriving the script from this
   file's description, not re-running a saved one.
+- **Since 2026-07-16 (ADR-0026), one exception to "nothing automated"**: a committed Vitest unit
+  suite (`npm test`, `src/lib/*.test.ts`, run in CI on every push) covers the pure business math —
+  volumetric/chargeable weight, GST supply-type + CGST/SGST-vs-IGST amounts, TCO pricing, and
+  invoice aging buckets. That layer is separate from and doesn't replace anything in this file:
+  the passes recorded here remain the coverage for RLS, RPCs, grants, and everything else
+  server-side. Per-module coverage status across both layers lives in
+  `docs/testing-status-dashboard.html`.
 - **Date of this pass**: 2026-07-13 (Weeks 1–8 below); **refreshed 2026-07-14** with a
   regression spot-check on Weeks 1–8 plus full fresh coverage of every module shipped since
   (Week 9 onward, plus the two post-roadmap features) — see the new sections below the original

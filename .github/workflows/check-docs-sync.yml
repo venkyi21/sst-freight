@@ -52,4 +52,11 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Check docs sync
-        run: node scripts/check-docs-sync.js ${{ steps.diff.outputs.files }}
+        # The file list is multi-line, so it must reach the shell as an env var and be
+        # word-split there — interpolating ${{ ... }} directly into `run:` pastes each
+        # subsequent line as its own shell command, which is why this step failed on every
+        # run from the workflow's creation until 2026-07-16 (bash -e treated line 2, e.g.
+        # "CLAUDE.md", as a command and exited 127 before the check's verdict mattered).
+        env:
+          CHANGED_FILES: ${{ steps.diff.outputs.files }}
+        run: node scripts/check-docs-sync.js $CHANGED_FILES

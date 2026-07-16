@@ -1,0 +1,733 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SST Freight — Testing Status Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --paper: #fbfaf6;
+    --paper-raised: #f3f1e9;
+    --paper-sunken: #eeebe0;
+    --ink: #0f0f0f;
+    --ink-soft: #5f5a50;
+    --ink-faint: #7a7267;
+    --ink-faintest: #b5b0a3;
+    --ink-secondary: #2a2a2a;
+    --rule: #d6d2c4;
+    --accent: #c8371d;
+    --accent-wash: rgba(200, 55, 29, 0.06);
+    --accent-line: rgba(200, 55, 29, 0.25);
+    --risk: #a83a20;
+    --warn: #c87a1d;
+    --good: #4d7c4d;
+    --good-wash: rgba(77, 124, 77, 0.1);
+    --font-display: 'Source Serif 4', Georgia, serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+    --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --paper: #17140f; --paper-raised: #211d16; --paper-sunken: #2a2419;
+      --ink: #f2ede2; --ink-soft: #c9c0ae; --ink-faint: #96897a; --ink-faintest: #5c5346;
+      --ink-secondary: #cfc7b8; --rule: #3a3226;
+      --accent: #e8593a; --accent-wash: rgba(232, 89, 58, 0.09); --accent-line: rgba(232, 89, 58, 0.3);
+      --risk: #ff7a52; --warn: #e0a458; --good: #7cb87c; --good-wash: rgba(124, 184, 124, 0.12);
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #17140f; --paper-raised: #211d16; --paper-sunken: #2a2419;
+    --ink: #f2ede2; --ink-soft: #c9c0ae; --ink-faint: #96897a; --ink-faintest: #5c5346;
+    --ink-secondary: #cfc7b8; --rule: #3a3226;
+    --accent: #e8593a; --accent-wash: rgba(232, 89, 58, 0.09); --accent-line: rgba(232, 89, 58, 0.3);
+    --risk: #ff7a52; --warn: #e0a458; --good: #7cb87c; --good-wash: rgba(124, 184, 124, 0.12);
+  }
+  :root[data-theme="light"] {
+    --paper: #fbfaf6; --paper-raised: #f3f1e9; --paper-sunken: #eeebe0;
+    --ink: #0f0f0f; --ink-soft: #5f5a50; --ink-faint: #7a7267; --ink-faintest: #b5b0a3;
+    --ink-secondary: #2a2a2a; --rule: #d6d2c4;
+    --accent: #c8371d; --accent-wash: rgba(200, 55, 29, 0.06); --accent-line: rgba(200, 55, 29, 0.25);
+    --risk: #a83a20; --warn: #c87a1d; --good: #4d7c4d; --good-wash: rgba(77, 124, 77, 0.1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink); font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    background-image: radial-gradient(1200px 600px at 15% -10%, var(--accent-wash), transparent),
+      radial-gradient(900px 500px at 90% 10%, rgba(120, 120, 120, 0.05), transparent);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 0 clamp(18px, 4vw, 48px) 96px; }
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+    padding: 28px 0 20px; border-bottom: 1px solid var(--rule); margin-bottom: 40px;
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand .mark {
+    width: 34px; height: 34px; background: var(--accent); color: var(--paper); display: flex;
+    align-items: center; justify-content: center; font-family: var(--font-mono); font-weight: 700;
+    font-size: 13px; letter-spacing: -0.02em; flex: none;
+  }
+  .brand .kicker { font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.14em; text-transform: uppercase; }
+  .brand .title { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+
+  .hero h1 {
+    font-family: var(--font-display); font-size: clamp(28px, 3.8vw, 52px); line-height: 1.08;
+    font-weight: 400; margin: 0 0 16px; letter-spacing: -0.02em; text-wrap: balance;
+  }
+  .hero h1 em { color: var(--accent); font-style: italic; }
+  .hero .dek { font-size: 15.5px; line-height: 1.6; color: var(--ink-soft); max-width: 78ch; margin: 0 0 40px; }
+
+  section.chapter { margin-bottom: 56px; }
+  h2.chapter-title {
+    font-family: var(--font-display); font-size: clamp(22px, 2.6vw, 32px); font-weight: 400;
+    margin: 0 0 20px; letter-spacing: -0.01em; text-wrap: balance;
+  }
+
+  /* ── §01 reference table ─────────────────────────────── */
+  .ref-table { border: 1px solid var(--rule); background: var(--paper-raised); overflow-x: auto; }
+  .ref-table table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 760px; }
+  .ref-table th { text-align: left; font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); padding: 12px 16px; border-bottom: 1px solid var(--rule); background: var(--paper-sunken); }
+  .ref-table td { padding: 13px 16px; border-bottom: 1px solid var(--rule); vertical-align: top; color: var(--ink-secondary); line-height: 1.45; }
+  .ref-table tr:last-child td { border-bottom: none; }
+  .ref-table td.type-name { font-weight: 600; color: var(--ink); white-space: nowrap; }
+  .ref-table td.category { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+  .tdd-yes { color: var(--good); font-weight: 600; }
+  .tdd-partial { color: var(--warn); font-weight: 600; }
+  .tdd-no { color: var(--risk); font-weight: 600; }
+
+  /* ── §02 scorecard ────────────────────────────────────── */
+  .scorecard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 0; overflow: hidden; }
+  @media (max-width: 760px) { .scorecard { grid-template-columns: repeat(2, 1fr); } }
+  .scorecard .cell { background: var(--paper-raised); padding: 18px 20px; }
+  .scorecard .num { font-family: var(--font-mono); font-size: 28px; font-weight: 700; color: var(--ink); line-height: 1; margin-bottom: 8px; }
+  .scorecard .num.ok { color: var(--good); }
+  .scorecard .num.pending { color: var(--warn); }
+  .scorecard .num.info { color: var(--accent); }
+  .scorecard .num.zero { color: var(--risk); }
+  .scorecard .lbl { font-family: var(--font-body); font-size: 11.5px; color: var(--ink-faint); line-height: 1.4; }
+
+  /* ── §03 filters ──────────────────────────────────────── */
+  .filter-bar { display: flex; gap: 6px; padding: 6px; background: var(--paper-sunken); border: 1px solid var(--rule); flex-wrap: wrap; margin-bottom: 18px; width: fit-content; }
+  .filter-bar button {
+    all: unset; padding: 7px 13px; font-family: var(--font-mono); font-size: 10.5px; letter-spacing: 0.04em;
+    text-transform: uppercase; cursor: pointer; color: var(--ink-soft); white-space: nowrap; border-radius: 2px;
+  }
+  .filter-bar button.active { background: var(--accent); color: var(--paper); font-weight: 600; }
+  .filter-note { font-size: 12px; color: var(--ink-faint); margin-bottom: 18px; }
+
+  /* ── §03 matrix ───────────────────────────────────────── */
+  .matrix-wrap { border: 1px solid var(--rule); background: var(--paper-raised); overflow-x: auto; }
+  .matrix-row { display: grid; grid-template-columns: 230px repeat(10, 74px); border-bottom: 1px solid var(--rule); min-width: 1160px; }
+  .matrix-row:last-child { border-bottom: none; }
+  .matrix-row.head { background: var(--paper-sunken); position: sticky; top: 0; }
+  .matrix-row.head > div { padding: 10px 6px; font-family: var(--font-mono); font-size: 9px; color: var(--ink-faint); letter-spacing: 0.03em; text-transform: uppercase; text-align: center; line-height: 1.3; border-left: 1px solid var(--rule); }
+  .matrix-row.head > div:first-child { text-align: left; padding-left: 14px; border-left: none; }
+  .matrix-row.head > div.grp-func { background: var(--accent-wash); }
+  .matrix-row.head > div.grp-nonfunc { background: rgba(200,55,29,0.03); }
+  .matrix-row.head > div.grp-practice { background: var(--good-wash); }
+  .module-cell { padding: 12px 14px; display: flex; align-items: center; cursor: pointer; gap: 8px; }
+  .module-cell .fr-num { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faintest); flex: none; }
+  .module-cell .fr-name { font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.25; }
+  .module-cell .caret { margin-left: auto; font-size: 10px; color: var(--ink-faint); transition: transform 0.15s; flex: none; }
+  .matrix-row.open .module-cell .caret { transform: rotate(90deg); }
+  .chip-cell { display: flex; align-items: center; justify-content: center; border-left: 1px solid var(--rule); cursor: pointer; }
+  .chip { width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; font-family: var(--font-mono); }
+  .chip[data-level="verified"] { background: var(--good-wash); color: var(--good); }
+  .chip[data-level="partial"] { background: rgba(200,122,29,0.12); color: var(--warn); }
+  .chip[data-level="none"] { background: rgba(168,58,32,0.1); color: var(--risk); }
+  .chip[data-level="na"] { background: transparent; color: var(--ink-faintest); }
+  .detail-row { display: none; padding: 16px 20px 20px 24px; background: var(--paper-sunken); border-bottom: 1px solid var(--rule); font-size: 12.5px; color: var(--ink-secondary); line-height: 1.6; }
+  .matrix-row.open + .detail-row { display: block; }
+  .detail-row dl { display: grid; grid-template-columns: 110px 1fr; gap: 6px 14px; margin: 0; }
+  .detail-row dt { font-family: var(--font-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-faint); padding-top: 2px; }
+  .detail-row dd { margin: 0; }
+  .detail-row dd code { font-family: var(--font-mono); font-size: 11.5px; background: var(--paper-raised); padding: 1px 5px; border-radius: 3px; }
+
+  /* dim non-matching columns when a filter is active */
+  body[data-filter]:not([data-filter="all"]) .chip-cell:not([data-col="__ACTIVE__"]) { opacity: 1; }
+  body[data-filter="unit"] .chip-cell:not([data-col="unit"]),
+  body[data-filter="integration"] .chip-cell:not([data-col="integration"]),
+  body[data-filter="system"] .chip-cell:not([data-col="system"]),
+  body[data-filter="acceptance"] .chip-cell:not([data-col="acceptance"]),
+  body[data-filter="performance"] .chip-cell:not([data-col="performance"]),
+  body[data-filter="load"] .chip-cell:not([data-col="load"]),
+  body[data-filter="stress"] .chip-cell:not([data-col="stress"]),
+  body[data-filter="security"] .chip-cell:not([data-col="security"]),
+  body[data-filter="qat"] .chip-cell:not([data-col="qat"]),
+  body[data-filter="uat"] .chip-cell:not([data-col="uat"]) { opacity: 0.18; }
+  body[data-filter="unit"] .matrix-row.head div.grp-h[data-col="unit"],
+  body[data-filter="integration"] .matrix-row.head div.grp-h[data-col="integration"],
+  body[data-filter="system"] .matrix-row.head div.grp-h[data-col="system"],
+  body[data-filter="acceptance"] .matrix-row.head div.grp-h[data-col="acceptance"],
+  body[data-filter="performance"] .matrix-row.head div.grp-h[data-col="performance"],
+  body[data-filter="load"] .matrix-row.head div.grp-h[data-col="load"],
+  body[data-filter="stress"] .matrix-row.head div.grp-h[data-col="stress"],
+  body[data-filter="security"] .matrix-row.head div.grp-h[data-col="security"],
+  body[data-filter="qat"] .matrix-row.head div.grp-h[data-col="qat"],
+  body[data-filter="uat"] .matrix-row.head div.grp-h[data-col="uat"] { background: var(--accent); color: var(--paper) !important; }
+
+  .legend { display: flex; gap: 20px; margin-top: 14px; flex-wrap: wrap; font-size: 12px; color: var(--ink-soft); }
+  .legend .item { display: flex; align-items: center; gap: 7px; }
+  .legend .chip { width: 16px; height: 16px; font-size: 0; }
+
+  .callout { border-left: 3px solid var(--accent); background: var(--accent-wash); padding: 16px 20px; font-size: 13px; line-height: 1.6; color: var(--ink-secondary); margin-top: 20px; }
+  .callout strong { color: var(--ink); }
+
+  footer.doc-footer { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding-top: 28px; border-top: 1px solid var(--rule); font-family: var(--font-mono); font-size: 10.5px; color: var(--ink-faint); letter-spacing: 0.03em; }
+</style>
+</head>
+<body data-filter="all">
+<div class="wrap">
+
+  <div class="topbar">
+    <div class="brand">
+      <div class="mark">T</div>
+      <div>
+        <div class="kicker">SST Freight · Internal</div>
+        <div class="title">Testing Status Dashboard</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="hero">
+    <div class="eyebrow">Living document · updated with every QA/UAT pass</div>
+    <h1>What's actually <em>tested</em>, not what's assumed</h1>
+    <p class="dek">
+      Every chip below reflects a real, dated scenario run against the dev Supabase project or a real
+      Playwright browser — recorded in <code>docs/qa-testing.md</code> (QAT) and <code>docs/uat.md</code>
+      (UAT). Where no real check exists for a module/testing-type pair, that's shown plainly as
+      <strong>None</strong>, not guessed as passing. Click a module row to see the exact citation.
+    </p>
+  </div>
+
+  <section class="chapter" id="reference">
+    <h2 class="chapter-title">§01 — Testing type reference</h2>
+    <div class="ref-table">
+      <table>
+        <thead>
+          <tr><th>Testing Type</th><th>Category</th><th>Does TDD (Red-Green-Refactor) cover it?</th><th>Status in this project</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="type-name">Unit Testing</td><td class="category">Functional</td><td><span class="tdd-yes">✓ Yes</span> — TDD's native, core use case</td><td>Real but narrow automation since ADR-0026: Vitest suite (<code>npm test</code>, 28 tests — 4 <code>src/lib/*.test.ts</code> pure-logic files covering volumetric/GST/TCO/invoice aging, plus one RTL machinery-verification component test, ADR-0028), CI-enforced and gating production deploys (ADR-0027). Component tests grow defensively only, per <code>docs/ui-fix-playbook.md</code>.</td></tr>
+          <tr><td class="type-name">Integration Testing</td><td class="category">Functional</td><td><span class="tdd-partial">◐ Partially</span> — needs real-dependency setup beyond the basic cycle</td><td>Ad-hoc only — real direct-API scripts against dev Supabase, written fresh per QA pass and discarded (see <code>docs/qa-testing.md</code>'s own stated methodology).</td></tr>
+          <tr><td class="type-name">System Testing</td><td class="category">Functional</td><td><span class="tdd-no">✕ No</span> — too slow/broad for a red-green loop</td><td>Ad-hoc only — real Playwright (headless Chromium) click-throughs, not committed, not run in CI.</td></tr>
+          <tr><td class="type-name">Acceptance Testing</td><td class="category">Functional</td><td><span class="tdd-no">✕ No</span> (needs ATDD/BDD)</td><td>Practiced informally as UAT — persona-based journeys in <code>docs/uat.md</code>, real browser, not Gherkin/BDD-tooled.</td></tr>
+          <tr><td class="type-name">Performance Testing</td><td class="category">Non-functional</td><td><span class="tdd-no">✕ No</span></td><td>None. Explicitly out of scope every time it was considered — no load-testing infrastructure exists.</td></tr>
+          <tr><td class="type-name">Load Testing</td><td class="category">Non-functional</td><td><span class="tdd-no">✕ No</span></td><td>None. Same as above.</td></tr>
+          <tr><td class="type-name">Stress Testing</td><td class="category">Non-functional</td><td><span class="tdd-no">✕ No</span></td><td>None. Same as above.</td></tr>
+          <tr><td class="type-name">Security Testing</td><td class="category">Non-functional</td><td><span class="tdd-no">✕ No</span></td><td>Real, substantial coverage — every module's cross-tenant RLS isolation and privilege-escalation paths are directly checked per QA pass (not automated, but genuinely adversarial).</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout">
+      <strong>Note on terminology:</strong> "Acceptance" and "UAT" below track closely by design —
+      UAT is this project's actual (informal) implementation of acceptance testing. They're kept as
+      separate columns because UAT is persona/journey-shaped while formal Acceptance Testing implies
+      Gherkin/BDD-style specs, which this project doesn't use.
+    </div>
+  </section>
+
+  <section class="chapter" id="rollup">
+    <h2 class="chapter-title">§02 — Application-wide rollup</h2>
+    <div class="scorecard">
+      <div class="cell"><div class="num pending">1 / 8</div><div class="lbl">Testing types with any real automation (CI-run, committed test code) — Unit, since ADR-0026</div></div>
+      <div class="cell"><div class="num ok">18 / 18</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 17 fully verified, 1 partial</div></div>
+      <div class="cell"><div class="num pending">11 / 18</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
+      <div class="cell"><div class="num info">17 / 18</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
+      <div class="cell"><div class="num zero">0 / 18</div><div class="lbl">Modules with any Performance, Load, or Stress testing</div></div>
+      <div class="cell"><div class="num ok">130+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md)</div></div>
+      <div class="cell"><div class="num ok">31 / 31</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4)</div></div>
+      <div class="cell"><div class="num pending">1</div><div class="lbl">Known, accepted gap still tracked as open (quote-conversion race, ADR-0006 — since narrowed by ADR-0022, not fully closed)</div></div>
+    </div>
+  </section>
+
+  <section class="chapter" id="matrix">
+    <h2 class="chapter-title">§03 — Module-wise coverage matrix</h2>
+    <div class="filter-bar" id="filterBar">
+      <button type="button" class="active" data-filter-btn="all">All</button>
+      <button type="button" data-filter-btn="unit">Unit</button>
+      <button type="button" data-filter-btn="integration">Integration</button>
+      <button type="button" data-filter-btn="system">System</button>
+      <button type="button" data-filter-btn="acceptance">Acceptance</button>
+      <button type="button" data-filter-btn="performance">Perf</button>
+      <button type="button" data-filter-btn="load">Load</button>
+      <button type="button" data-filter-btn="stress">Stress</button>
+      <button type="button" data-filter-btn="security">Security</button>
+      <button type="button" data-filter-btn="qat">QAT</button>
+      <button type="button" data-filter-btn="uat">UAT</button>
+    </div>
+    <div class="filter-note">Click a filter to highlight that column across every module. Click any module row to expand its real, cited evidence.</div>
+
+    <div class="matrix-wrap">
+      <div class="matrix-row head">
+        <div>Module (FR)</div>
+        <div class="grp-h grp-func" data-col="unit">Unit</div>
+        <div class="grp-h grp-func" data-col="integration">Integ.</div>
+        <div class="grp-h grp-func" data-col="system">System</div>
+        <div class="grp-h grp-func" data-col="acceptance">Accept.</div>
+        <div class="grp-h grp-nonfunc" data-col="performance">Perf</div>
+        <div class="grp-h grp-nonfunc" data-col="load">Load</div>
+        <div class="grp-h grp-nonfunc" data-col="stress">Stress</div>
+        <div class="grp-h grp-nonfunc" data-col="security">Security</div>
+        <div class="grp-h grp-practice" data-col="qat">QAT</div>
+        <div class="grp-h grp-practice" data-col="uat">UAT</div>
+      </div>
+
+      <!-- FR-1 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-1</span><span class="fr-name">Auth &amp; Organizations</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 1, 7/7 scenarios — dup-email signup rejected, wrong-password rejected, Org B sees zero Org A rows via direct query. <code>docs/qa-testing.md</code> §Week 1.</dd>
+          <dt>UAT</dt><dd>Priya (Owner): "see my dashboard and start a new booking the moment I log in" — accepted. <code>docs/uat.md</code>.</dd>
+          <dt>Security</dt><dd>Core multi-tenant isolation check — Org B's member sees zero Org A shipments/contacts via direct table query, not just an empty UI list.</dd>
+          <dt>Gaps</dt><dd>No automated unit/integration tests; System/Acceptance coverage is implicit via the login step of other UAT journeys, not a dedicated signup-flow browser test.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-2 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-2</span><span class="fr-name">Booking (Ocean/Air/Truck)</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="partial">◐</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Unit</dt><dd>Automated (ADR-0026) — <code>src/lib/volumetric.test.ts</code>: the exact 100×80×60cm → 80kg case from the Week 1 QA pass, zero-dimension edge, and all three gross-vs-volumetric chargeable-weight branches. Runs in CI on every push.</dd>
+          <dt>QAT</dt><dd>Week 1 — ocean booking `BKG-` ref insert, exact volumetric weight math (100×80×60cm/6000=80kg vs gross 120kg → chargeable 120kg), truck defaults to 'Booked'. All verified.</dd>
+          <dt>UAT</dt><dd>Partial — Priya's "open a shipment and see where it is" tests viewing an existing booking, not the creation flow itself. No dedicated "create a new booking" persona journey.</dd>
+          <dt>Security</dt><dd>Org isolation (Week 1) covers shipments the same way as contacts.</dd>
+          <dt>Gaps</dt><dd>No UAT for the actual booking-creation form; unit coverage is the weight math only, not the booking flow itself.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-3 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-3</span><span class="fr-name">Directory (Contacts)</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 2, 3/3 — shipper contact created; vendor contact without vendor_type rejected by check constraint; a plain Member can create a contact (never module-gated, ADR-0012).</dd>
+          <dt>UAT</dt><dd>Meera (Member): "add a new client contact without waiting for my manager" — accepted, no permission wall.</dd>
+          <dt>Security</dt><dd>Org B sees zero Org A contacts via direct query (Week 1/2).</dd>
+          <dt>Gaps</dt><dd>No automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-4 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-4</span><span class="fr-name">Roles &amp; Team Management</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 3, 5/5 — plain Member can't self-promote (direct RPC, not just hidden button); Admin can't demote/remove Owner; no RPC path grants 'owner' post-creation; platform admin sees both tenants; non-platform-admin rejected.</dd>
+          <dt>UAT</dt><dd>Priya: manages team access, sees no Platform Admin item. Meera: sees the member list but no promote/demote/remove buttons (correctly restricted).</dd>
+          <dt>Security</dt><dd>This module *is* privilege-escalation security testing — Week 3 is essentially a dedicated security pass.</dd>
+          <dt>Gaps</dt><dd>No automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-5 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-5</span><span class="fr-name">Shipment Status Workflow</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="partial">◐</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 4, 4/4 — auto-logs initial 'Booked' status; advance_shipment_status moves Booked→Docs and logs it; direct UPDATE on shipments.status rejected (grant genuinely revoked); cannot advance past 'Delivered' (checked through the full sequence).</dd>
+          <dt>UAT</dt><dd>Partial — Priya views the visual status stepper on an existing shipment; no persona journey actually advances a shipment's status.</dd>
+          <dt>Security</dt><dd>The revoked-UPDATE-grant check is a real security test, not just a functional one.</dd>
+          <dt>Gaps</dt><dd>No UAT for the actual status-advance action; no automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-6 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-6</span><span class="fr-name">Rate Management &amp; Quoting</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 5, 4/5 (the 5th was a known accepted gap, since closed — see below); Week 15, 18/18 direct-API + 12/12 Playwright + 5/5 regression, including the fixed quote-conversion double-submit race (ADR-0022).</dd>
+          <dt>UAT</dt><dd>Arjun: quote-to-booking conversion visible. Meera (Week 15): send/reject-with-reason/archive all instant and correct in the pipeline strip.</dd>
+          <dt>Security</dt><dd>Module-gating enforced server-side (Week 5); Org B quote isolation (Week 15, cases 15-17).</dd>
+          <dt>Gaps</dt><dd>No automated tests; the double-submit race is narrowed, not fully closed (a second orphan shipment row can still be created — <code>docs/tech-debt.md</code>).</dd>
+        </dl>
+      </div>
+
+      <!-- FR-7 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-7</span><span class="fr-name">Accounting</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Unit</dt><dd>Automated (ADR-0026) — <code>src/lib/gst.test.ts</code> (intra-state 50/50 CGST/SGST split, inter-state IGST incl. the real 18% case, unknown-state defaults to inter-state) and <code>src/lib/invoiceAging.test.ts</code> (30/31/61-day bucket boundaries, paid/null-due-date exclusion — extracted from AccountingPage.tsx test-first, a genuine Red-Green-Refactor cycle). Runs in CI on every push.</dd>
+          <dt>QAT</dt><dd>Week 6, 7/7 — multi-currency FX snapshot, trigger-enforced fx_rate edit rights, aging buckets, mark-paid, module gating. Week 14, 13/13 — itemization, GST CGST/SGST-vs-IGST split, per-shipment profitability, cross-org line-item isolation.</dd>
+          <dt>UAT</dt><dd>Arjun: aging cards + one-click Revenue DNA trace. Rahul: Instant Payout column (Model 2 only). Priya (Week 15): archiving an invoice doesn't move real P&L/revenue totals.</dd>
+          <dt>Security</dt><dd>Module gating (Week 6) + cross-org quote/invoice line-item isolation (Week 14, cases 10-12).</dd>
+          <dt>Gaps</dt><dd>Unit coverage is the GST/aging math only — FX fetch, P&L totals, and the payment flows remain untested; no performance testing of the P&L/profitability aggregation queries at scale.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-8 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-8</span><span class="fr-name">Customer Tracking Portal</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 7, 3/3 — genuinely anonymous token resolution (no prior sign-in call at all); payload excludes changed_by_email/fx_rate; garbage token rejected cleanly. Regression-confirmed after Week 11's documents extension.</dd>
+          <dt>UAT</dt><dd>Anonymous consignee (both passes): opened a real tracking link in a completely fresh browser context, no cookies, went straight to the tracking view.</dd>
+          <dt>Security</dt><dd>Sensitive-field exclusion from the public payload is itself a real security check, not just functional.</dd>
+          <dt>Gaps</dt><dd>No automated tests; no load test of the anonymous RPC path (a public link could see burst traffic).</dd>
+        </dl>
+      </div>
+
+      <!-- FR-9 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-9</span><span class="fr-name">Audit Trail</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>6/6 — accurate old/new diff on a contact update; plain Member rejected from list_audit_log; uncaught window error, unhandled rejection, React render crash, and a real HTTP POST to the log endpoint all captured with correct <code>source</code> tags.</dd>
+          <dt>UAT</dt><dd>Priya: "I want a real record of who changed what" — saw actual entries, not a placeholder.</dd>
+          <dt>Security</dt><dd>The list_audit_log role-gate check is a direct privilege test.</dd>
+          <dt>Gaps</dt><dd>The React-error-boundary and HTTP-POST checks were done earlier via a temporary trigger, not re-triggered every pass (avoids repeated temporary code edits) — noted transparently in <code>docs/qa-testing.md</code> itself.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-10 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-10</span><span class="fr-name">Platform Monetization</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 8, 5/5 — Meter-Flip switches billing model and is itself audit-logged; a Model 2 non-INR invoice produces an fx_spread rake at exactly 2% ($100 @ fx 83 → ₹166.00, arithmetic checked); scoped revenue visibility correct both ways.</dd>
+          <dt>UAT</dt><dd>Rahul: sees the Instant Payout column and simulated insurance action, clearly labeled as simulated. Karthik: Platform Admin sees both tenants and the real computed revenue entry.</dd>
+          <dt>Security</dt><dd>Cross-org revenue-view rejection (a different org's member can't see Client B's revenue) is the core security test here.</dd>
+          <dt>Gaps</dt><dd>No real settlement/payment-rail testing (by design — everything here is simulated ledger entries, ADR-0013); no automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-11 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-11</span><span class="fr-name">Carrier Tracking Registration</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 9, 2/2 — cross-org registration rejected; a real Terminal49 registration call succeeds end-to-end (real HTTP call, real Vault secret, real response), including exercising the "duplicate" recovery path.</dd>
+          <dt>UAT</dt><dd><strong>None.</strong> No persona journey in <code>docs/uat.md</code> covers carrier tracking registration at all — a genuine, honest gap.</dd>
+          <dt>Security</dt><dd>Cross-org rejection check (a different org's member can't register tracking for Org A's shipment).</dd>
+          <dt>Gaps</dt><dd>No UAT, no System-level (browser UI) check — only direct-API tested; the free-tier read-status limitation is a separate, documented tech-debt item, not a test gap.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-12 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-12</span><span class="fr-name">Customs Filing Simulator</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 10, 3/3 — seeded hs_codes reference intact (spot-checked 8517.12: BCD 0%, IGST 18%); Org B sees zero Org A filings; Org B insert into Org A rejected.</dd>
+          <dt>UAT</dt><dd>Arjun: filing wizard loaded with HS-code search available for real-time duty lookup.</dd>
+          <dt>Security</dt><dd>Both the read-isolation and insert-rejection checks are genuine cross-tenant security tests.</dd>
+          <dt>Gaps</dt><dd>No automated tests; HS-code coverage is representative (~22 codes), not exhaustive (<code>docs/tech-debt.md</code>) — a data-completeness gap, not a test gap.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-13 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-13</span><span class="fr-name">Document Management</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="partial">◐</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 11, 3/3 — cross-org document-row and Storage-path isolation, real upload succeeds. GAP 05 (SCMTR), 12/12 — the compliance report shows exact stored duty rates/amounts with a filing, and a graceful message without one.</dd>
+          <dt>UAT</dt><dd>Partial — Arjun and the anonymous consignee cover the original 4 document types; the newer SCMTR Compliance Report (GAP 05) has real QAT coverage but no dedicated UAT persona walkthrough yet.</dd>
+          <dt>Security</dt><dd>Storage RLS (both table rows and Storage objects) cross-tenant checked directly, not just hidden in the UI.</dd>
+          <dt>Gaps</dt><dd>SCMTR report needs its own UAT pass; no automated tests; no virus/malware scanning of uploads (<code>docs/tech-debt.md</code>, accepted for same-tenant users).</dd>
+        </dl>
+      </div>
+
+      <!-- FR-14 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-14</span><span class="fr-name">Reporting &amp; Custom Dashboards</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>Week 12, 3/3 — Owner can upsert their own dashboard_preferences; a teammate in the *same* org cannot read another user's preference row (per-user RLS, ADR-0018); Org B sees zero Org A preference rows.</dd>
+          <dt>UAT</dt><dd>Priya: KPI tiles, volume/status breakdowns, and Customer Profitability all rendered with real numbers and a "Live" timestamp badge on load.</dd>
+          <dt>Security</dt><dd>The per-user (not just per-org) RLS check is a genuinely distinct security boundary, first introduced this module.</dd>
+          <dt>Gaps</dt><dd>No performance testing of the aggregation queries at real data volume; no automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-15 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-15</span><span class="fr-name">White-Label Branding</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="verified">✓</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>4/4 — Owner can call update_org_branding; a plain Member is rejected (is_org_admin gate); Org B's Owner can't update Org A's branding; the org-logos bucket is confirmed intentionally public-read.</dd>
+          <dt>UAT</dt><dd>Priya: full logo/color edit controls enabled. Meera: sees the current branding but edit controls are disabled with an explicit "Only an Owner or Admin can edit" message — not a broken form.</dd>
+          <dt>Security</dt><dd>Cross-org branding-update rejection, and confirming the public bucket's open-read is an intentional design choice, not an RLS gap.</dd>
+          <dt>Gaps</dt><dd>No logo-removal flow, no image validation/resizing (<code>docs/tech-debt.md</code>) — accepted product gaps, not test gaps; no automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-16 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-16</span><span class="fr-name">E-Signature (Quotes &amp; BOL)</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="partial">◐</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>3/3 — a real DocuSign sandbox envelope created end-to-end (real JWT signing, real token exchange, real Envelopes API call); Org B rejected from reading Org A's esign_requests; status refresh calls DocuSign's real GET-envelope endpoint.</dd>
+          <dt>UAT</dt><dd>Partial — Arjun's "send a quote out for signature" is covered; no dedicated UAT persona journey exists yet for the Bill-of-Lading e-sign path specifically.</dd>
+          <dt>Security</dt><dd>Cross-org esign_requests rejection directly checked.</dd>
+          <dt>Gaps</dt><dd>Sandbox-only, not legally binding (accepted, <code>docs/tech-debt.md</code>); no real-time status push; BOL e-sign path lacks its own UAT scenario; no automated tests.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-17 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-17</span><span class="fr-name">Public TCO Calculator</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="na">—</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="na">—</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Unit</dt><dd>Automated (ADR-0026) — <code>src/lib/tcoCalculator.test.ts</code>: the exact ₹42L 10-year SST total (same figure the Playwright pass verified on-screen), competitor linear per-seat scaling off the published 30-seat baseline, negative-seat clamp, and <code>formatInr</code>'s Cr/L/plain boundaries. Runs in CI on every push.</dd>
+          <dt>QAT</dt><dd>Partial — verified directly via a real Playwright click-through in a genuinely fresh browser context (2026-07-15): loads with no login prompt; default inputs reproduce the exact totals published in the competitor dashboard; doubling seats leaves SST's flat total unchanged. Documented in <code>docs/srs.md</code>'s own AC, not a dedicated <code>qa-testing.md</code> section.</dd>
+          <dt>UAT</dt><dd><strong>None.</strong> <code>docs/uat.md</code> has no "prospect" persona at all — a genuine gap, since this page's entire audience is prospects, not the six existing personas.</dd>
+          <dt>Security</dt><dd>N/A by design — no login, no per-tenant data, nothing to isolate (ADR-0023).</dd>
+          <dt>Gaps</dt><dd>No UAT persona for this page's actual audience; pricing figures are derived estimates, stated plainly on the page itself, not a test gap.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-18 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-18</span><span class="fr-name">Onboarding Checklist</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>QAT</dt><dd>GAP 03, part of 12/12 combined with SCMTR — a step flips from not-done to done live after the real action, no reload; dismiss persists across reload; auto-hides once every step is genuinely complete; 6/6 cross-user/cross-org RLS checks on <code>user_onboarding_state</code>.</dd>
+          <dt>UAT</dt><dd><strong>None.</strong> No dedicated persona journey walks through the onboarding checklist as a first-login experience — a real gap, since this feature exists specifically for new users.</dd>
+          <dt>Security</dt><dd>6/6 direct-API checks — same-org different-user and cross-org isolation on the new table.</dd>
+          <dt>Gaps</dt><dd>Needs a UAT pass with a genuinely fresh persona (none of the 7 existing personas are "brand new" by definition); no automated tests.</dd>
+        </dl>
+      </div>
+
+    </div>
+
+    <div class="legend">
+      <div class="item"><div class="chip" data-level="verified">✓</div> Verified — real, cited evidence exists</div>
+      <div class="item"><div class="chip" data-level="partial">◐</div> Partial — some real evidence, real gap remains</div>
+      <div class="item"><div class="chip" data-level="none">✕</div> None — no real check exists</div>
+      <div class="item"><div class="chip" data-level="na">—</div> N/A — this testing type doesn't apply to this module</div>
+    </div>
+  </section>
+
+  <footer class="doc-footer">
+    <div>SST Freight · Internal engineering doc · Not for distribution</div>
+    <div>18 modules · 8 testing types + QAT + UAT</div>
+    <div id="last-synced">Last synced · 16 Jul 2026</div>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('[data-filter-btn]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      document.body.dataset.filter = btn.dataset.filterBtn;
+      document.querySelectorAll('[data-filter-btn]').forEach(function (b) { b.classList.toggle('active', b === btn); });
+    });
+  });
+  document.querySelectorAll('.matrix-row[data-row] .module-cell').forEach(function (cell) {
+    cell.addEventListener('click', function () {
+      cell.closest('.matrix-row').classList.toggle('open');
+    });
+  });
+</script>
+</body>
+</html>

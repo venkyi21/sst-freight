@@ -326,6 +326,27 @@ is a near-term coding task, and none of it should be attempted without that infr
   (ADR-0025) — revisit only if a future need for clean URLs justifies adding and testing a
   404.html SPA-fallback shim across both this app's base paths (`/` and `/preview/`).
 
+## Unit testing (ADR-0026)
+
+- **Automated unit coverage is real but deliberately narrow: 4 `src/lib/` modules, nothing else.**
+  The Vitest suite (`npm test`, CI-enforced via `.github/workflows/test.yml`) covers
+  `volumetric.ts`, `gst.ts`, `tcoCalculator.ts`, and `invoiceAging.ts` — pure business math with
+  zero mocking. Deliberately untested: the entire `src/api/` data-access layer (thin Supabase
+  wrappers — unit tests there would mock the client and assert we called the mock, while the real
+  risk surface, RLS/grants/triggers, lives server-side and is exercised by the manual QA passes),
+  all React components (covered by Playwright-based UAT walkthroughs), the remaining `src/lib/`
+  modules with side effects (`fxRates.ts` fetch, `errorLogger.ts`, `documentHtml.ts`,
+  `refGenerator.ts`), and every Postgres function in `supabase/schema.sql` (no pgTAP or similar DB
+  test harness exists). Closing this incrementally: extract inline component logic to `src/lib/`
+  test-first whenever it's touched (the `invoiceAging` extraction is the template); a DB-function
+  test harness would be its own decision (new ADR). The per-module status lives in
+  `docs/testing-status-dashboard.html`'s Unit column — 3 of 18 modules verified as of 2026-07-16.
+  **Component testing now has its decided policy** (ADR-0027, 2026-07-16): defensive-only — RTL
+  regression tests are written when a real UI wiring bug is reported, never proactively, per the
+  workflow in `docs/ui-fix-playbook.md`. The open part of this debt is therefore only the
+  *first occurrence* window: a wiring bug that has never happened before is still caught only by
+  a human or a manual UAT pass, accepted deliberately.
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in
