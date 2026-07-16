@@ -341,6 +341,11 @@ is a near-term coding task, and none of it should be attempted without that infr
   test-first whenever it's touched (the `invoiceAging` extraction is the template); a DB-function
   test harness would be its own decision (new ADR). The per-module status lives in
   `docs/testing-status-dashboard.html`'s Unit column — 3 of 18 modules verified as of 2026-07-16.
+  **Component testing now has its decided policy** (ADR-0027, 2026-07-16): defensive-only — RTL
+  regression tests are written when a real UI wiring bug is reported, never proactively, per the
+  workflow in `docs/ui-fix-playbook.md`. The open part of this debt is therefore only the
+  *first occurrence* window: a wiring bug that has never happened before is still caught only by
+  a human or a manual UAT pass, accepted deliberately.
 
 ## Dependencies
 

@@ -19,7 +19,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # main only: the unit suite must pass before a build reaches production (ADR-0027).
+  # dev/preview deploys are deliberately ungated — iteration speed there is untouched.
+  test:
+    if: github.ref_name == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
+
   build-and-deploy:
+    needs: test
+    # Run when the gate passed (main) OR was skipped entirely (dev) — but never when it failed.
+    if: always() && (needs.test.result == 'success' || needs.test.result == 'skipped')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
