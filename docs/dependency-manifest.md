@@ -30,10 +30,18 @@ bumps a version.
 | `oxlint` | `0.9.10` | devDependency |
 | `typescript` | `5.9.3` | devDependency |
 | `vite` | `5.4.21` | devDependency |
+| `vitest` | `3.2.7` | devDependency |
 
 **Added 2026-07-15 (ADR-0025)**: `@tanstack/react-query` and `react-router-dom` — a data-fetching
 cache/dedupe layer and hash-based client-side routing, both pinned to the exact versions
 `npm install` resolved at pin time, per the same convention as every other entry above.
+
+**Added 2026-07-16 (ADR-0026)**: `vitest` — the project's first unit-test framework. Pinned to
+`3.2.7`, **not** the latest 4.x, deliberately: Vitest 4 requires `vite >= 6` and this project pins
+`vite@5.4.21`; 3.2.x is the newest line compatible with Vite 5. Within 3.2.x, `3.2.7` (not the
+initially-resolved `3.2.4`) because versions below 3.2.6 carry a critical advisory
+(GHSA-5xrq-8626-4rwp, Vitest UI server arbitrary file read/execute) — dev-only exposure, but a
+free fix within the same minor line, so taken immediately rather than deferred.
 
 **Trade-off, stated plainly**: pinning trades "automatically pick up patch fixes" for "nothing
 changes until a human decides it should." For a solo-developer project where an unreviewed patch
@@ -107,6 +115,14 @@ finding is current as of the date above.
 
 Re-run 2026-07-15 after adding `@tanstack/react-query` and `react-router-dom` (ADR-0025): same 2
 findings, same single advisory — neither new package introduced a new vulnerability.
+
+Re-run 2026-07-16 after adding `vitest@3.2.7` (ADR-0026): back to the same 2 findings (`npm audit`
+now labels the vite one **high** rather than moderate, reflecting newer advisories against
+`vite <= 6.4.2` — same deferred-upgrade decision, see `docs/tech-debt.md`). Note the version
+history matters here: the first install resolved `vitest@3.2.4`, which itself flagged a
+**critical** advisory (GHSA-5xrq-8626-4rwp); bumping to `3.2.7` within the same minor line cleared
+it before anything was committed. `vitest` is a devDependency — nothing from it ships in `dist/`,
+so §2's production license inventory is unchanged (re-verified with the same command).
 
 ## How to refresh this file
 

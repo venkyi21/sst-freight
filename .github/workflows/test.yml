@@ -1,0 +1,30 @@
+name: Unit tests
+
+# Runs the Vitest unit suite (src/lib/*.test.ts — pure business-logic modules, ADR-0026) on
+# every push to main/dev and every PR. Same trigger shape as check-docs-sync.yml. This is the
+# first committed, CI-enforced automated test layer in the project; the QA/UAT passes in
+# docs/qa-testing.md and docs/uat.md remain the (manual) coverage for everything else.
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test
