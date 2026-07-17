@@ -19,6 +19,14 @@ dist-ssr
 # content itself, but not meant to be tracked (same principle as node_modules).
 supabase/.temp
 
+# Local reference material (screenshots/PDFs saved during working sessions) — kept on disk,
+# deliberately not tracked (docs-as-code covers the actual documentation).
+SupabaseEdge_EnterpriseBuyout.png
+docs/ProjDoc_System.png
+docs/Dual-Engine Monetization Core v2.pdf
+docs/SST Freight — Roadmap & Gap Reference.pdf
+docs/SST Freight — User Guide.pdf
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

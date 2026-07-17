@@ -254,7 +254,7 @@ export default function DashboardPage() {
           />
         )}
         {navPage === 'quotes' && user && isModuleEnabled(currentOrg, 'quotes') && (
-          <RatesQuotesPage orgId={currentOrg.id} userId={user.id} onBookingCreated={handleCreated} />
+          <RatesQuotesPage orgId={currentOrg.id} onBookingCreated={handleCreated} />
         )}
 
         {navPage === 'accounting' && !isModuleEnabled(currentOrg, 'accounting') && (

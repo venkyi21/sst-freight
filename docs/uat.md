@@ -238,3 +238,33 @@ project. This pass also closes a long-standing gap in this file's coverage patte
 first feature whose *external consumer* (an ERP/CRM system) isn't a persona who can click through
 a UI — for that side, the QA-B gate's real webhook.site receiver and raw-HTTP API calls in
 `docs/qa-testing.md` stand in as the "persona."
+
+## Week 19 pass — Quotes on the business-logic tier (ADR-0030, 2026-07-17)
+
+An architecture migration, not a new feature — so the UAT question was the inverse of usual:
+**does everything a user already relied on still behave identically now that every quote write
+routes through the `quotes-service` Edge Function?** Run as a real Playwright-driven browser
+session against the dev Supabase project.
+
+## Meera — Member, Client A Logistics
+
+- **"My quoting screen shouldn't feel any different this week than last week."** Walked the full
+  happy path — new quote from the modal, Send, Mark Accepted, Convert to Booking — and every
+  step behaved exactly as the Week 15 pass recorded: same chips, same pipeline counts, and the
+  converted quote showing "Converted — BKG-2026-479" with the real booking reference. Zero page
+  errors. ✅ Accepted.
+- **"When I decline a customer's quote, my reason has to survive."** Sent a second quote, marked
+  it Rejected with a typed reason — the reason appeared under the REJECTED chip, word for word,
+  and archiving the quote hid it from the default list as before. ✅ Accepted.
+- **"If I double-click Convert by accident, I need one booking, not two."** (Verified API-side in
+  `docs/qa-testing.md` S1 — two genuinely concurrent converts produced exactly one shipment and
+  a clean "already converted" message for the loser. Under the old architecture this same
+  double-submit created an orphan booking row; it structurally cannot anymore.) ✅ Accepted.
+
+### Week 19 pass summary
+
+**3/3 UAT scenarios accepted** (one persona — a Member is the only role that touches quoting
+day-to-day). The pass's real finding is a non-event, which is the point of a migration UAT: no
+user-visible behavior changed, while the failure mode users could actually hit (the double-submit
+double-booking) is now impossible. The totals users see are also now server-computed — what's
+stored can no longer disagree with qty×rate arithmetic regardless of client state.

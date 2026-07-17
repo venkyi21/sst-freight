@@ -457,3 +457,60 @@ active remains in the dev project from this QA run.
 recorded in `docs/tech-debt.md`, not hidden); walking the backoff ladder all the way to `failed`
 after 5 attempts (the full ladder spans hours by design; the first two rungs and the terminal
 logic were verified directly, the rest is the same code path).
+
+## Week 19 — Quotes business-logic tier pilot (ADR-0030), 2026-07-17
+
+Two passes against the dev project after the user deployed the `quotes-service` Edge Function and
+applied the `convert_quote_to_shipment` RPC: a **direct-invoke API pass** (a node script using
+`@supabase/supabase-js`, signing in as the standing QA users and calling
+`functions.invoke('quotes-service', …)` — the exact path the app uses) and a **Playwright UI
+regression** (headless Chromium against `npm run dev` → dev Supabase) re-walking the Week 15
+quote journeys now that every quote write routes through the tier.
+
+**A real deployment gap was caught and fixed by the first API run, not glossed over**: the first
+run failed every convert scenario with `Could not find the function
+public.convert_quote_to_shipment` — the Edge Function had been deployed but the Week 19 SQL
+section had not actually been applied to dev. Verified as genuinely missing (not a stale
+PostgREST cache), applied, and the suite re-run clean. This is exactly the repo↔dashboard drift
+risk now recorded in `docs/tech-debt.md`'s pilot section.
+
+### API pass — direct `functions.invoke` (16/16 passed on re-run)
+
+Taxonomy coverage: functional (create/lifecycle/convert), concurrency, security (tampered input,
+cross-tenant, module gating), integration continuity (webhooks, audit, triggers).
+
+| # | Case | Result |
+| --- | --- | --- |
+| S1 | **The race, killed**: two deliberately concurrent `convert` calls on one accepted quote → exactly **one** `shipments` row (count delta measured before/after = 1), one success (`BKG-2026-265`), one clean "Quote is already converted" error | ✅ Verified |
+| S1b | The winning transaction was atomic: quote `status='converted'` **and** `converted_shipment_id` set together | ✅ Verified |
+| S2 | **Authoritative math**: `create` carrying a tampered client `total: 1` against line items 2×100 + 3×50 → stored `total` = **350**; every `quote_line_items.amount` = its own qty×rate | ✅ Verified |
+| S3a/b | `send` (draft→sent) and `accept` (sent→accepted) via the tier | ✅ Verified |
+| S3c | Illegal `accepted→sent` via the tier rejected by the DB trigger ("Invalid quote status transition: accepted -> sent") — enforcement stayed in Postgres | ✅ Verified |
+| S3d | `reject` persists `rejection_reason` ("Rate too high — QA W19") | ✅ Verified |
+| S3e | `convert` of a rejected quote rejected by the RPC ("Invalid quote status transition: rejected -> converted") | ✅ Verified |
+| S3f | `archive` round-trip via the tier (true → false) | ✅ Verified |
+| S4a | **Webhook continuity**: quote.sent / quote.accepted / quote.rejected all captured to the outbox for a live endpoint registered before the pass — the Week 18 pipeline is unbroken by the tier | ✅ Verified |
+| S4b | **Audit continuity**: `quotes_audit` rows written for every tier-driven change (4 rows for quote 1: insert + 3 status changes) | ✅ Verified |
+| S5a–c | **Cross-tenant, through the tier**: Org B's owner calling `send` (0 rows via RLS), `convert` ("Not authorized to convert this quote"), and `create` into Org A ("violates row-level security policy") — all rejected; the caller's-JWT model proven | ✅ Verified |
+| S6 | **Module gating through the tier**: with `quotes` removed from Org A's `enabled_modules` (via `set_org_config`), tier `create` rejected by RLS; modules restored and verified after | ✅ Verified |
+
+### UI pass — Playwright regression of the Week 15 journeys (9/9 passed)
+
+| # | Case | Result |
+| --- | --- | --- |
+| UI0 | Sign-in → org pick → Quotes tab renders (pipeline strip + table) | ✅ Verified |
+| UI1a | Create via modal → draft row appears with the server-computed total (₹300 for 2×150) | ✅ Verified |
+| UI1b–d | Send → SENT chip; Mark Accepted → ACCEPTED chip; Convert to Booking → "Converted — BKG-2026-479" chip with the live booking ref | ✅ Verified |
+| UI1e / UI2b | Archive hides the row from the default view (both journeys) | ✅ Verified |
+| UI2a | Send → Mark Rejected with reason → REJECTED chip with the reason rendered under it | ✅ Verified |
+| UI3 | Zero uncaught page errors across both journeys | ✅ Verified |
+
+**Cleanup**: QA webhook endpoint disabled, all QA quotes archived, Org A's `enabled_modules`
+restored — the converted QA shipments remain (shipments have no delete path, by design/ADR-0004).
+
+**Explicitly out of scope / pending**: the structured-log observability check (scenario 8 of the
+plan) needs a human eyeball on the Supabase dashboard's per-function logs — the script cannot
+read them; every action *returned* its structured envelope correctly, but the dashboard log lines
+themselves are pending user confirmation. Cold-start latency was not measured (recorded in
+`docs/tech-debt.md`). The E-Sign panel journeys were not re-walked (untouched by this migration —
+`esign.ts` and `docusign-envelope` are unchanged).

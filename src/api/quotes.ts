@@ -1,7 +1,6 @@
 import type { PostgrestError } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabaseClient'
-import { generateRef } from '../lib/refGenerator'
-import type { Quote, QuoteLineItem, QuoteStatus, Tariff } from '../types'
+import type { Quote, QuoteLineItem, QuoteStatus, Shipment, ShipmentMode, Tariff } from '../types'
 
 export async function fetchTariffs(orgId: string): Promise<{ data: Tariff[] | null; error: string | null }> {
   const { data, error } = await supabase.from('tariffs').select('*').eq('org_id', orgId).order('created_at', { ascending: false })
@@ -42,51 +41,46 @@ export async function fetchQuoteLineItems(quoteId: string): Promise<QuoteLineIte
   return (data as QuoteLineItem[]) ?? []
 }
 
-// Retries on (org_id, ref) unique_violation (23505) by regenerating a fresh ref.
-export async function insertQuote(payload: Record<string, unknown>): Promise<{ data: Quote | null; error: PostgrestError | null }> {
-  let lastError: PostgrestError | null = null
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const { data, error } = await supabase.from('quotes').insert({ ...payload, ref: generateRef('QT') }).select().single()
-    if (!error && data) return { data: data as Quote, error: null }
-    lastError = error
-    if (error?.code !== '23505') break
-  }
-  return { data: null, error: lastError }
+// ── quote mutations: routed through the quotes-service Edge Function (ADR-0030) ──────────────
+// All quote writes below go through the business-logic tier — same {data, error} collapse
+// convention as src/api/esign.ts. Reads above stay direct RLS-gated selects (Pattern A).
+
+export interface CreateQuoteInput {
+  orgId: string
+  mode: ShipmentMode
+  tariffId?: string | null
+  origin: string
+  destination: string
+  shipperContactId?: string | null
+  shipperName: string
+  consigneeContactId?: string | null
+  consigneeName: string
+  lineItems: { description: string; sacCode?: string | null; quantity: number; rate: number }[]
 }
 
-export async function insertQuoteLineItems(rows: Omit<QuoteLineItem, 'id' | 'created_at'>[]): Promise<{ error: string | null }> {
-  const { error } = await supabase.from('quote_line_items').insert(rows)
-  return { error: error?.message ?? null }
+async function invokeQuotesService<T>(body: Record<string, unknown>, fallback: string): Promise<{ data: T | null; error: string | null }> {
+  const { data, error: invokeError } = await supabase.functions.invoke('quotes-service', { body })
+  if (invokeError || !data || (data as { error?: string }).error) {
+    return { data: null, error: (data as { error?: string })?.error ?? invokeError?.message ?? fallback }
+  }
+  return { data: (data as { data: T }).data, error: null }
+}
+
+export async function createQuote(input: CreateQuoteInput): Promise<{ data: Quote | null; error: string | null }> {
+  return invokeQuotesService<Quote>({ action: 'create', ...input }, 'Could not create quote')
 }
 
 export async function updateQuoteStatus(quoteId: string, status: QuoteStatus, rejectionReason?: string): Promise<{ data: QuoteWithShipmentRef | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('quotes')
-    .update({ status, rejection_reason: rejectionReason ?? null })
-    .eq('id', quoteId)
-    .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-    .single()
-  return { data: (data as unknown as QuoteWithShipmentRef | null) ?? null, error: error?.message ?? null }
+  const action = status === 'sent' ? 'send' : status === 'accepted' ? 'accept' : 'reject'
+  return invokeQuotesService<QuoteWithShipmentRef>({ action, quoteId, reason: rejectionReason ?? null }, 'Could not update quote status')
 }
 
 export async function archiveQuoteToggle(quote: Quote): Promise<{ data: QuoteWithShipmentRef | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('quotes')
-    .update({ archived: !quote.archived })
-    .eq('id', quote.id)
-    .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-    .single()
-  return { data: (data as unknown as QuoteWithShipmentRef | null) ?? null, error: error?.message ?? null }
+  return invokeQuotesService<QuoteWithShipmentRef>({ action: 'archive', quoteId: quote.id }, 'Could not archive quote')
 }
 
-// The quote-conversion update itself — shipment creation is a separate insertShipment() call
-// (api/shipments.ts) composed by the caller, same accepted two-step shape as before (ADR-0006).
-export async function markQuoteConverted(quoteId: string, shipmentId: string): Promise<{ data: QuoteWithShipmentRef | null; error: string | null }> {
-  const { data, error } = await supabase
-    .from('quotes')
-    .update({ status: 'converted', converted_shipment_id: shipmentId })
-    .eq('id', quoteId)
-    .select('*, converted_shipment:shipments!converted_shipment_id(ref)')
-    .single()
-  return { data: (data as unknown as QuoteWithShipmentRef | null) ?? null, error: error?.message ?? null }
+// Conversion is atomic server-side (convert_quote_to_shipment RPC via the tier) — one
+// transaction creates the shipment and flips the quote, closing ADR-0006's double-submit race.
+export async function convertQuote(quoteId: string): Promise<{ data: { shipment: Shipment; quote: QuoteWithShipmentRef | null } | null; error: string | null }> {
+  return invokeQuotesService<{ shipment: Shipment; quote: QuoteWithShipmentRef | null }>({ action: 'convert', quoteId }, 'Could not convert quote')
 }

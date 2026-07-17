@@ -44,11 +44,12 @@ const actionButtonStyle: CSSProperties = {
 
 interface RatesQuotesPageProps {
   orgId: string
-  userId: string
   onBookingCreated: (shipment: Shipment) => void
 }
 
-export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: RatesQuotesPageProps) {
+// userId prop dropped in ADR-0030 — created_by attribution now happens server-side in the
+// quotes-service tier / convert RPC via auth.uid(), not from a client-supplied value.
+export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotesPageProps) {
   const [tab, setTab] = useState<Tab>('tariffs')
   const queryClient = useQueryClient()
 
@@ -95,21 +96,12 @@ export default function RatesQuotesPage({ orgId, userId, onBookingCreated }: Rat
     setConvertingId(quote.id)
     setConvertError(null)
 
-    const base = {
-      org_id: orgId,
-      mode: quote.mode,
-      client: quote.consignee_name,
-      shipper_contact_id: quote.shipper_contact_id,
-      consignee_contact_id: quote.consignee_contact_id,
-      origin: quote.origin,
-      destination: quote.destination,
-      status: 'Booked',
-      created_by: userId,
-    }
+    // ADR-0030: the shipment payload is built server-side from the quote row itself, inside
+    // one transaction (convert_quote_to_shipment via the quotes-service tier) — a second
+    // concurrent click gets a clean "already converted" error with zero rows written.
+    const result = await convertMutation.mutateAsync(quote)
 
-    const result = await convertMutation.mutateAsync({ quote, payload: base, mode: quote.mode })
-
-    if (!result.updatedQuote || !result.newShipment) {
+    if (!result.newShipment) {
       setConvertError(result.error ?? 'Could not convert quote')
       setConvertingId(null)
       return

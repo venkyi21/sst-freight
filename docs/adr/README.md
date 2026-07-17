@@ -37,7 +37,7 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0017](0017-supabase-storage-and-live-generated-documents.md) | Supabase Storage introduced for file attachments; generated documents are rendered live, not persisted | Accepted |
 | [0018](0018-per-user-dashboard-rls-and-reused-brand-palette.md) | Dashboard preferences are the first user-scoped RLS policy; charts reuse the existing brand palette, no new dependency | Accepted |
 | [0019](0019-org-self-service-branding-and-first-public-bucket.md) | Org self-service branding gets its own owner/admin-gated RPC; org-logos is the first public Storage bucket | Accepted |
-| [0020](0020-edge-function-for-docusign-jwt-signing.md) | Supabase Edge Functions introduced solely for DocuSign RS256 JWT signing | Accepted |
+| [0020](0020-edge-function-for-docusign-jwt-signing.md) | Supabase Edge Functions introduced solely for DocuSign RS256 JWT signing | Superseded in part by ADR-0030 (scoping stance only; auth model unchanged) |
 | [0021](0021-itemized-line-items-and-gst-tax-type-determination.md) | Itemized quote/invoice line items, as two concrete tables, with client-computed GST tax-type determination | Accepted |
 | [0022](0022-quote-status-trigger-and-archive-not-delete.md) | Quote lifecycle enforced by a validation trigger, not a new RPC; archive not hard-delete | Accepted |
 | [0023](0023-tco-calculator-pricing-derivation-and-no-token-public-page.md) | TCO calculator: derived pricing model (proposal, not a real price) + a second no-token public-page precedent | Accepted |
@@ -46,6 +46,7 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0026](0026-vitest-unit-testing-scoped-to-pure-logic.md) | Vitest for unit testing, scoped to pure business-logic modules | Accepted |
 | [0027](0027-defensive-component-tests-and-gated-production-deploys.md) | Defensive-only component regression tests; unit suite gates production deploys | Amended by ADR-0028 (install timing only) |
 | [0028](0028-rtl-machinery-preinstalled.md) | RTL machinery pre-installed and pre-verified; defensive-only usage unchanged | Accepted |
-| [0029](0029-api-key-rpc-gateway-and-outbox-webhooks.md) | Public API keys as an RPC gateway; outbound webhooks as an outbox + pg_cron poller | Accepted |
+| [0029](0029-api-key-rpc-gateway-and-outbox-webhooks.md) | Public API keys as an RPC gateway; outbound webhooks as an outbox + pg_cron poller | Superseded in part by ADR-0030 (Edge-Function-surface stance only) |
+| [0030](0030-business-logic-tier-edge-functions.md) | Business-logic orchestration moves to an Edge Function tier; Postgres keeps enforcement and atomic ops (Quotes pilot) | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

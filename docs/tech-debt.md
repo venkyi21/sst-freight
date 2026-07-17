@@ -18,8 +18,8 @@ fast otherwise.
   delete/archive path at all; `shipments` explicitly can't get this same plain-column treatment
   without first revisiting ADR-0004 (its `UPDATE` grant is fully revoked, forcing every mutation
   through `advance_shipment_status()` — a status-only RPC, not a general-purpose update path).
-- **Converted bookings don't carry Ocean/Air/Truck-specific fields.** `RatesQuotesPage.tsx`'s
-  quote→booking conversion only sets mode/route/client/shipper/consignee/status
+- **Converted bookings don't carry Ocean/Air/Truck-specific fields.** The quote→booking
+  conversion (`convert_quote_to_shipment` since Week 19) only sets mode/route/client/shipper/consignee/status
   (`container_size`, `vessel_name`, `voyage_no`, dimensions, `vehicle_type`, `driver_phone` are
   all left `null`) — a converted shipment looks like a booking whose optional fields were simply
   never filled in. Quotes never captured that level of detail (ADR-0006's scope), so there's
@@ -46,18 +46,15 @@ fast otherwise.
   `validate_quote_status_transition()` trigger (not just a loose `check` on allowed values — the
   allowed *sequence* is enforced too). Rejecting a quote can optionally capture a
   `rejection_reason`. A pipeline stat strip on `RatesQuotesPage.tsx` shows live counts per stage.
-- **Quote-to-booking conversion's double-submit race is improved, not fully closed** (Week 15,
-  ADR-0022 — updates the ADR-0006 entry this replaces): a second near-simultaneous "Convert" click
-  now gets a **visible rejection** instead of silently overwriting `converted_shipment_id`. Note
-  the mechanism precisely, since a first attempt at this got it wrong (caught by direct testing,
-  corrected same day): it is **not** the status-transition check — both racing clicks target the
-  same `'converted'` value, so that check's no-op branch (needed for archiving) lets the second one
-  through. The actual fix is a separate guard making `converted_shipment_id` **immutable once
-  set** — the second update is rejected for trying to change it, independent of `status`.
-  **Still open**: the second attempt's `shipments` insert itself isn't prevented — it still creates
-  an orphan booking row, just no longer a silently-mislinked quote. Fully closing this needs
-  shipment creation moved inside a transactional RPC together with the status flip, a larger
-  change than Week 15's scope.
+- ~~Quote-to-booking conversion's double-submit race~~ **Fully closed 2026-07-17, Week 19
+  (ADR-0030)** — this registry's oldest entry, open since ADR-0006 ("accepted risk") and only
+  narrowed by ADR-0022 (visible rejection, but the orphan `shipments` insert still happened).
+  The fix is exactly what this entry said it would take: shipment creation moved inside a
+  transactional `SECURITY DEFINER` RPC together with the status flip
+  (`convert_quote_to_shipment`, called via the `quotes-service` Edge Function tier). A
+  `SELECT … FOR UPDATE` row lock serializes concurrent converts — **measured in QA (dev,
+  2026-07-17): two deliberately concurrent convert calls produced exactly one shipment; the
+  loser got a clean "Quote is already converted" error with zero rows written.**
 - ~~No GST/tax handling anywhere in Accounting~~ **Closed Week 14 (ADR-0021)**: invoice line items
   carry `sac_code`/`gst_rate`, and CGST+SGST-vs-IGST is auto-computed by comparing
   `organizations.gst_state` to the billed contact's `contacts.state`. **Still open**: (1) real
@@ -354,6 +351,32 @@ is a near-term coding task, and none of it should be attempted without that infr
 - **Rotating the Supabase anon key breaks external API consumers** — they send it as the
   `apikey` header. Any future anon-key rotation must be communicated to integrators (noted in
   `docs/api-reference.md`).
+
+## Business-logic tier pilot (Week 19, ADR-0030)
+
+- **Only the Quotes module runs on the Edge Function tier.** Bookings, invoicing, customs,
+  documents, and team writes still use their pre-Week-19 patterns (client orchestration or direct
+  Pattern A/B calls) — the codebase deliberately shows both patterns during the transition.
+  Closing this means running ADR-0030's migration playbook per module (the pilot took one working
+  session including QA and docs) — or deliberately stopping at one module with a working
+  reference implementation; that's a user decision, not an oversight.
+- **Edge Function deploys are manual dashboard-editor pastes** (no CLI — house precedent from
+  ADR-0020), now across **two** functions and two environments. Nothing detects drift between
+  `supabase/functions/*/index.ts` in the repo and what's actually deployed; the Week 19 QA run
+  itself caught a partial deploy (function deployed, RPC SQL not yet applied). Closing it:
+  adopt the Supabase CLI (`supabase functions deploy`) in CI, its own decision.
+- **Deno cold-start latency on first invocation** of `quotes-service` after idle — an extra
+  browser→Edge-Function hop on every quote write besides. Not measured as a user-visible problem
+  in QA; revisit with real measurements only if users report slow quote actions.
+- **The quote total's preview math is duplicated** — once in `QuoteModal.tsx` (live form
+  preview) and once, authoritatively, in the tier. They can drift; the tier always wins (the
+  stored total is recomputed from raw qty×rate), so drift shows as a preview differing from the
+  saved quote, never a wrong stored value. Accepted as the price of never trusting client math.
+- **Quote-creation's quote-insert/line-items-insert is still not atomic** (carried forward from
+  ADR-0021 — quotes have no delete grant, so the tier can't compensate a failed line-items
+  insert). What changed in Week 19: the failure is now loudly logged server-side (structured log
+  line in the function's dashboard logs) instead of only in the creating user's browser console.
+  Fully closing it means hoisting quote+lines creation into one RPC, like conversion.
 
 ## Unit testing (ADR-0026)
 

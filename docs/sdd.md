@@ -7,11 +7,16 @@ If the two ever disagree, the ADR is authoritative for the reasoning and this fi
 
 ## 1. Architecture style
 
-SST Freight is a **fully static single-page app with no backend service of its own**. The
-frontend (React + TypeScript + Vite) talks directly to Supabase's hosted Postgres and Auth from
-the browser, using the public "anon" key. There is no Node/Express/serverless layer in between —
-every business rule that needs to be trustworthy (not just convenient) is enforced inside
-Postgres itself, via Row-Level Security and `SECURITY DEFINER` functions (ADR-0001, ADR-0002).
+SST Freight is a **fully static single-page app with no self-hosted backend service**. The
+frontend (React + TypeScript + Vite) talks to Supabase's hosted platform from the browser, using
+the public "anon" key. There is no Node/Express server to operate — trust-critical enforcement
+(tenant isolation, constraints, state machines) lives inside Postgres via Row-Level Security and
+`SECURITY DEFINER` functions (ADR-0001, ADR-0002), and since Week 19 (ADR-0030) **workflow
+orchestration is moving, module by module, into Supabase Edge Functions** — a TypeScript tier
+that validates input, computes authoritative derived values, and logs every action, while the
+database remains the unbypassable enforcement layer beneath it. Quotes is the first (pilot)
+module on that pattern; other modules' writes still call Postgres directly until each is
+deliberately migrated.
 
 ```mermaid
 flowchart LR
@@ -24,7 +29,7 @@ flowchart LR
   subgraph Supabase["Supabase (hosted)"]
     D[Auth]
     C[("Postgres + RLS\n+ SECURITY DEFINER RPCs")]
-    E["Edge Function\n(docusign-envelope, RS256 signing only)"]
+    E["Edge Functions\n(quotes-service: business-logic tier,\ndocusign-envelope: RS256 signing)"]
   end
 
   A -- "served as static files" --- B
@@ -42,16 +47,16 @@ a public, no-key API rather than a server-side integration. The in-app router ad
 `HashRouter`, not `BrowserRouter`, for exactly this reason (a hash URL needs no server-side rewrite
 rule at all); the customer tracking link and public TCO calculator (ADR-0009) stay outside that
 router entirely, evaluated as plain query-parameter checks before it even mounts — see §7 for the
-full routing model. **Two narrow exceptions exist**, both justified the same way — small enough to
-not be a general backend:
+full routing model. **Server-side compute outside Postgres exists in two forms**:
 - **Week 9 (ADR-0014)**: a `SECURITY DEFINER` Postgres function can make an outbound HTTPS call
   via the `http` extension, with a secret pulled from Supabase Vault at runtime — used for the
   carrier-tracking integration, where auth was a static API key (no signing needed).
-- **E-signature (ADR-0020)**: a Supabase **Edge Function** (Deno), used *only* because DocuSign's
-  JWT Grant needs RS256 signing that no Postgres extension can do. It's deliberately narrow: it
-  signs a JWT, calls DocuSign, and uses the *caller's own* Supabase JWT (not a service role) for
-  every table read/write — RLS applies exactly as if the browser had called Postgres directly.
-  Its own secrets live in Edge Function environment variables, a second, separate secret store
+- **Supabase Edge Functions** (Deno). Introduced by ADR-0020 strictly for DocuSign's RS256 JWT
+  signing (`docusign-envelope`); **generalized by ADR-0030 into the standard home for
+  business-logic orchestration** (`quotes-service` is the pilot — see Pattern C in §6). The
+  invariant both share: an Edge Function uses the *caller's own* Supabase JWT (never a service
+  role) for every table read/write — RLS applies exactly as if the browser had called Postgres
+  directly. Edge Function secrets live in environment variables, a second, separate secret store
   from Postgres Vault.
 
 ## 2. Two environments, two Supabase projects
@@ -266,26 +271,45 @@ sequenceDiagram
   end
 ```
 
-**Pattern C — Supabase Edge Function** (`docusign-envelope`, ADR-0020): the client calls
-`supabase.functions.invoke('fn_name', { body })`, which forwards the caller's own auth JWT. Used
-*only* when a request needs compute Postgres genuinely cannot do (here: RS256 JWT signing) — the
-function itself still uses the caller's JWT (not a service role) for any Postgres reads/writes it
-performs, so RLS applies exactly as in Pattern A.
+**Pattern C — Edge Function business-logic tier** (`quotes-service`, ADR-0030; first instance
+`docusign-envelope`, ADR-0020): the client calls `supabase.functions.invoke('fn_name', { body })`,
+which forwards the caller's own auth JWT; requests route on an `action` field in the body. This is
+**the standard home for a module's write-path orchestration** — input validation, contact
+resolution, ref generation, authoritative derived values (the quote `total` is recomputed
+server-side from raw qty×rate; a client-sent total is never stored), calls to external APIs, and
+one structured log line per action into the function's dashboard logs. The division of labor with
+the database is fixed: the tier orchestrates and validates; **Postgres keeps enforcement** (RLS,
+module gating, constraints, the status-machine trigger, audit/webhook capture — all of which still
+fire, because the tier performs real `UPDATE`s under the caller's JWT, never a service role) **and
+atomic multi-step operations**, hoisted into small `SECURITY DEFINER` RPCs the tier calls
+(Pattern B's shape, invoked from the tier instead of the browser). `convert_quote_to_shipment` is
+the canonical example: a `FOR UPDATE` row lock + shipment insert + quote flip in one transaction,
+which is what finally closed ADR-0006's double-submit conversion race. Quotes is the pilot;
+`docusign-envelope` (RS256 signing DocuSign integration, ADR-0020) established the auth model this
+pattern inherits.
 
 ```mermaid
 sequenceDiagram
   participant U as Browser
-  participant EF as docusign-envelope (Edge Function)
-  participant DS as DocuSign API
-  participant PG as Postgres (RLS enabled, caller's own JWT)
-  U->>EF: functions.invoke('docusign-envelope', { action: 'send', ... })
-  EF->>EF: build + RS256-sign JWT, exchange for DocuSign access token
-  EF->>DS: create envelope (HTML document, recipient)
-  DS-->>EF: envelope_id
-  EF->>PG: insert esign_requests row (as the caller's own JWT)
-  PG->>PG: policy check: is_org_member(org_id)
-  PG-->>EF: inserted row
-  EF-->>U: esign_requests row
+  participant EF as quotes-service (Edge Function, caller's own JWT)
+  participant RPC as convert_quote_to_shipment() [security definer]
+  participant PG as Postgres (RLS and triggers)
+  U->>EF: functions.invoke('quotes-service', { action: 'create', lineItems, ... })
+  EF->>EF: validate, recompute amounts and total from raw qty×rate
+  EF->>PG: resolve/create contacts, insert quote and line items (RLS and module gate apply)
+  PG-->>EF: quote row
+  EF-->>U: { data: quote } (and one structured log line)
+  U->>EF: functions.invoke('quotes-service', { action: 'convert', quoteId })
+  EF->>RPC: rpc('convert_quote_to_shipment', { p_quote_id })
+  RPC->>PG: lock quote FOR UPDATE, check member and status
+  alt first caller
+    RPC->>PG: insert shipment, flip quote (one transaction)
+    RPC-->>EF: shipment row
+    EF-->>U: { data: { shipment, quote } }
+  else concurrent second caller (after lock releases)
+    RPC-->>EF: exception "Quote is already converted"
+    EF-->>U: { error } (zero rows written)
+  end
 ```
 
 **Pattern D — API-key RPC gateway** (Week 18, ADR-0029): an *external system* (no browser, no

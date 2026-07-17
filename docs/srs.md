@@ -107,10 +107,17 @@ built.
   quote then shows "Converted" plus the resulting booking's real reference.
   - AC: A converted quote's booking has the correct mode-prefixed reference, the quote's
     shipper/consignee carried over, and status `'Booked'`.
-  - AC (verified directly against dev Supabase, 2026-07-15 — corrected once during verification,
-    see `docs/tech-debt.md`): two simultaneous conversions of the same quote to two different,
-    independently-inserted shipments now produce exactly one success and one server-rejected
-    error; the second attempt's orphan `shipments` row itself is still not prevented.
+  - AC (verified directly against dev Supabase, 2026-07-17 — Week 19, ADR-0030, superseding the
+    2026-07-15 partial result): conversion is now a single atomic transaction
+    (`convert_quote_to_shipment` RPC via the `quotes-service` tier). Two deliberately
+    **concurrent** convert calls produced exactly **one** `shipments` row (delta measured
+    before/after), one success and one clean "Quote is already converted" rejection — the orphan
+    booking row of the old two-step flow can no longer occur. The same click-through (Playwright,
+    2026-07-17) showed the "Converted — BKG-2026-479" chip with the live booking ref.
+  - AC (verified directly against dev Supabase, 2026-07-17): the stored quote `total` is
+    recomputed server-side from raw qty×rate — a create request carrying a tampered client
+    `total: 1` against line items summing to 350 stored exactly 350, and every
+    `quote_line_items.amount` equalled its own qty×rate.
 - **US-6.3** — As a Member, I can move a quote through a real sales lifecycle (Draft → Sent →
   Accepted or Rejected → Converted), see the whole pipeline's counts at a glance, and optionally
   record why a quote was rejected — so a declined quote is never indistinguishable from one
@@ -124,6 +131,14 @@ built.
     (draft→sent→accepted→converted, and a separate draft→sent→rejected-with-reason) showed the
     correct status pill and pipeline counts at each step, and the captured rejection reason
     ("Price too high vs Freightify") visible in the row. Full results: `docs/qa-testing.md`.
+  - AC (re-verified 2026-07-17 after the Week 19 tier migration, ADR-0030): the same lifecycle
+    now routed through the `quotes-service` Edge Function preserved every server-side behavior —
+    an illegal `accepted→sent` and a `rejected→convert` were both rejected by the DB through the
+    tier; `quotes_audit` rows were written for every tier-driven change; `quote.sent` /
+    `quote.accepted` / `quote.rejected` webhook events were all captured to the outbox; a
+    cross-org caller and a quotes-module-disabled org were both rejected. Full click-through of
+    both journeys (send→accept→convert→archive, send→reject-with-reason→archive) passed with
+    zero page errors. Full results: `docs/qa-testing.md`.
 - **US-6.4** — As a Member, I can archive a quote (any status) and unarchive it later, same as
   contacts/invoices.
   - AC (verified by real Playwright click-through against dev Supabase, 2026-07-15): archiving a

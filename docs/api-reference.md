@@ -4,7 +4,9 @@ SST Freight has no separate backend service — the frontend calls Supabase's ho
 directly from the browser. This app's "API surface" is therefore the set of Postgres functions in
 `supabase/schema.sql` that are reachable from the client via `supabase.rpc(name, args)`, plus the
 handful of tables with direct `select`/`insert`/`update` grants (not covered here — see the
-table definitions and RLS policies in `supabase/schema.sql` directly for those).
+table definitions and RLS policies in `supabase/schema.sql` directly for those), plus the
+**Edge Function services** invoked via `supabase.functions.invoke(name, { body })` — documented
+in their own section at the end of this file (ADR-0030).
 
 Every function below is `security definer`, meaning it runs with the privileges of the function
 owner rather than the calling user — each one performs its own authorization check internally
@@ -70,6 +72,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `deliver_pending_webhooks()` | `int` | _(no grant found)_ |
 | `list_webhook_deliveries(p_org_id uuid, p_endpoint_id uuid default null, p_limit int default 50)` | `table (id uuid, endpoint_id uuid, event_type text, status text, attempts int, last_status_code int, last_error text, next_attempt_at timestamptz, delivered_at timestamptz, created_at timestamptz)` | `authenticated` |
 | `send_test_webhook(p_endpoint_id uuid)` | `void` | `authenticated` |
+| `convert_quote_to_shipment(p_quote_id uuid)` | `shipments` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -359,3 +362,50 @@ rows) and the "send a test.ping now" action the UI's Integrations page is built 
 `enqueue_webhook_event` and `deliver_pending_webhooks` are internal-only (EXECUTE revoked from
 all client roles) — the former is called by capture triggers, the latter by the pg_cron job
 `deliver-webhooks`.
+
+## Quote conversion (Week 19, ADR-0030)
+
+### `convert_quote_to_shipment(p_quote_id uuid) → shipments`
+
+Any org member. The atomic multi-step operation behind the quotes-service tier's `convert`
+action — **one transaction** takes a `FOR UPDATE` row lock on the quote, verifies membership and
+state (`Quote not found` / `Not authorized to convert this quote` / `Quote is already converted`
+/ `Invalid quote status transition: rejected -> converted`), inserts the shipment (server-side
+`BKG`/`AWB`/`TRK` ref generation with a 5-attempt unique-violation retry), and flips the quote to
+`converted` with `converted_shipment_id` set. The row lock is what finally closes ADR-0006's
+double-submit race: two concurrent calls serialize, exactly one shipment is ever created, and the
+loser gets the clean already-converted error with zero rows written (measured in QA 2026-07-17).
+Not normally called directly from the frontend — the client goes through `quotes-service` (below);
+the grant to `authenticated` exists because the Edge Function runs under the caller's own JWT.
+
+```ts
+const { data, error } = await supabase.rpc('convert_quote_to_shipment', { p_quote_id: quoteId }).single()
+```
+
+## Edge Function services (ADR-0030)
+
+Invoked via `supabase.functions.invoke(name, { body })`, which forwards the caller's Supabase
+auth JWT. Every service builds its own supabase-js client scoped to **that JWT — never the
+service-role key** — so all table access inside a service passes through the same RLS, module
+gating, triggers, and audit/webhook capture as direct client calls (verified in QA: cross-org and
+module-disabled calls are rejected through the tier). Requests are routed by an `action` field in
+the body; responses use a `{ data }` / `{ error }` envelope. Source lives in
+`supabase/functions/<name>/index.ts`; deploys are manual dashboard pastes
+(`docs/migration-runbook.md` §"Edge Function deploys").
+
+### `quotes-service` — the Quotes module's business-logic tier (Week 19)
+
+| `action` | Body fields | Behavior |
+| --- | --- | --- |
+| `create` | `orgId, mode, origin, destination, shipperName, consigneeName, lineItems[{description, sacCode?, quantity, rate}], tariffId?, shipperContactId?, consigneeContactId?` | Validates inputs; resolves-or-creates shipper/consignee contacts; generates the `QT-` ref (23505 retry); **recomputes every line `amount` and the quote `total` server-side from raw qty×rate** — a client-sent total is ignored; inserts quote + line items. Returns the quote row. |
+| `send` / `accept` / `reject` | `quoteId`, `reason?` (reject only) | Performs the real status `UPDATE`, so the DB state-machine trigger, `quotes_audit`, and webhook capture all fire exactly as before. Returns the updated quote (with `converted_shipment` ref join). |
+| `archive` | `quoteId` | Toggles `archived`. |
+| `convert` | `quoteId` | Calls `convert_quote_to_shipment` (above). Returns `{ shipment, quote }`. |
+
+Every action logs one structured JSON line (`fn`, `action`, `outcome`, detail) to the function's
+dashboard logs — the module's server-side observability trail.
+
+### `docusign-envelope` — DocuSign JWT signing + envelope send/status (ADR-0020)
+
+Actions `send` / `status`; exists because RS256 signing has no path inside Postgres. See
+ADR-0020 — its auth model is the template `quotes-service` follows.

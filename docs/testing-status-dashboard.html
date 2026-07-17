@@ -243,9 +243,9 @@
       <div class="cell"><div class="num pending">12 / 19</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
       <div class="cell"><div class="num info">18 / 19</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
       <div class="cell"><div class="num pending">1 / 19</div><div class="lbl">Modules with any Performance, Load, or Stress evidence (FR-19's measured 119ms non-blocking check — partial, not load testing)</div></div>
-      <div class="cell"><div class="num ok">160+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md)</div></div>
-      <div class="cell"><div class="num ok">35 / 35</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4)</div></div>
-      <div class="cell"><div class="num pending">1</div><div class="lbl">Known, accepted gap still tracked as open (quote-conversion race, ADR-0006 — since narrowed by ADR-0022, not fully closed)</div></div>
+      <div class="cell"><div class="num ok">185+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md — incl. Week 19's 16 API + 9 UI through the quotes-service tier)</div></div>
+      <div class="cell"><div class="num ok">38 / 38</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4 + 3)</div></div>
+      <div class="cell"><div class="num ok">0</div><div class="lbl">The long-standing headline gap (quote-conversion double-submit race, open since ADR-0006) was fully closed Week 19 (ADR-0030) — conversion is one transactional RPC, proven by a measured concurrent-convert test</div></div>
     </div>
   </section>
 
@@ -413,10 +413,10 @@
       </div>
       <div class="detail-row">
         <dl>
-          <dt>QAT</dt><dd>Week 5, 4/5 (the 5th was a known accepted gap, since closed — see below); Week 15, 18/18 direct-API + 12/12 Playwright + 5/5 regression, including the fixed quote-conversion double-submit race (ADR-0022).</dd>
-          <dt>UAT</dt><dd>Arjun: quote-to-booking conversion visible. Meera (Week 15): send/reject-with-reason/archive all instant and correct in the pipeline strip.</dd>
-          <dt>Security</dt><dd>Module-gating enforced server-side (Week 5); Org B quote isolation (Week 15, cases 15-17).</dd>
-          <dt>Gaps</dt><dd>No automated tests; the double-submit race is narrowed, not fully closed (a second orphan shipment row can still be created — <code>docs/tech-debt.md</code>).</dd>
+          <dt>QAT</dt><dd>Week 5, 4/5 (the 5th was a known accepted gap, since closed — see below); Week 15, 18/18 direct-API + 12/12 Playwright + 5/5 regression (ADR-0022). <strong>Week 19 (ADR-0030), 2026-07-17: 16/16 direct-invoke through the new quotes-service tier + 9/9 Playwright regression</strong> — including the concurrent-convert race test (two simultaneous converts → exactly one shipment, measured) and a tampered-client-total create storing the server-recomputed 350, with webhook + audit capture continuity re-proven through the tier.</dd>
+          <dt>UAT</dt><dd>Arjun: quote-to-booking conversion visible. Meera (Week 15): send/reject-with-reason/archive all instant and correct in the pipeline strip. Meera (Week 19): identical journeys re-accepted through the Edge Function tier — a deliberate non-event, zero page errors.</dd>
+          <dt>Security</dt><dd>Module-gating enforced server-side (Week 5); Org B quote isolation (Week 15, cases 15-17). Week 19: both re-proven <em>through the tier</em> (caller's-JWT model — cross-org send/convert/create and a quotes-disabled org all rejected).</dd>
+          <dt>Gaps</dt><dd>No automated unit tests for this module; ~~double-submit race~~ <strong>fully closed Week 19</strong> (transactional <code>convert_quote_to_shipment</code> RPC — this registry's oldest item). New pilot-scope items (tier deploy drift, cold-start latency unmeasured) in <code>docs/tech-debt.md</code>.</dd>
         </dl>
       </div>
 
@@ -736,7 +736,7 @@
   <footer class="doc-footer">
     <div>SST Freight · Internal engineering doc · Not for distribution</div>
     <div>19 modules · 8 testing types + QAT + UAT</div>
-    <div id="last-synced">Last synced · 16 Jul 2026</div>
+    <div id="last-synced">Last synced · 17 Jul 2026</div>
   </footer>
 
 </div>

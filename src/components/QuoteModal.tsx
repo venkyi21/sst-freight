@@ -1,11 +1,9 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { resolveOrCreateContact } from '../api/contacts'
-import { fetchTariffsByMode, insertQuote, insertQuoteLineItems } from '../api/quotes'
+import { createQuote, fetchTariffsByMode } from '../api/quotes'
 import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
-import { isCheckViolation } from '../lib/formErrors'
-import { RATE_BASIS_META, type Quote, type QuoteLineItem, type ShipmentMode, type Tariff } from '../types'
+import { RATE_BASIS_META, type Quote, type ShipmentMode, type Tariff } from '../types'
 
 interface QuoteModalProps {
   orgId: string
@@ -124,60 +122,36 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     setFieldErrors({})
     setBusy(true)
 
-    const shipperId = await resolveOrCreateContact(orgId, shipperContactId, 'shipper', shipper.trim(), user.id)
-    const consigneeId = await resolveOrCreateContact(orgId, consigneeContactId, 'consignee', consignee.trim(), user.id)
-
-    // Line item #1 (usually "Freight") also backfills the legacy rate/quantity columns, so a
-    // quote row is never itemless even before quote_line_items exist for it — same additive
-    // shape as every other Week 14 column (ADR-0021).
-    const base = {
-      org_id: orgId,
-      tariff_id: selectedTariffId || null,
+    // ADR-0030: the whole creation workflow — contact resolution, ref generation, line-item
+    // insert, and the AUTHORITATIVE amount/total math — runs in the quotes-service tier. The
+    // `total` computed above is only the live preview shown in this form; the server recomputes
+    // it from the raw quantities/rates and never trusts the client's number.
+    const { data: quote, error: createError } = await createQuote({
+      orgId,
       mode,
+      tariffId: selectedTariffId || null,
       origin: origin.trim(),
       destination: destination.trim(),
-      shipper_contact_id: shipperId,
-      shipper_name: shipper.trim(),
-      consignee_contact_id: consigneeId,
-      consignee_name: consignee.trim(),
-      quantity: Math.max(0, parseFloat(lineItems[0].quantity) || 0),
-      rate: Math.max(0, parseFloat(lineItems[0].rate) || 0),
-      total,
-      status: 'draft',
-      created_by: user.id,
-    }
-
-    const { data: quote, error: lastError } = await insertQuote(base)
+      shipperContactId,
+      shipperName: shipper.trim(),
+      consigneeContactId,
+      consigneeName: consignee.trim(),
+      lineItems: lineItems.map((li) => ({
+        description: li.description.trim(),
+        sacCode: li.sacCode.trim() || null,
+        quantity: Math.max(0, parseFloat(li.quantity) || 0),
+        rate: Math.max(0, parseFloat(li.rate) || 0),
+      })),
+    })
 
     if (!quote) {
-      if (lastError && isCheckViolation(lastError, 'quotes_quantity_check')) {
-        setFieldErrors({ lineItems: 'Every line needs a quantity greater than 0' })
+      if (createError?.toLowerCase().includes('line needs')) {
+        setFieldErrors({ lineItems: createError })
       } else {
-        setError(lastError?.message ?? 'Could not create quote')
+        setError(createError ?? 'Could not create quote')
       }
       setBusy(false)
       return
-    }
-
-    const lineItemRows: Omit<QuoteLineItem, 'id' | 'created_at'>[] = lineItems.map((li, i) => ({
-      org_id: orgId,
-      quote_id: quote.id,
-      description: li.description.trim(),
-      sac_code: li.sacCode.trim() || null,
-      quantity: Math.max(0, parseFloat(li.quantity) || 0),
-      rate: Math.max(0, parseFloat(li.rate) || 0),
-      currency: 'INR',
-      amount: lineAmounts[i],
-      created_by: user.id,
-    }))
-
-    const { error: lineItemsError } = await insertQuoteLineItems(lineItemRows)
-    if (lineItemsError) {
-      // The quote row itself was created successfully — onCreated below closes this modal
-      // regardless (the quote is real and must appear in the list), so there's no in-modal
-      // error UI left to show. Same accepted, documented non-atomicity as the two-step
-      // quote-conversion flow (ADR-0006/tech-debt.md); logged, not silently dropped.
-      console.error(`Quote ${quote.ref} line items failed to save:`, lineItemsError)
     }
 
     onCreated(quote)
