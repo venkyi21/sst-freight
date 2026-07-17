@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { fetchContactOptions, type ContactOption } from '../api/contacts'
+import { T } from '../theme/tokens'
 
 interface ContactAutocompleteProps {
   orgId: string
@@ -63,10 +64,10 @@ export default function ContactAutocomplete({
             left: 0,
             right: 0,
             zIndex: 10,
-            background: '#0f172a',
-            border: '1px solid #1e293b',
+            background: T.surface,
+            border: `1px solid ${T.border}`,
             borderRadius: 8,
-            boxShadow: '0 12px 30px rgba(0,0,0,0.5)',
+            boxShadow: T.shadowModal,
             overflow: 'hidden',
             maxHeight: 180,
             overflowY: 'auto',
@@ -83,10 +84,10 @@ export default function ContactAutocomplete({
               style={{
                 padding: '8px 11px',
                 fontSize: 13,
-                color: '#e2e8f0',
+                color: T.text,
                 cursor: 'pointer',
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = '#111e33')}
+              onMouseEnter={(e) => (e.currentTarget.style.background = T.surfaceInset)}
               onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
             >
               {m.name}

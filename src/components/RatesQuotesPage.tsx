@@ -6,6 +6,7 @@ import QuoteModal from './QuoteModal'
 import EsignPanel from './EsignPanel'
 import { fetchQuoteLineItems, renderQuoteHtml } from '../lib/documentHtml'
 import { MODE_META, QUOTE_STATUS_META, type Quote, type QuoteStatus, type Shipment, type Tariff } from '../types'
+import { T } from '../theme/tokens'
 
 type Tab = 'tariffs' | 'quotes'
 
@@ -16,15 +17,15 @@ const tabButtonStyle = (active: boolean): CSSProperties => ({
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',
-  background: active ? '#1e293b' : 'transparent',
-  color: active ? '#f1f5f9' : '#8291a6',
+  background: active ? T.surfaceInset : 'transparent',
+  color: active ? T.ink : T.muted,
 })
 
 const headStyle: CSSProperties = {
   padding: '13px 20px',
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -34,9 +35,9 @@ const cellStyle: CSSProperties = { padding: '14px 20px' }
 const actionButtonStyle: CSSProperties = {
   padding: '5px 10px',
   borderRadius: 6,
-  border: '1px solid #1e293b',
+  border: `1px solid ${T.border}`,
   background: 'transparent',
-  color: '#94a3b8',
+  color: T.muted,
   fontSize: 11.5,
   fontWeight: 600,
   cursor: 'pointer',
@@ -142,13 +143,13 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
   return (
     <div style={{ padding: '28px 32px', flex: 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 14 }}>
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>Rates &amp; Quotes</h1>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: T.ink }}>Rates &amp; Quotes</h1>
         <button
           type="button"
           onClick={handleAddClick}
           style={{
-            background: '#2563eb',
-            color: '#fff',
+            background: T.accent,
+            color: T.onAccent,
             border: 'none',
             fontWeight: 600,
             fontSize: 13,
@@ -161,7 +162,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
         </button>
       </div>
 
-      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 9, padding: 3, display: 'flex', gap: 2, marginBottom: 20, width: 'fit-content' }}>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 9, padding: 3, display: 'flex', gap: 2, marginBottom: 20, width: 'fit-content' }}>
         <button type="button" onClick={() => setTab('tariffs')} style={tabButtonStyle(tab === 'tariffs')}>
           Tariffs
         </button>
@@ -175,10 +176,10 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
           {tariffsError ? (
             <ErrorBox message={tariffsError} />
           ) : (
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+                  <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                     <th style={headStyle}>Mode</th>
                     <th style={headStyle}>Route</th>
                     <th style={headStyle}>Rate</th>
@@ -193,16 +194,16 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                         setEditingTariff(t)
                         setTariffModalOpen(true)
                       }}
-                      style={{ borderBottom: '1px solid #172033', cursor: 'pointer' }}
+                      style={{ borderBottom: `1px solid ${T.surfaceRaised}`, cursor: 'pointer' }}
                     >
                       <td style={{ ...cellStyle, fontSize: 12.5, fontWeight: 600, color: MODE_META[t.mode].color }}>{MODE_META[t.mode].label}</td>
-                      <td style={{ ...cellStyle, fontSize: 13, color: '#e2e8f0' }}>
+                      <td style={{ ...cellStyle, fontSize: 13, color: T.text }}>
                         {t.origin} → {t.destination}
                       </td>
-                      <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>
+                      <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.success }}>
                         ₹{t.rate.toLocaleString('en-IN')}
                       </td>
-                      <td style={{ ...cellStyle, fontSize: 12.5, color: '#94a3b8' }}>{t.notes ?? '—'}</td>
+                      <td style={{ ...cellStyle, fontSize: 12.5, color: T.muted }}>{t.notes ?? '—'}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -223,11 +224,11 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
               the quotes already fetched below, no new query. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 16 }}>
             {(['draft', 'sent', 'accepted', 'rejected', 'converted'] as const).map((s) => (
-              <div key={s} style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 10, padding: '11px 14px' }}>
+              <div key={s} style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 10, padding: '11px 14px' }}>
                 <div style={{ fontSize: 18, fontWeight: 700, color: QUOTE_STATUS_META[s].color, fontFamily: "'IBM Plex Mono', monospace" }}>
                   {pipelineCounts[s] ?? 0}
                 </div>
-                <div style={{ fontSize: 10.5, color: '#64748b', marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <div style={{ fontSize: 10.5, color: T.muted, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
                   {QUOTE_STATUS_META[s].label}
                 </div>
               </div>
@@ -235,7 +236,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: T.muted, cursor: 'pointer' }}>
               <input type="checkbox" checked={showArchivedQuotes} onChange={(e) => setShowArchivedQuotes(e.target.checked)} />
               Show archived
             </label>
@@ -244,10 +245,10 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
           {quotesError ? (
             <ErrorBox message={quotesError} />
           ) : (
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+                  <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                     <th style={headStyle}>Ref</th>
                     <th style={headStyle}>Route</th>
                     <th style={headStyle}>Client</th>
@@ -260,14 +261,14 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                 <tbody>
                   {visibleQuotes.map((q) => (
                     <Fragment key={q.id}>
-                      <tr style={{ borderBottom: '1px solid #172033', opacity: q.archived ? 0.55 : 1 }}>
-                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{q.ref}</td>
+                      <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, opacity: q.archived ? 0.55 : 1 }}>
+                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: T.ink }}>{q.ref}</td>
                         <td style={{ ...cellStyle, fontSize: 12 }}>
-                          <div style={{ fontWeight: 600, color: '#cbd5e1' }}>{q.origin}</div>
-                          <div style={{ color: '#5b6b82' }}>→ {q.destination}</div>
+                          <div style={{ fontWeight: 600, color: T.text }}>{q.origin}</div>
+                          <div style={{ color: T.faint }}>→ {q.destination}</div>
                         </td>
-                        <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{q.consignee_name}</td>
-                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>
+                        <td style={{ ...cellStyle, fontSize: 13, color: T.muted }}>{q.consignee_name}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.success }}>
                           ₹{q.total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                         </td>
                         <td style={cellStyle}>
@@ -279,12 +280,12 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                                 onChange={(e) => setRejectionDraft(e.target.value)}
                                 placeholder="Reason (optional)"
                                 style={{
-                                  background: '#0b1220',
-                                  border: '1px solid #1e293b',
+                                  background: T.bg,
+                                  border: `1px solid ${T.border}`,
                                   borderRadius: 6,
                                   padding: '5px 8px',
                                   fontSize: 11.5,
-                                  color: '#e2e8f0',
+                                  color: T.text,
                                   width: 140,
                                 }}
                               />
@@ -292,7 +293,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                                 type="button"
                                 disabled={statusBusyId === q.id}
                                 onClick={() => void handleStatusUpdate(q, 'rejected', rejectionDraft.trim() || undefined)}
-                                style={{ ...actionButtonStyle, color: '#fb7185', borderColor: 'rgba(244,63,94,0.3)' }}
+                                style={{ ...actionButtonStyle, color: T.danger, borderColor: T.dangerBorder }}
                               >
                                 Confirm
                               </button>
@@ -325,7 +326,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                                 {q.status === 'converted' && q.converted_shipment ? ` — ${q.converted_shipment.ref}` : ''}
                               </span>
                               {q.status === 'rejected' && q.rejection_reason && (
-                                <span style={{ fontSize: 10.5, color: '#64748b' }}>“{q.rejection_reason}”</span>
+                                <span style={{ fontSize: 10.5, color: T.muted }}>“{q.rejection_reason}”</span>
                               )}
                               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                                 {q.status === 'draft' && (
@@ -344,7 +345,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                                       type="button"
                                       disabled={statusBusyId === q.id}
                                       onClick={() => void handleStatusUpdate(q, 'accepted')}
-                                      style={{ ...actionButtonStyle, color: '#4ade80', borderColor: 'rgba(34,197,94,0.3)' }}
+                                      style={{ ...actionButtonStyle, color: T.success, borderColor: T.successBorder }}
                                     >
                                       Mark Accepted
                                     </button>
@@ -352,7 +353,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                                       type="button"
                                       disabled={statusBusyId === q.id}
                                       onClick={() => setRejectingId(q.id)}
-                                      style={{ ...actionButtonStyle, color: '#fb7185', borderColor: 'rgba(244,63,94,0.3)' }}
+                                      style={{ ...actionButtonStyle, color: T.danger, borderColor: T.dangerBorder }}
                                     >
                                       Mark Rejected
                                     </button>
@@ -389,7 +390,7 @@ export default function RatesQuotesPage({ orgId, onBookingCreated }: RatesQuotes
                         </td>
                       </tr>
                       {expandedQuoteId === q.id && (
-                        <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
+                        <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, background: T.rowStripe }}>
                           <td colSpan={7} style={{ padding: '10px 20px 16px' }}>
                             <EsignPanel
                               orgId={orgId}
@@ -427,19 +428,19 @@ function ErrorBox({ message }: { message: string }) {
   return (
     <div
       style={{
-        background: 'rgba(244,63,94,0.08)',
-        border: '1px solid rgba(244,63,94,0.3)',
+        background: T.dangerWash,
+        border: `1px solid ${T.dangerBorder}`,
         borderRadius: 12,
         padding: 24,
         textAlign: 'center',
         marginBottom: 16,
       }}
     >
-      <div style={{ color: '#fb7185', fontSize: 13.5 }}>{message}</div>
+      <div style={{ color: T.danger, fontSize: 13.5 }}>{message}</div>
     </div>
   )
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>{label}</div>
+  return <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>{label}</div>
 }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { fetchPublicTracking } from '../api/tracking'
 import { MODE_META, SHIPMENT_DOCUMENT_TYPE_META, STATUS_SEQUENCE, statusMeta, type PublicTrackingData } from '../types'
+import { BRAND } from '../theme/brand'
+import { T } from '../theme/tokens'
 
 interface PublicTrackingPageProps {
   token: string
@@ -9,11 +11,11 @@ interface PublicTrackingPageProps {
 const cardStyle = {
   width: '100%',
   maxWidth: 560,
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 16,
   padding: 40,
-  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+  boxShadow: T.shadowModal,
 }
 
 export default function PublicTrackingPage({ token }: PublicTrackingPageProps) {
@@ -45,7 +47,8 @@ export default function PublicTrackingPage({ token }: PublicTrackingPageProps) {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 32,
-        background: 'radial-gradient(circle at 20% 10%, #101b30 0%, #0b1220 55%)',
+        // Deliberate literal gradient (ADR-0031): subtle light wash behind the public card.
+        background: 'radial-gradient(circle at 20% 10%, #eef0f7 0%, #ffffff 55%)',
       }}
     >
       <div style={cardStyle}>
@@ -55,25 +58,25 @@ export default function PublicTrackingPage({ token }: PublicTrackingPageProps) {
               width: 38,
               height: 38,
               borderRadius: 10,
-              background: '#2563eb',
+              background: BRAND.markBg,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
               fontSize: 17,
-              color: '#fff',
+              color: BRAND.markFg,
               flexShrink: 0,
             }}
           >
             S
           </div>
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: '#f1f5f9' }}>SST Freight</div>
+          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: BRAND.wordmark }}>SST Freight</div>
         </div>
 
-        {loading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading tracking details…</div>}
+        {loading && <div style={{ color: T.muted, fontSize: 13 }}>Loading tracking details…</div>}
 
         {error && (
-          <div style={{ color: '#94a3b8', fontSize: 13.5, lineHeight: 1.6 }}>
+          <div style={{ color: T.muted, fontSize: 13.5, lineHeight: 1.6 }}>
             {error} Please double-check the link, or contact the sender for a new one.
           </div>
         )}
@@ -90,18 +93,18 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
 
   return (
     <div>
-      <div style={{ fontSize: 13, color: '#64748b', marginBottom: 4 }}>Tracking for {data.client_name}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: '#f1f5f9', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
+      <div style={{ fontSize: 13, color: T.muted, marginBottom: 4 }}>Tracking for {data.client_name}</div>
+      <div style={{ fontSize: 22, fontWeight: 700, color: T.ink, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 4 }}>
         {data.ref}
       </div>
       <div style={{ fontSize: 12.5, color: mode.color, fontWeight: 600, marginBottom: 18 }}>{mode.label}</div>
 
-      <div style={{ fontSize: 13, color: '#cbd5e1', marginBottom: 24 }}>
+      <div style={{ fontSize: 13, color: T.text, marginBottom: 24 }}>
         {data.origin} → {data.destination}
       </div>
 
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           Status
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -118,16 +121,16 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
                       height: 10,
                       borderRadius: '50%',
                       margin: '0 auto 6px',
-                      background: done || current ? meta.color : '#1e293b',
+                      background: done || current ? meta.color : T.surfaceInset,
                       border: current ? `2px solid ${meta.color}` : 'none',
                     }}
                   />
-                  <div style={{ fontSize: 10.5, color: done || current ? meta.color : '#5b6b82', fontWeight: current ? 700 : 500, whiteSpace: 'nowrap' }}>
+                  <div style={{ fontSize: 10.5, color: done || current ? meta.color : T.faint, fontWeight: current ? 700 : 500, whiteSpace: 'nowrap' }}>
                     {s}
                   </div>
                 </div>
                 {i < STATUS_SEQUENCE.length - 1 && (
-                  <div style={{ flex: 1, height: 2, background: done ? meta.color : '#1e293b', margin: '0 4px 16px' }} />
+                  <div style={{ flex: 1, height: 2, background: done ? meta.color : T.surfaceInset, margin: '0 4px 16px' }} />
                 )}
               </div>
             )
@@ -136,14 +139,14 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
       </div>
 
       <div style={{ marginBottom: data.invoices.length > 0 ? 8 : 0 }}>
-        <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
           History
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {data.history.map((h, i) => (
-            <div key={i} style={{ fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+            <div key={i} style={{ fontSize: 12, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
               <span>{h.from_status ? `${h.from_status} → ${h.to_status}` : `Created as ${h.to_status}`}</span>
-              <span style={{ color: '#5b6b82', whiteSpace: 'nowrap' }}>{new Date(h.created_at).toLocaleString()}</span>
+              <span style={{ color: T.faint, whiteSpace: 'nowrap' }}>{new Date(h.created_at).toLocaleString()}</span>
             </div>
           ))}
         </div>
@@ -151,17 +154,17 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
 
       {data.documents.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Documents
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
             {data.documents.map((d, i) => (
-              <div key={i} style={{ fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+              <div key={i} style={{ fontSize: 12, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                 <span>
                   {SHIPMENT_DOCUMENT_TYPE_META[d.document_type].label}
-                  {d.ref && <span style={{ color: '#5b6b82' }}> · {d.ref}</span>}
+                  {d.ref && <span style={{ color: T.faint }}> · {d.ref}</span>}
                 </span>
-                <span style={{ color: '#5b6b82', whiteSpace: 'nowrap' }}>{new Date(d.created_at).toLocaleDateString()}</span>
+                <span style={{ color: T.faint, whiteSpace: 'nowrap' }}>{new Date(d.created_at).toLocaleDateString()}</span>
               </div>
             ))}
           </div>
@@ -170,7 +173,7 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
 
       {data.invoices.length > 0 && (
         <div style={{ marginTop: 24 }}>
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Invoices
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -181,15 +184,15 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  background: '#0b1220',
-                  border: '1px solid #1e293b',
+                  background: T.bg,
+                  border: `1px solid ${T.border}`,
                   borderRadius: 8,
                   padding: '11px 14px',
                 }}
               >
                 <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: '#f1f5f9', fontFamily: "'IBM Plex Mono', monospace" }}>{inv.ref}</div>
-                  <div style={{ fontSize: 11.5, color: '#5b6b82', marginTop: 2 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.ink, fontFamily: "'IBM Plex Mono', monospace" }}>{inv.ref}</div>
+                  <div style={{ fontSize: 11.5, color: T.faint, marginTop: 2 }}>
                     {inv.currency} {inv.amount.toLocaleString('en-IN')} · Due {inv.due_date ?? 'N/A'}
                   </div>
                 </div>
@@ -197,7 +200,7 @@ function TrackingContent({ data }: { data: PublicTrackingData }) {
                   style={{
                     fontSize: 11,
                     fontWeight: 600,
-                    color: inv.status === 'paid' ? '#4ade80' : '#fbbf24',
+                    color: inv.status === 'paid' ? T.success : T.warning,
                   }}
                 >
                   ● {inv.status === 'paid' ? 'Paid' : 'Unpaid'}

@@ -268,3 +268,27 @@ day-to-day). The pass's real finding is a non-event, which is the point of a mig
 user-visible behavior changed, while the failure mode users could actually hit (the double-submit
 double-booking) is now impossible. The totals users see are also now server-computed — what's
 stored can no longer disagree with qty×rate arithmetic regardless of client state.
+
+## Week 19b pass — Signal Indigo light theme (ADR-0031, 2026-07-17)
+
+A visual identity change, not a feature — the UAT question: does every screen a user works in
+daily remain readable, familiar in layout, and recognizably SST Freight? Assessed from the full
+16-page screenshot walkthrough (headless Chromium against dev Supabase), reviewed page by page.
+
+## Meera — Member, Client A Logistics
+
+- **"I stare at this app all day — a white theme can't wash out my status colors."** The
+  dashboard, quotes pipeline, and accounting aging cards all show their chips and figures in the
+  re-derived darker palette — Booked/amber, overdue-severity ramp, Converted/green all clearly
+  distinguishable against the light surfaces, with layouts unchanged from the dark theme.
+  ✅ Accepted (from screenshot review).
+- **"Whatever the app looks like, the SST logo should look like SST."** The indigo "S" block +
+  wordmark render identically on the sign-in screen, org picker, and both public pages — and the
+  org's own colored avatar is untouched next to it. ✅ Accepted (from screenshot review).
+
+### Week 19b pass summary
+
+**2/2 scenarios accepted from screenshot review** — a deliberately lighter-weight UAT than a
+feature pass (no workflow changed; the Week 19 tier UAT two sections up already re-proved every
+quoting behavior on this same build lineage). The user's own staging walkthrough after deploy is
+the final acceptance step and is noted as pending until they confirm.

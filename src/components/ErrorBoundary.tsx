@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { logError } from '../lib/errorLogger'
+import { T } from '../theme/tokens'
 
 interface ErrorBoundaryProps {
   children: ReactNode
@@ -35,14 +36,14 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          background: '#0b1220',
-          color: '#e2e8f0',
+          background: T.bg,
+          color: T.text,
           padding: 32,
         }}
       >
         <div style={{ maxWidth: 480, textAlign: 'center' }}>
           <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Something went wrong</div>
-          <div style={{ fontSize: 13.5, color: '#94a3b8', lineHeight: 1.6, marginBottom: 18 }}>
+          <div style={{ fontSize: 13.5, color: T.muted, lineHeight: 1.6, marginBottom: 18 }}>
             The app hit an unexpected error and couldn't continue. Reloading the page usually
             resolves this — if it keeps happening, let the team know what you were doing when it
             occurred.
@@ -53,9 +54,9 @@ export default class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBo
             style={{
               padding: '9px 18px',
               borderRadius: 8,
-              border: '1px solid #1e293b',
+              border: `1px solid ${T.border}`,
               background: 'transparent',
-              color: '#e2e8f0',
+              color: T.text,
               fontSize: 13,
               fontWeight: 600,
               cursor: 'pointer',

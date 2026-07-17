@@ -1,5 +1,67 @@
+/*
+ * Theme tokens (ADR-0031) — "Signal Indigo", the app's light enterprise theme.
+ * Every color in the app resolves through these custom properties, consumed in
+ * components via the typed `T` module (src/theme/tokens.ts) — never as raw
+ * var() strings, and never as hex literals outside this file, src/theme/brand.ts
+ * (the brand-locked SST mark), TENANT_COLORS, and src/lib/documentHtml.ts
+ * (external-signer documents, deliberately theme-independent).
+ *
+ * Future per-org theme switching (Phase 2, not built): add
+ * `:root[data-theme="<name>"] { ...overrides... }` blocks here and set
+ * data-theme on <html> at org-selection time — no component changes needed.
+ */
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+
+  /* neutrals / chrome */
+  --color-bg: #ffffff;
+  --color-surface: #f6f6f9;
+  --color-surface-raised: #ffffff;
+  --color-surface-sidebar: #fbfbfd;
+  --color-surface-inset: #ededf2;
+  --color-border: #e6e6ec;
+  --color-border-strong: #d5d5de;
+  --color-ink: #14141a;
+  --color-text: #34343d;
+  --color-muted: #63636f;
+  --color-faint: #8a8a94;
+  --color-placeholder: #9a9aa3;
+  --color-scrollbar: #d4d4dc;
+  --color-overlay: rgba(20, 20, 26, 0.45);
+  --color-row-stripe: rgba(20, 20, 26, 0.025);
+  --shadow-modal: 0 12px 32px rgba(20, 20, 26, 0.1);
+
+  /* accent / interaction */
+  --color-accent: #4338ca;
+  --color-accent-hover: #3730a3;
+  --color-on-accent: #ffffff;
+  --color-accent-wash: rgba(67, 56, 202, 0.09);
+  --color-focus-ring: rgba(67, 56, 202, 0.35);
+  --color-link: #4338ca;
+  --color-link-hover: #3730a3;
+
+  /* status */
+  --color-success: #16a34a;
+  --color-success-wash: rgba(22, 163, 74, 0.1);
+  --color-success-border: rgba(22, 163, 74, 0.3);
+  --color-danger: #dc2626;
+  --color-danger-wash: rgba(220, 38, 38, 0.08);
+  --color-danger-border: rgba(220, 38, 38, 0.35);
+  --color-warning: #b45309;
+  --color-warning-wash: rgba(180, 83, 9, 0.1);
+  --color-warning-border: rgba(180, 83, 9, 0.35);
+  --color-info: #1d4ed8;
+  --color-info-wash: rgba(29, 78, 216, 0.09);
+  --color-status-neutral: #63636f;
+  --color-status-neutral-wash: rgba(99, 99, 111, 0.09);
+
+  /* mode / categorical (chips + chart bars) */
+  --color-mode-ocean: #0369a1;
+  --color-mode-ocean-wash: rgba(3, 105, 161, 0.1);
+  --color-mode-air: #6d28d9;
+  --color-mode-air-wash: rgba(109, 40, 217, 0.1);
+  --color-mode-truck: #b45309;
+  --color-mode-truck-wash: rgba(180, 83, 9, 0.1);
 }
 
 * {
@@ -14,8 +76,8 @@ body,
 
 body {
   margin: 0;
-  background: #0b1220;
-  color: #e2e8f0;
+  background: var(--color-bg);
+  color: var(--color-text);
   font-family:
     -apple-system,
     BlinkMacSystemFont,
@@ -33,16 +95,16 @@ button {
 }
 
 input::placeholder {
-  color: #475569;
+  color: var(--color-placeholder);
 }
 
 a {
-  color: #3b82f6;
+  color: var(--color-link);
   text-decoration: none;
 }
 
 a:hover {
-  color: #60a5fa;
+  color: var(--color-link-hover);
   text-decoration: underline;
 }
 
@@ -52,7 +114,7 @@ a:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: var(--color-scrollbar);
   border-radius: 6px;
 }
 

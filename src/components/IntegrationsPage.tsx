@@ -14,26 +14,27 @@ import {
 } from '../hooks/useIntegrations'
 import { eventTypeLabel, isValidWebhookUrl, maskApiKey, retryScheduleLabel } from '../lib/integrations'
 import { WEBHOOK_EVENT_TYPES, type ApiKeyCreated, type OrganizationWithRole, type WebhookEndpoint, type WebhookEventType } from '../types'
+import { T } from '../theme/tokens'
 
 interface IntegrationsPageProps {
   org: OrganizationWithRole
 }
 
-const labelStyle: CSSProperties = { fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 8 }
+const labelStyle: CSSProperties = { fontSize: 11, fontWeight: 600, color: T.muted, display: 'block', marginBottom: 8 }
 const inputStyle: CSSProperties = {
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 const primaryBtn = (busy: boolean): CSSProperties => ({
   padding: '9px 16px',
   borderRadius: 8,
   border: 'none',
-  background: busy ? '#1e293b' : '#2563eb',
-  color: '#fff',
+  background: busy ? T.surfaceInset : T.accent,
+  color: T.onAccent,
   fontWeight: 600,
   fontSize: 12.5,
   cursor: busy ? 'not-allowed' : 'pointer',
@@ -41,18 +42,18 @@ const primaryBtn = (busy: boolean): CSSProperties => ({
 const subtleBtn: CSSProperties = {
   padding: '6px 12px',
   borderRadius: 7,
-  border: '1px solid #1e293b',
+  border: `1px solid ${T.border}`,
   background: 'transparent',
-  color: '#8291a6',
+  color: T.muted,
   fontWeight: 600,
   fontSize: 11.5,
   cursor: 'pointer',
 }
 const errorBox: CSSProperties = {
   marginBottom: 14,
-  background: 'rgba(244,63,94,0.1)',
-  border: '1px solid rgba(244,63,94,0.3)',
-  color: '#fb7185',
+  background: T.dangerWash,
+  border: `1px solid ${T.dangerBorder}`,
+  color: T.danger,
   fontSize: 12.5,
   borderRadius: 8,
   padding: '9px 12px',
@@ -67,8 +68,8 @@ const deliveryChipStyle = (status: string): CSSProperties => ({
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.04em',
-  background: status === 'delivered' ? 'rgba(34,197,94,0.12)' : status === 'failed' ? 'rgba(244,63,94,0.12)' : 'rgba(245,158,11,0.12)',
-  color: status === 'delivered' ? '#4ade80' : status === 'failed' ? '#fb7185' : '#fbbf24',
+  background: status === 'delivered' ? T.successWash : status === 'failed' ? T.dangerWash : T.warningWash,
+  color: status === 'delivered' ? T.success : status === 'failed' ? T.danger : T.warning,
 })
 
 function DeliveryHistory({ orgId, endpointId }: { orgId: string; endpointId: string }) {
@@ -76,22 +77,22 @@ function DeliveryHistory({ orgId, endpointId }: { orgId: string; endpointId: str
   const error = errObj instanceof Error ? errObj.message : null
 
   return (
-    <div style={{ marginTop: 12, borderTop: '1px solid #1e293b', paddingTop: 12 }}>
+    <div style={{ marginTop: 12, borderTop: `1px solid ${T.border}`, paddingTop: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#64748b' }}>Delivery history</span>
+        <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>Delivery history</span>
         <button type="button" style={subtleBtn} onClick={() => void refetch()}>
           Refresh
         </button>
       </div>
       {error && <div style={errorBox}>{error}</div>}
-      {isLoading && <div style={{ fontSize: 12, color: '#5b6b82' }}>Loading…</div>}
+      {isLoading && <div style={{ fontSize: 12, color: T.faint }}>Loading…</div>}
       {!isLoading && deliveries.length === 0 && (
-        <div style={{ fontSize: 12, color: '#5b6b82' }}>No deliveries yet — trigger an event or send a test.</div>
+        <div style={{ fontSize: 12, color: T.faint }}>No deliveries yet — trigger an event or send a test.</div>
       )}
       {deliveries.length > 0 && (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
           <thead>
-            <tr style={{ textAlign: 'left', color: '#64748b', fontSize: 10.5 }}>
+            <tr style={{ textAlign: 'left', color: T.muted, fontSize: 10.5 }}>
               <th style={{ padding: '4px 8px 4px 0' }}>Event</th>
               <th style={{ padding: '4px 8px' }}>Status</th>
               <th style={{ padding: '4px 8px' }}>Attempts</th>
@@ -101,16 +102,16 @@ function DeliveryHistory({ orgId, endpointId }: { orgId: string; endpointId: str
           </thead>
           <tbody>
             {deliveries.map((d) => (
-              <tr key={d.id} style={{ borderTop: '1px solid #14203a', color: '#cbd5e1' }}>
+              <tr key={d.id} style={{ borderTop: `1px solid ${T.border}`, color: T.text }}>
                 <td style={{ padding: '6px 8px 6px 0', ...monoStyle, fontSize: 11.5 }}>{eventTypeLabel(d.event_type)}</td>
                 <td style={{ padding: '6px 8px' }}>
                   <span style={deliveryChipStyle(d.status)}>{d.status}</span>
                 </td>
                 <td style={{ padding: '6px 8px' }}>{retryScheduleLabel(d.status, d.attempts)}</td>
-                <td style={{ padding: '6px 8px', color: d.last_error ? '#fb7185' : '#5b6b82', maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <td style={{ padding: '6px 8px', color: d.last_error ? T.danger : T.faint, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {d.last_status_code ?? ''} {d.last_error ?? (d.status === 'delivered' ? 'OK' : '')}
                 </td>
-                <td style={{ padding: '6px 8px', color: '#5b6b82' }}>{new Date(d.created_at).toLocaleString()}</td>
+                <td style={{ padding: '6px 8px', color: T.faint }}>{new Date(d.created_at).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
@@ -142,11 +143,11 @@ function EndpointCard({ org, endpoint }: { org: OrganizationWithRole; endpoint: 
   }
 
   return (
-    <div style={{ border: '1px solid #1e293b', borderRadius: 10, padding: '14px 16px', marginBottom: 12, background: '#0b1220' }}>
+    <div style={{ border: `1px solid ${T.border}`, borderRadius: 10, padding: '14px 16px', marginBottom: 12, background: T.bg }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
         <div style={{ minWidth: 0 }}>
-          <div style={{ ...monoStyle, fontSize: 12.5, color: '#e2e8f0', wordBreak: 'break-all' }}>{endpoint.url}</div>
-          <div style={{ fontSize: 11, color: '#5b6b82', marginTop: 4 }}>
+          <div style={{ ...monoStyle, fontSize: 12.5, color: T.text, wordBreak: 'break-all' }}>{endpoint.url}</div>
+          <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>
             {endpoint.event_types.map((e) => eventTypeLabel(e)).join(' · ')}
           </div>
         </div>
@@ -155,7 +156,7 @@ function EndpointCard({ org, endpoint }: { org: OrganizationWithRole; endpoint: 
             style={{
               fontSize: 10.5,
               fontWeight: 700,
-              color: endpoint.enabled ? '#4ade80' : '#64748b',
+              color: endpoint.enabled ? T.success : T.muted,
               textTransform: 'uppercase',
               letterSpacing: '0.04em',
             }}
@@ -177,7 +178,7 @@ function EndpointCard({ org, endpoint }: { org: OrganizationWithRole; endpoint: 
       </div>
 
       {testState === 'sent' && (
-        <div style={{ fontSize: 11.5, color: '#4ade80', marginTop: 8 }}>
+        <div style={{ fontSize: 11.5, color: T.success, marginTop: 8 }}>
           Test queued — the delivery worker sends within a minute. Check the history below.
         </div>
       )}
@@ -192,11 +193,11 @@ function EndpointCard({ org, endpoint }: { org: OrganizationWithRole; endpoint: 
         </button>
       </div>
       {secretShown && (
-        <div style={{ marginTop: 8, fontSize: 11.5, color: '#cbd5e1' }}>
-          <span style={{ ...monoStyle, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 6, padding: '4px 8px' }}>
+        <div style={{ marginTop: 8, fontSize: 11.5, color: T.text }}>
+          <span style={{ ...monoStyle, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 6, padding: '4px 8px' }}>
             {endpoint.secret}
           </span>
-          <div style={{ color: '#5b6b82', marginTop: 6 }}>
+          <div style={{ color: T.faint, marginTop: 6 }}>
             Verify each delivery: the X-SST-Signature header is “sha256=” + HMAC-SHA256(raw body, this secret), hex-encoded.
           </div>
         </div>
@@ -234,14 +235,14 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
   if (!canManage) {
     return (
       <div style={{ padding: '28px 32px', flex: 1, maxWidth: 640 }}>
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>Integrations</h1>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>Integrations</h1>
         <div
           style={{
             marginTop: 14,
             fontSize: 12.5,
-            color: '#5b6b82',
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            color: T.faint,
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 8,
             padding: '12px 14px',
           }}
@@ -308,14 +309,14 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
 
   return (
     <div style={{ padding: '28px 32px', flex: 1, maxWidth: 760 }}>
-      <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>Integrations</h1>
-      <div style={{ fontSize: 12.5, color: '#5b6b82', marginBottom: 24 }}>
+      <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>Integrations</h1>
+      <div style={{ fontSize: 12.5, color: T.faint, marginBottom: 24 }}>
         Connect {org.name}'s own systems: API keys for reading data, webhooks for receiving events.
       </div>
 
       {/* ── API keys ─────────────────────────────────────── */}
-      <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>API Keys</h2>
-      <div style={{ fontSize: 12, color: '#5b6b82', marginBottom: 14 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>API Keys</h2>
+      <div style={{ fontSize: 12, color: T.faint, marginBottom: 14 }}>
         A key grants read-only access to this organization's shipments, quotes and invoices via the REST API.
       </div>
 
@@ -340,17 +341,17 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
         <div
           style={{
             marginBottom: 16,
-            border: '1px solid rgba(34,197,94,0.35)',
-            background: 'rgba(34,197,94,0.07)',
+            border: `1px solid ${T.successBorder}`,
+            background: T.successWash,
             borderRadius: 10,
             padding: '12px 14px',
           }}
         >
-          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#4ade80', marginBottom: 6 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: T.success, marginBottom: 6 }}>
             “{createdKey.label}” created — copy the key now. You will not see it again.
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-            <code style={{ ...monoStyle, fontSize: 12, color: '#e2e8f0', background: '#0b1220', border: '1px solid #1e293b', borderRadius: 6, padding: '6px 10px', wordBreak: 'break-all' }}>
+            <code style={{ ...monoStyle, fontSize: 12, color: T.text, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '6px 10px', wordBreak: 'break-all' }}>
               {createdKey.api_key}
             </code>
             <button type="button" style={subtleBtn} onClick={() => void handleCopyKey()}>
@@ -366,7 +367,7 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
       {apiKeys.length > 0 && (
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5, marginBottom: 8 }}>
           <thead>
-            <tr style={{ textAlign: 'left', color: '#64748b', fontSize: 10.5 }}>
+            <tr style={{ textAlign: 'left', color: T.muted, fontSize: 10.5 }}>
               <th style={{ padding: '6px 8px 6px 0' }}>Label</th>
               <th style={{ padding: '6px 8px' }}>Key</th>
               <th style={{ padding: '6px 8px' }}>Created</th>
@@ -376,22 +377,22 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
           </thead>
           <tbody>
             {apiKeys.map((k) => (
-              <tr key={k.id} style={{ borderTop: '1px solid #14203a', color: '#cbd5e1' }}>
+              <tr key={k.id} style={{ borderTop: `1px solid ${T.border}`, color: T.text }}>
                 <td style={{ padding: '8px 8px 8px 0' }}>{k.label}</td>
                 <td style={{ padding: '8px 8px', ...monoStyle, fontSize: 11.5 }}>{maskApiKey(k.key_prefix)}</td>
-                <td style={{ padding: '8px 8px', color: '#5b6b82' }}>{new Date(k.created_at).toLocaleDateString()}</td>
-                <td style={{ padding: '8px 8px', color: '#5b6b82' }}>
+                <td style={{ padding: '8px 8px', color: T.faint }}>{new Date(k.created_at).toLocaleDateString()}</td>
+                <td style={{ padding: '8px 8px', color: T.faint }}>
                   {k.last_used_at ? new Date(k.last_used_at).toLocaleString() : 'never'}
                 </td>
                 <td style={{ padding: '8px 0', textAlign: 'right' }}>
                   {k.revoked_at ? (
-                    <span style={{ fontSize: 10.5, fontWeight: 700, color: '#fb7185', textTransform: 'uppercase' }}>Revoked</span>
+                    <span style={{ fontSize: 10.5, fontWeight: 700, color: T.danger, textTransform: 'uppercase' }}>Revoked</span>
                   ) : revokingId === k.id ? (
                     <span style={{ fontSize: 11.5 }}>
                       Revoke “{k.label}”?{' '}
                       <button
                         type="button"
-                        style={{ ...subtleBtn, color: '#fb7185', borderColor: 'rgba(244,63,94,0.4)' }}
+                        style={{ ...subtleBtn, color: T.danger, borderColor: T.dangerBorder }}
                         onClick={() => {
                           revokeMutation.mutate(k.id)
                           setRevokingId(null)
@@ -415,13 +416,13 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
         </table>
       )}
       {apiKeys.length === 0 && !keysError && (
-        <div style={{ fontSize: 12, color: '#5b6b82', marginBottom: 8 }}>No API keys yet.</div>
+        <div style={{ fontSize: 12, color: T.faint, marginBottom: 8 }}>No API keys yet.</div>
       )}
 
       {/* ── Webhooks ─────────────────────────────────────── */}
-      <div style={{ marginTop: 34, paddingTop: 24, borderTop: '1px solid #1e293b' }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>Webhooks</h2>
-        <div style={{ fontSize: 12, color: '#5b6b82', marginBottom: 16 }}>
+      <div style={{ marginTop: 34, paddingTop: 24, borderTop: `1px solid ${T.border}` }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>Webhooks</h2>
+        <div style={{ fontSize: 12, color: T.faint, marginBottom: 16 }}>
           SST Freight POSTs signed JSON events to your endpoint as they happen — retried automatically for up to five
           attempts if your system is down.
         </div>
@@ -440,7 +441,7 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
           <label style={labelStyle}>Events</label>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
             {WEBHOOK_EVENT_TYPES.map((e) => (
-              <label key={e.value} style={{ fontSize: 12, color: '#cbd5e1', display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+              <label key={e.value} style={{ fontSize: 12, color: T.text, display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
                 <input type="checkbox" checked={epEvents.includes(e.value)} onChange={() => toggleEvent(e.value)} />
                 {e.label}
               </label>
@@ -462,7 +463,7 @@ export default function IntegrationsPage({ org }: IntegrationsPageProps) {
           <EndpointCard key={ep.id} org={org} endpoint={ep} />
         ))}
         {endpoints.length === 0 && !endpointsError && (
-          <div style={{ fontSize: 12, color: '#5b6b82' }}>No webhook endpoints yet.</div>
+          <div style={{ fontSize: 12, color: T.faint }}>No webhook endpoints yet.</div>
         )}
       </div>
     </div>

@@ -511,6 +511,32 @@ restored — the converted QA shipments remain (shipments have no delete path, b
 **Explicitly out of scope / pending**: the structured-log observability check (scenario 8 of the
 plan) needs a human eyeball on the Supabase dashboard's per-function logs — the script cannot
 read them; every action *returned* its structured envelope correctly, but the dashboard log lines
-themselves are pending user confirmation. Cold-start latency was not measured (recorded in
-`docs/tech-debt.md`). The E-Sign panel journeys were not re-walked (untouched by this migration —
-`esign.ts` and `docusign-envelope` are unchanged).
+themselves are pending user confirmation. **(Closed later the same day: the user confirmed the
+structured JSON lines visible in the dashboard's Logs tab — screenshot reviewed.)** Cold-start
+latency was not measured (recorded in `docs/tech-debt.md`). The E-Sign panel journeys were not
+re-walked (untouched by this migration — `esign.ts` and `docusign-envelope` are unchanged).
+
+## Week 19b — Signal Indigo re-theme (ADR-0031), 2026-07-17
+
+An architecture-of-styling migration (849 hardcoded hex occurrences → a CSS-custom-property
+token layer + the new light theme), so the QA question was regression-shaped: does every page
+still render, behave, and stay legible? Run against `npm run dev` → dev Supabase.
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Unit suite unaffected (verified beforehand that no test asserts colors) | ✅ 38/38 |
+| 2 | Build (`tsc -b && vite build`) + lint (oxlint) clean after ~965 automated + 18 manual color conversions | ✅ Verified |
+| 3 | **Grep gate**: hex/rgba literals in `src/` confined to the documented exception set (index.css token defs, theme/brand.ts, TENANT_COLORS, documentHtml.ts + print CSS, 4 commented gradients, 1 commented severity literal) | ✅ Verified |
+| 4 | **dataviz palette validator** — mode categorical triple (#0369a1/#6d28d9/#b45309) on the light surface | ✅ ALL CHECKS PASS |
+| 5 | dataviz validator — full 8-color status set: status-neutral gray flagged (gray **by design**); warning↔danger ΔE 2.8 under deutan CVD flagged — accepted via the validator's own text-label exception, recorded in tech-debt | ⚠️ Accepted with mitigation |
+| 6 | **16-page Playwright walkthrough** (auth, org picker, dashboard, quotes tariffs+list, quote modal, directory, team, accounting, customs, reporting, integrations, settings, audit log, public TCO) — every page rendered, screenshots saved and eyeballed for contrast/regressions | ✅ 15/15 script + TCO re-shot |
+| 7 | Zero uncaught page errors across the whole walkthrough | ✅ Verified |
+| 8 | Brand-lock: SST mark/wordmark render from `BRAND` literals on auth/org-picker/public pages + footers; org avatars keep white-label `org.color` | ✅ Verified in screenshots |
+| 9 | Aging-severity ramp (amber → mid-orange → red) and status/mode chips legible on light surfaces | ✅ Verified in screenshots |
+
+**Real bugs caught and fixed during the pass, not glossed over**: (1) the conversion codemod
+initially inserted the token import *inside* multi-line import blocks — caught by `tsc`, fixed by
+a repair script across 35 files; (2) a PowerShell in-place replace corrupted UTF-8 en-dashes in
+AccountingPage.tsx — caught immediately, file restored from git and redone with safe tooling;
+(3) the codemod's second run converted two deliberately-literal white glyphs to tokens —
+re-fixed with the codemod-proof `'white'` keyword.

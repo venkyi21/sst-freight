@@ -8,6 +8,7 @@ import DashboardPage from './pages/DashboardPage'
 import PublicTrackingPage from './components/PublicTrackingPage'
 import PublicTCOCalculatorPage from './components/PublicTCOCalculatorPage'
 import ErrorBoundary from './components/ErrorBoundary'
+import { T } from './theme/tokens'
 
 // One client for the app's lifetime. Query keys always include org id (see src/hooks/) so a
 // switched org never serves another tenant's cached rows — see ADR-0025 and the cross-tenant
@@ -24,14 +25,14 @@ function ConfigWarning() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0b1220',
-        color: '#e2e8f0',
+        background: T.bg,
+        color: T.text,
         padding: 32,
       }}
     >
       <div style={{ maxWidth: 480, textAlign: 'center' }}>
         <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 10 }}>Supabase isn't configured</div>
-        <div style={{ fontSize: 13.5, color: '#94a3b8', lineHeight: 1.6 }}>
+        <div style={{ fontSize: 13.5, color: T.muted, lineHeight: 1.6 }}>
           Copy <code>.env.example</code> to <code>.env.local</code>, fill in your Supabase project URL and anon key,
           then restart the dev server (or rebuild). See <code>README.md</code> for the full setup steps.
         </div>
@@ -48,8 +49,8 @@ function LoadingScreen() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: '#0b1220',
-        color: '#64748b',
+        background: T.bg,
+        color: T.muted,
         fontSize: 13,
       }}
     >

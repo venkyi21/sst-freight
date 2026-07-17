@@ -4,6 +4,7 @@ import { saveTariff } from '../api/quotes'
 import FieldError from './FieldError'
 import { isCheckViolation } from '../lib/formErrors'
 import { RATE_BASIS_META, type ShipmentMode, type Tariff } from '../types'
+import { T } from '../theme/tokens'
 
 interface TariffModalProps {
   orgId: string
@@ -14,18 +15,18 @@ interface TariffModalProps {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -92,7 +93,7 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -107,15 +108,15 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
           maxWidth: 480,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{tariff ? 'Edit Tariff' : 'Add Tariff'}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{tariff ? 'Edit Tariff' : 'Add Tariff'}</div>
           <button
             type="button"
             onClick={onClose}
@@ -123,7 +124,7 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
             style={{
               background: 'none',
               border: 'none',
-              color: '#64748b',
+              color: T.muted,
               fontSize: 20,
               cursor: busy ? 'not-allowed' : 'pointer',
               lineHeight: 1,
@@ -135,8 +136,8 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
 
         <div
           style={{
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 9,
             padding: 3,
             display: 'flex',
@@ -160,8 +161,8 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: 'pointer',
-                background: mode === m ? '#2563eb' : 'transparent',
-                color: mode === m ? '#fff' : '#8291a6',
+                background: mode === m ? T.accent : 'transparent',
+                color: mode === m ? T.onAccent : T.muted,
               }}
             >
               {m === 'ocean' ? 'Ocean' : m === 'air' ? 'Air' : 'Truck'}
@@ -197,9 +198,9 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
               style={{
                 marginTop: 4,
                 marginBottom: 14,
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -218,9 +219,9 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: busy ? 'not-allowed' : 'pointer',
@@ -236,8 +237,8 @@ export default function TariffModal({ orgId, tariff, onClose, onSaved }: TariffM
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: !busy ? '#2563eb' : '#1e293b',
-                color: '#fff',
+                background: !busy ? T.accent : T.surfaceInset,
+                color: T.onAccent,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: !busy ? 'pointer' : 'not-allowed',

@@ -1,5 +1,6 @@
 import type { InvoiceStatus } from './accounting'
 import type { ShipmentDocumentType } from './documents'
+import { T } from '../theme/tokens'
 
 export type ShipmentMode = 'ocean' | 'air' | 'truck'
 export type ShipmentStatus = 'Booked' | 'Docs' | 'Cleared' | 'In Transit' | 'Delivered'
@@ -35,9 +36,9 @@ export interface Shipment {
 }
 
 export const MODE_META: Record<ShipmentMode, { label: string; color: string }> = {
-  ocean: { label: 'Ocean', color: '#38bdf8' },
-  air: { label: 'Air', color: '#a78bfa' },
-  truck: { label: 'Truck', color: '#fbbf24' },
+  ocean: { label: 'Ocean', color: T.modeOcean },
+  air: { label: 'Air', color: T.modeAir },
+  truck: { label: 'Truck', color: T.modeTruck },
 }
 
 export const RATE_BASIS_META: Record<ShipmentMode, { label: string; unit: string }> = {
@@ -49,15 +50,15 @@ export const RATE_BASIS_META: Record<ShipmentMode, { label: string; unit: string
 export const STATUS_SEQUENCE: ShipmentStatus[] = ['Booked', 'Docs', 'Cleared', 'In Transit', 'Delivered']
 
 export const STATUS_META: Record<string, { bg: string; color: string }> = {
-  Booked: { bg: 'rgba(251,191,36,0.12)', color: '#fbbf24' },
-  Docs: { bg: 'rgba(244,63,94,0.12)', color: '#fb7185' },
-  Cleared: { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
-  'In Transit': { bg: 'rgba(59,130,246,0.12)', color: '#60a5fa' },
-  Delivered: { bg: 'rgba(16,185,129,0.12)', color: '#4ade80' },
+  Booked: { bg: T.warningWash, color: T.warning },
+  Docs: { bg: T.dangerWash, color: T.danger },
+  Cleared: { bg: T.infoWash, color: T.info },
+  'In Transit': { bg: T.infoWash, color: T.info },
+  Delivered: { bg: T.successWash, color: T.success },
 }
 
 export function statusMeta(status: string): { bg: string; color: string } {
-  return STATUS_META[status] ?? { bg: 'rgba(148,163,184,0.12)', color: '#94a3b8' }
+  return STATUS_META[status] ?? { bg: T.statusNeutralWash, color: T.statusNeutral }
 }
 
 export interface StatusHistoryEntry {

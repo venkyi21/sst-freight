@@ -378,6 +378,28 @@ is a near-term coding task, and none of it should be attempted without that infr
   line in the function's dashboard logs) instead of only in the creating user's browser console.
   Fully closing it means hoisting quote+lines creation into one RPC, like conversion.
 
+## Signal Indigo theme & token layer (ADR-0031)
+
+- **Local style-object duplication is only partially consolidated.** `src/theme/styles.ts` holds
+  the shared primitives, but many components keep near-identical local `panelStyle`/`inputStyle`/
+  `headStyle` objects (tokenized in place) — the re-theme pass was deliberately chromatic-only.
+  Closing it: adopt the shared module file-by-file where the shapes truly match, as files are
+  touched for other reasons.
+- **Existing orgs' stored `org.color` values were not migrated** when `TENANT_COLORS` darkened
+  amber→`#d97706` and cyan→`#0891b2` — an org that picked the old `#f59e0b`/`#06b6d4` keeps it,
+  and its white avatar glyph has marginal contrast on the light theme. Closing it: a one-time
+  UPDATE mapping the two old values, or a "re-pick your color" nudge in Org Settings.
+- **`public/favicon.svg` is still the legacy purple abstract mark**, not the indigo "S" block
+  the app now brand-locks everywhere else. Small asset task, needs an actual SVG redesign.
+- **A future dark org theme is not free**: it needs a `wordmarkInverse` brand variant (the
+  brand-locked `#14141a` wordmark vanishes on dark) and a re-derived status/mode ramp (the
+  light-theme 700-weight colors are too dark for dark surfaces) before it can ship.
+- **Warning (`#b45309`) vs danger (`#dc2626`) are near-identical under deutan CVD** (ΔE 2.8,
+  measured with the dataviz validator — affects the Booked/Docs shipment chips and the aging
+  cards). Accepted because every such surface carries a text label, the validator's own stated
+  exception; revisit only with a real accessibility complaint. The truck-mode/warning color
+  collision (`#b45309` shared) predates this theme and is preserved knowingly.
+
 ## Unit testing (ADR-0026)
 
 - **Automated unit coverage is real but deliberately narrow: 4 `src/lib/` modules, nothing else.**

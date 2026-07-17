@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { fetchLatestEsignRequest, refreshEsignStatus, sendEsignEnvelope } from '../api/esign'
 import { ESIGN_STATUS_META, type EsignDocumentType, type EsignRequest } from '../types'
+import { T } from '../theme/tokens'
 
 interface EsignPanelProps {
   orgId: string
@@ -15,20 +16,20 @@ interface EsignPanelProps {
 }
 
 const inputStyle: CSSProperties = {
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 6,
   padding: '7px 9px',
   fontSize: 12,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const buttonStyle: CSSProperties = {
   padding: '6px 12px',
   borderRadius: 6,
-  border: '1px solid #1e293b',
+  border: `1px solid ${T.border}`,
   background: 'transparent',
-  color: '#94a3b8',
+  color: T.muted,
   fontSize: 11.5,
   fontWeight: 600,
   cursor: 'pointer',
@@ -106,7 +107,7 @@ export default function EsignPanel({
     setBusy(false)
   }
 
-  if (loading) return <div style={{ fontSize: 11.5, color: '#5b6b82' }}>Loading e-signature status…</div>
+  if (loading) return <div style={{ fontSize: 11.5, color: T.faint }}>Loading e-signature status…</div>
 
   return (
     <div>
@@ -124,7 +125,7 @@ export default function EsignPanel({
           >
             {ESIGN_STATUS_META[request.status].label}
           </span>
-          <span style={{ fontSize: 11.5, color: '#5b6b82' }}>
+          <span style={{ fontSize: 11.5, color: T.faint }}>
             {request.recipient_name} ({request.recipient_email})
           </span>
           {request.status !== 'completed' && (
@@ -149,11 +150,11 @@ export default function EsignPanel({
         </div>
       )}
       {request && (request.status === 'declined' || request.status === 'voided') && (
-        <div style={{ fontSize: 11, color: '#fb7185', marginTop: 6 }}>
+        <div style={{ fontSize: 11, color: T.danger, marginTop: 6 }}>
           Previous request was {ESIGN_STATUS_META[request.status].label.toLowerCase()} — sending again starts a new envelope.
         </div>
       )}
-      {error && <div style={{ fontSize: 11.5, color: '#fb7185', marginTop: 6 }}>{error}</div>}
+      {error && <div style={{ fontSize: 11.5, color: T.danger, marginTop: 6 }}>{error}</div>}
     </div>
   )
 }

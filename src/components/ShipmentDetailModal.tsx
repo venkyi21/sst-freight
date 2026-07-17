@@ -3,6 +3,7 @@ import { advanceShipmentStatus, fetchShipmentStatusHistory, optInCargoInsurance,
 import InfoTooltip from './InfoTooltip'
 import ShipmentDocumentsPanel from './ShipmentDocumentsPanel'
 import { MODE_META, STATUS_SEQUENCE, statusMeta, type BillingModel, type Shipment, type StatusHistoryEntry } from '../types'
+import { T } from '../theme/tokens'
 
 interface ShipmentDetailModalProps {
   shipment: Shipment
@@ -98,7 +99,7 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -113,21 +114,21 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
           maxWidth: 560,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9', fontFamily: "'IBM Plex Mono', monospace" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink, fontFamily: "'IBM Plex Mono', monospace" }}>
             {shipment.ref}
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
           >
             ×
           </button>
@@ -139,10 +140,10 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
             onClick={() => void handleCopyTrackingLink()}
             style={{
               background: 'transparent',
-              border: '1px solid #1e293b',
+              border: `1px solid ${T.border}`,
               borderRadius: 6,
               padding: '5px 10px',
-              color: linkCopied ? '#4ade80' : '#94a3b8',
+              color: linkCopied ? T.success : T.muted,
               fontSize: 11.5,
               fontWeight: 600,
               cursor: 'pointer',
@@ -161,10 +162,10 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
               title="Simulated — no real funds move yet"
               style={{
                 background: 'transparent',
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 borderRadius: 6,
                 padding: '5px 10px',
-                color: insured ? '#4ade80' : '#94a3b8',
+                color: insured ? T.success : T.muted,
                 fontSize: 11.5,
                 fontWeight: 600,
                 cursor: insured ? 'default' : 'pointer',
@@ -178,19 +179,19 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 22, fontSize: 13 }}>
           <div>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>Client</div>
-            <div style={{ color: '#e2e8f0' }}>{shipment.client}</div>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 3 }}>Client</div>
+            <div style={{ color: T.text }}>{shipment.client}</div>
           </div>
           <div>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 3 }}>Route</div>
-            <div style={{ color: '#e2e8f0' }}>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 3 }}>Route</div>
+            <div style={{ color: T.text }}>
               {shipment.origin} → {shipment.destination}
             </div>
           </div>
         </div>
 
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Status
           </div>
           <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -207,16 +208,16 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
                         height: 10,
                         borderRadius: '50%',
                         margin: '0 auto 6px',
-                        background: done || current ? meta.color : '#1e293b',
+                        background: done || current ? meta.color : T.surfaceInset,
                         border: current ? `2px solid ${meta.color}` : 'none',
                       }}
                     />
-                    <div style={{ fontSize: 10.5, color: done || current ? meta.color : '#5b6b82', fontWeight: current ? 700 : 500, whiteSpace: 'nowrap' }}>
+                    <div style={{ fontSize: 10.5, color: done || current ? meta.color : T.faint, fontWeight: current ? 700 : 500, whiteSpace: 'nowrap' }}>
                       {s}
                     </div>
                   </div>
                   {i < STATUS_SEQUENCE.length - 1 && (
-                    <div style={{ flex: 1, height: 2, background: done ? meta.color : '#1e293b', margin: '0 4px 16px' }} />
+                    <div style={{ flex: 1, height: 2, background: done ? meta.color : T.surfaceInset, margin: '0 4px 16px' }} />
                   )}
                 </div>
               )
@@ -227,12 +228,12 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
         <ShipmentDocumentsPanel shipment={shipment} />
 
         <div style={{ marginBottom: 22 }}>
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             Carrier Tracking
           </div>
           {shipment.carrier_tracking_request_id ? (
-            <div style={{ fontSize: 12.5, color: '#94a3b8' }}>
-              <div style={{ color: '#4ade80', fontWeight: 600, marginBottom: 4 }}>
+            <div style={{ fontSize: 12.5, color: T.muted }}>
+              <div style={{ color: T.success, fontWeight: 600, marginBottom: 4 }}>
                 ● Registered — {shipment.carrier_scac} / {shipment.carrier_request_number}
               </div>
               <div style={{ marginBottom: 8 }}>
@@ -243,7 +244,7 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
                 href="https://app.terminal49.com"
                 target="_blank"
                 rel="noreferrer"
-                style={{ color: '#60a5fa', fontSize: 12, fontWeight: 600 }}
+                style={{ color: T.info, fontSize: 12, fontWeight: 600 }}
               >
                 Open Terminal49 dashboard ↗
               </a>
@@ -256,17 +257,17 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
                   value={scacInput}
                   onChange={(e) => setScacInput(e.target.value)}
                   placeholder="Carrier SCAC (e.g. HLCU)"
-                  style={{ flex: 1, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 6, padding: '7px 10px', color: '#e2e8f0', fontSize: 12.5 }}
+                  style={{ flex: 1, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '7px 10px', color: T.text, fontSize: 12.5 }}
                 />
                 <input
                   type="text"
                   value={requestNumberInput}
                   onChange={(e) => setRequestNumberInput(e.target.value)}
                   placeholder="Booking / BL / container #"
-                  style={{ flex: 1.5, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 6, padding: '7px 10px', color: '#e2e8f0', fontSize: 12.5 }}
+                  style={{ flex: 1.5, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '7px 10px', color: T.text, fontSize: 12.5 }}
                 />
               </div>
-              {trackingError && <div style={{ fontSize: 12, color: '#fb7185' }}>{trackingError}</div>}
+              {trackingError && <div style={{ fontSize: 12, color: T.danger }}>{trackingError}</div>}
               <button
                 type="button"
                 disabled={trackingBusy}
@@ -274,10 +275,10 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
                 style={{
                   alignSelf: 'flex-start',
                   background: 'transparent',
-                  border: '1px solid #1e293b',
+                  border: `1px solid ${T.border}`,
                   borderRadius: 6,
                   padding: '6px 12px',
-                  color: '#94a3b8',
+                  color: T.muted,
                   fontSize: 11.5,
                   fontWeight: 600,
                   cursor: trackingBusy ? 'not-allowed' : 'pointer',
@@ -293,9 +294,9 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
           <div
             style={{
               marginBottom: 16,
-              background: 'rgba(244,63,94,0.1)',
-              border: '1px solid rgba(244,63,94,0.3)',
-              color: '#fb7185',
+              background: T.dangerWash,
+              border: `1px solid ${T.dangerBorder}`,
+              color: T.danger,
               fontSize: 12.5,
               borderRadius: 8,
               padding: '9px 12px',
@@ -315,8 +316,8 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
               padding: 11,
               borderRadius: 8,
               border: 'none',
-              background: busy ? '#1e293b' : '#2563eb',
-              color: '#fff',
+              background: busy ? T.surfaceInset : T.accent,
+              color: T.onAccent,
               fontWeight: 600,
               fontSize: 13,
               cursor: busy ? 'not-allowed' : 'pointer',
@@ -326,26 +327,26 @@ export default function ShipmentDetailModal({ shipment, billingModel, onClose, o
             {busy ? 'Updating…' : `Mark as ${nextStatus}`}
           </button>
         ) : (
-          <div style={{ textAlign: 'center', color: '#4ade80', fontSize: 12.5, fontWeight: 600, marginBottom: 22 }}>
+          <div style={{ textAlign: 'center', color: T.success, fontSize: 12.5, fontWeight: 600, marginBottom: 22 }}>
             Shipment delivered — no further status changes
           </div>
         )}
 
         <div>
-          <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             History
           </div>
-          {historyLoading && <div style={{ fontSize: 12.5, color: '#5b6b82' }}>Loading history…</div>}
-          {historyError && <div style={{ fontSize: 12.5, color: '#fb7185' }}>Couldn't load history: {historyError}</div>}
+          {historyLoading && <div style={{ fontSize: 12.5, color: T.faint }}>Loading history…</div>}
+          {historyError && <div style={{ fontSize: 12.5, color: T.danger }}>Couldn't load history: {historyError}</div>}
           {!historyLoading && !historyError && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {history.map((h, i) => (
-                <div key={i} style={{ fontSize: 12, color: '#94a3b8', display: 'flex', justifyContent: 'space-between', gap: 10 }}>
+                <div key={i} style={{ fontSize: 12, color: T.muted, display: 'flex', justifyContent: 'space-between', gap: 10 }}>
                   <span>
                     {h.from_status ? `${h.from_status} → ${h.to_status}` : `Created as ${h.to_status}`}
-                    <span style={{ color: '#5b6b82' }}> · {h.changed_by_email}</span>
+                    <span style={{ color: T.faint }}> · {h.changed_by_email}</span>
                   </span>
-                  <span style={{ color: '#5b6b82', whiteSpace: 'nowrap' }}>{new Date(h.created_at).toLocaleString()}</span>
+                  <span style={{ color: T.faint, whiteSpace: 'nowrap' }}>{new Date(h.created_at).toLocaleString()}</span>
                 </div>
               ))}
             </div>

@@ -1,24 +1,26 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { TENANT_COLORS } from '../types'
+import { BRAND } from '../theme/brand'
+import { T } from '../theme/tokens'
 
 const cardStyle: CSSProperties = {
   width: '100%',
   maxWidth: 520,
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 16,
   padding: 40,
-  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+  boxShadow: T.shadowModal,
 }
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 8,
   padding: '10px 12px',
-  color: '#e2e8f0',
+  color: T.text,
   fontSize: 13,
 }
 
@@ -81,7 +83,8 @@ export default function OrgPicker() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 32,
-        background: 'radial-gradient(circle at 20% 10%, #101b30 0%, #0b1220 55%)',
+        // Deliberate literal gradient (ADR-0031): subtle light wash behind the picker card.
+        background: 'radial-gradient(circle at 20% 10%, #eef0f7 0%, #ffffff 55%)',
       }}
     >
       <div style={cardStyle}>
@@ -91,22 +94,22 @@ export default function OrgPicker() {
               width: 38,
               height: 38,
               borderRadius: 10,
-              background: '#2563eb',
+              background: BRAND.markBg,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
               fontSize: 17,
-              color: '#fff',
+              color: BRAND.markFg,
             }}
           >
             S
           </div>
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2 }}>SST Freight</div>
+          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: BRAND.wordmark }}>SST Freight</div>
         </div>
-        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 28 }}>Signed in as {user?.email}</div>
+        <div style={{ fontSize: 13, color: T.muted, marginBottom: 28 }}>Signed in as {user?.email}</div>
 
-        {orgsLoading && <div style={{ fontSize: 13, color: '#64748b' }}>Loading your organizations…</div>}
+        {orgsLoading && <div style={{ fontSize: 13, color: T.muted }}>Loading your organizations…</div>}
 
         {!orgsLoading && orgsError && (
           <div style={{ marginBottom: 20 }}>
@@ -118,9 +121,9 @@ export default function OrgPicker() {
                 width: '100%',
                 padding: 10,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: 'pointer',
@@ -137,7 +140,7 @@ export default function OrgPicker() {
               style={{
                 fontSize: 12,
                 fontWeight: 600,
-                color: '#94a3b8',
+                color: T.muted,
                 textTransform: 'uppercase',
                 letterSpacing: '0.06em',
                 marginBottom: 10,
@@ -157,8 +160,8 @@ export default function OrgPicker() {
                     gap: 10,
                     padding: 12,
                     borderRadius: 10,
-                    background: '#0b1220',
-                    border: '1.5px solid #1e293b',
+                    background: T.bg,
+                    border: `1.5px solid ${T.border}`,
                     cursor: 'pointer',
                     textAlign: 'left',
                   }}
@@ -175,8 +178,9 @@ export default function OrgPicker() {
                       overflow: 'hidden',
                       fontWeight: 700,
                       fontSize: 13,
-                      color: '#fff',
-                      background: org.logo_url ? '#0b1220' : org.color,
+                      // White-label axis (ADR-0019): literal white glyph on the org's own color.
+                      color: 'white',
+                      background: org.logo_url ? T.surfaceInset : org.color,
                     }}
                   >
                     {org.logo_url ? (
@@ -190,7 +194,7 @@ export default function OrgPicker() {
                       style={{
                         fontSize: 13,
                         fontWeight: 600,
-                        color: '#e2e8f0',
+                        color: T.text,
                         whiteSpace: 'nowrap',
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -198,13 +202,13 @@ export default function OrgPicker() {
                     >
                       {org.name}
                     </div>
-                    <div style={{ fontSize: 11, color: '#64748b', textTransform: 'capitalize' }}>{org.role}</div>
+                    <div style={{ fontSize: 11, color: T.muted, textTransform: 'capitalize' }}>{org.role}</div>
                   </div>
                 </button>
               ))}
             </div>
-            <div style={{ borderTop: '1px solid #1e293b', paddingTop: 18, marginBottom: 4 }}>
-              <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 10 }}>
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 18, marginBottom: 4 }}>
+              <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 10 }}>
                 Need another organization?
               </div>
             </div>
@@ -215,7 +219,7 @@ export default function OrgPicker() {
           <div
             style={{
               fontSize: 13,
-              color: '#94a3b8',
+              color: T.muted,
               marginBottom: 20,
               lineHeight: 1.5,
             }}
@@ -229,8 +233,8 @@ export default function OrgPicker() {
           <>
             <div
               style={{
-                background: '#0b1220',
-                border: '1px solid #1e293b',
+                background: T.bg,
+                border: `1px solid ${T.border}`,
                 borderRadius: 9,
                 padding: 3,
                 display: 'flex',
@@ -252,8 +256,8 @@ export default function OrgPicker() {
                   fontSize: 12.5,
                   fontWeight: 600,
                   cursor: 'pointer',
-                  background: tab === 'create' ? '#2563eb' : 'transparent',
-                  color: tab === 'create' ? '#fff' : '#8291a6',
+                  background: tab === 'create' ? T.accent : 'transparent',
+                  color: tab === 'create' ? T.onAccent : T.muted,
                 }}
               >
                 Create Organization
@@ -272,8 +276,8 @@ export default function OrgPicker() {
                   fontSize: 12.5,
                   fontWeight: 600,
                   cursor: 'pointer',
-                  background: tab === 'join' ? '#2563eb' : 'transparent',
-                  color: tab === 'join' ? '#fff' : '#8291a6',
+                  background: tab === 'join' ? T.accent : 'transparent',
+                  color: tab === 'join' ? T.onAccent : T.muted,
                 }}
               >
                 Join with Invite Code
@@ -316,9 +320,9 @@ export default function OrgPicker() {
             marginTop: 16,
             padding: 10,
             borderRadius: 8,
-            border: '1px solid #1e293b',
+            border: `1px solid ${T.border}`,
             background: 'transparent',
-            color: '#94a3b8',
+            color: T.muted,
             fontSize: 12.5,
             fontWeight: 500,
             cursor: 'pointer',
@@ -335,9 +339,9 @@ function ErrorBox({ message }: { message: string }) {
   return (
     <div
       style={{
-        background: 'rgba(244,63,94,0.1)',
-        border: '1px solid rgba(244,63,94,0.3)',
-        color: '#fb7185',
+        background: T.dangerWash,
+        border: `1px solid ${T.dangerBorder}`,
+        color: T.danger,
         fontSize: 12.5,
         borderRadius: 8,
         padding: '9px 12px',
@@ -359,8 +363,8 @@ function SubmitButton({ busy, label }: { busy: boolean; label: string }) {
         padding: 12,
         borderRadius: 9,
         border: 'none',
-        background: busy ? '#1e293b' : '#2563eb',
-        color: '#fff',
+        background: busy ? T.surfaceInset : T.accent,
+        color: T.onAccent,
         fontWeight: 600,
         fontSize: 14,
         cursor: busy ? 'not-allowed' : 'pointer',

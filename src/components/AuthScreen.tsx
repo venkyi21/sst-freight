@@ -1,30 +1,32 @@
 import { useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { BRAND } from '../theme/brand'
+import { T } from '../theme/tokens'
 
 const cardStyle: CSSProperties = {
   width: '100%',
   maxWidth: 440,
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 16,
   padding: 40,
-  boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+  boxShadow: T.shadowModal,
 }
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 8,
   padding: '10px 12px',
-  color: '#e2e8f0',
+  color: T.text,
   fontSize: 13,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -69,7 +71,8 @@ export default function AuthScreen() {
         alignItems: 'center',
         justifyContent: 'center',
         padding: 32,
-        background: 'radial-gradient(circle at 20% 10%, #101b30 0%, #0b1220 55%)',
+        // Deliberate literal gradient (ADR-0031): subtle light wash behind the auth card.
+        background: 'radial-gradient(circle at 20% 10%, #eef0f7 0%, #ffffff 55%)',
       }}
     >
       <div style={cardStyle}>
@@ -79,27 +82,27 @@ export default function AuthScreen() {
               width: 38,
               height: 38,
               borderRadius: 10,
-              background: '#2563eb',
+              background: BRAND.markBg,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               fontWeight: 700,
               fontSize: 17,
-              color: '#fff',
+              color: BRAND.markFg,
             }}
           >
             S
           </div>
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2 }}>SST Freight</div>
+          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: BRAND.wordmark }}>SST Freight</div>
         </div>
-        <div style={{ fontSize: 13, color: '#64748b', marginBottom: 28 }}>
+        <div style={{ fontSize: 13, color: T.muted, marginBottom: 28 }}>
           Multi-tenant Customs Clearing &amp; Forwarding Platform
         </div>
 
         <div
           style={{
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 9,
             padding: 3,
             display: 'flex',
@@ -122,8 +125,8 @@ export default function AuthScreen() {
               fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
-              background: mode === 'sign-in' ? '#2563eb' : 'transparent',
-              color: mode === 'sign-in' ? '#fff' : '#8291a6',
+              background: mode === 'sign-in' ? T.accent : 'transparent',
+              color: mode === 'sign-in' ? T.onAccent : T.muted,
             }}
           >
             Sign In
@@ -143,8 +146,8 @@ export default function AuthScreen() {
               fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
-              background: mode === 'sign-up' ? '#2563eb' : 'transparent',
-              color: mode === 'sign-up' ? '#fff' : '#8291a6',
+              background: mode === 'sign-up' ? T.accent : 'transparent',
+              color: mode === 'sign-up' ? T.onAccent : T.muted,
             }}
           >
             Create Account
@@ -178,9 +181,9 @@ export default function AuthScreen() {
           {error && (
             <div
               style={{
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -194,9 +197,9 @@ export default function AuthScreen() {
           {confirmationSent && (
             <div
               style={{
-                background: 'rgba(16,185,129,0.1)',
-                border: '1px solid rgba(16,185,129,0.3)',
-                color: '#4ade80',
+                background: T.successWash,
+                border: `1px solid ${T.successBorder}`,
+                color: T.success,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -215,8 +218,8 @@ export default function AuthScreen() {
               padding: 12,
               borderRadius: 9,
               border: 'none',
-              background: busy ? '#1e293b' : '#2563eb',
-              color: '#fff',
+              background: busy ? T.surfaceInset : T.accent,
+              color: T.onAccent,
               fontWeight: 600,
               fontSize: 14,
               cursor: busy ? 'not-allowed' : 'pointer',
@@ -226,7 +229,7 @@ export default function AuthScreen() {
           </button>
         </form>
 
-        <div style={{ textAlign: 'center', fontSize: 11, color: '#475569', marginTop: 20 }}>
+        <div style={{ textAlign: 'center', fontSize: 11, color: BRAND.wordmark, opacity: 0.55, marginTop: 20 }}>
           SST Freight · Week 1 MVP
         </div>
       </div>

@@ -14,6 +14,7 @@ import {
   type ShipmentCost,
   type ShipmentDocument,
 } from '../types'
+import { T } from '../theme/tokens'
 
 interface ReportingPageProps {
   orgId: string
@@ -27,15 +28,15 @@ interface ProfitRow {
 }
 
 const statCardStyle: CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 12,
   padding: '16px 18px',
 }
 
 const panelStyle: CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 12,
   padding: 20,
   marginBottom: 16,
@@ -45,7 +46,7 @@ const headStyle: CSSProperties = {
   padding: '13px 20px',
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -222,7 +223,7 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
   if (loading) {
     return (
       <div style={{ padding: '28px 32px', flex: 1 }}>
-        <div style={{ color: '#5b6b82', fontSize: 13 }}>Loading reporting data…</div>
+        <div style={{ color: T.faint, fontSize: 13 }}>Loading reporting data…</div>
       </div>
     )
   }
@@ -230,8 +231,8 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
   if (error) {
     return (
       <div style={{ padding: '28px 32px', flex: 1 }}>
-        <div style={{ background: 'rgba(244,63,94,0.08)', border: '1px solid rgba(244,63,94,0.3)', borderRadius: 12, padding: 24, textAlign: 'center' }}>
-          <div style={{ color: '#fb7185', fontSize: 13.5 }}>{error}</div>
+        <div style={{ background: T.dangerWash, border: `1px solid ${T.dangerBorder}`, borderRadius: 12, padding: 24, textAlign: 'center' }}>
+          <div style={{ color: T.danger, fontSize: 13.5 }}>{error}</div>
         </div>
       </div>
     )
@@ -244,15 +245,15 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
   return (
     <div style={{ padding: '28px 32px', flex: 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, flexWrap: 'wrap', gap: 14 }}>
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>Reporting</h1>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: T.ink }}>Reporting</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span
             style={{
               fontSize: 11,
               fontWeight: 600,
-              color: '#4ade80',
-              background: 'rgba(34,197,94,0.1)',
-              border: '1px solid rgba(34,197,94,0.3)',
+              color: T.success,
+              background: T.successWash,
+              border: `1px solid ${T.successBorder}`,
               padding: '5px 10px',
               borderRadius: 20,
             }}
@@ -265,7 +266,7 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
           </button>
         </div>
       </div>
-      <div style={{ fontSize: 12.5, color: '#5b6b82', marginBottom: 20 }}>
+      <div style={{ fontSize: 12.5, color: T.faint, marginBottom: 20 }}>
         Every number below is queried live from this org's own records — nothing here is a nightly
         or weekly sync. Click a customer or route to see the real shipments/invoices/costs behind
         the total.
@@ -273,10 +274,10 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
 
       {customizeOpen && (
         <div style={panelStyle}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 10 }}>Show / hide widgets</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 10 }}>Show / hide widgets</div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
             {DASHBOARD_WIDGET_ORDER.map((key) => (
-              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: '#cbd5e1', cursor: 'pointer' }}>
+              <label key={key} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: T.text, cursor: 'pointer' }}>
                 <input type="checkbox" checked={isVisible(key)} onChange={() => void toggleWidget(key)} />
                 {DASHBOARD_WIDGET_META[key].label}
               </label>
@@ -288,30 +289,30 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
       {isVisible('kpi_tiles') && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 16 }}>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Total Shipments</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', fontFamily: "'IBM Plex Mono', monospace" }}>{kpis.totalShipments}</div>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Total Shipments</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.text, fontFamily: "'IBM Plex Mono', monospace" }}>{kpis.totalShipments}</div>
           </div>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Revenue</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(kpis.totalRevenue)}</div>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Revenue</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(kpis.totalRevenue)}</div>
           </div>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Outstanding</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#fbbf24', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(kpis.outstanding)}</div>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Outstanding</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.warning, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(kpis.outstanding)}</div>
           </div>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Avg. Transit</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#60a5fa', fontFamily: "'IBM Plex Mono', monospace" }}>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Avg. Transit</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.info, fontFamily: "'IBM Plex Mono', monospace" }}>
               {kpis.avgTransitDays !== null ? `${kpis.avgTransitDays.toFixed(1)}d` : '—'}
             </div>
           </div>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Customs Filings</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', fontFamily: "'IBM Plex Mono', monospace" }}>{kpis.activeCustomsFilings}</div>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Customs Filings</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.text, fontFamily: "'IBM Plex Mono', monospace" }}>{kpis.activeCustomsFilings}</div>
           </div>
           <div style={statCardStyle}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Documents</div>
-            <div style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', fontFamily: "'IBM Plex Mono', monospace" }}>{kpis.documentsGenerated}</div>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Documents</div>
+            <div style={{ fontSize: 20, fontWeight: 700, color: T.text, fontFamily: "'IBM Plex Mono', monospace" }}>{kpis.documentsGenerated}</div>
           </div>
         </div>
       )}
@@ -319,7 +320,7 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
         {isVisible('volume_by_mode') && (
           <div style={panelStyle}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 14 }}>Volume by Mode</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 14 }}>Volume by Mode</div>
             {(Object.keys(volumeByMode) as (keyof typeof volumeByMode)[]).map((mode) => (
               <BarRow key={mode} label={MODE_META[mode].label} value={volumeByMode[mode]} max={maxModeCount} color={MODE_META[mode].color} />
             ))}
@@ -328,7 +329,7 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
 
         {isVisible('shipments_by_status') && (
           <div style={panelStyle}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 14 }}>Shipments by Status</div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 14 }}>Shipments by Status</div>
             {STATUS_SEQUENCE.map((s) => (
               <BarRow key={s} label={s} value={shipmentsByStatus.get(s) ?? 0} max={maxStatusCount} color={statusMeta(s).color} />
             ))}
@@ -338,11 +339,11 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
 
       {isVisible('revenue_trend') && (
         <div style={panelStyle}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8', marginBottom: 14 }}>Revenue, last 6 months</div>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.muted, marginBottom: 14 }}>Revenue, last 6 months</div>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 120 }}>
             {revenueTrend.map((m) => (
               <div key={m.key} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', height: '100%', justifyContent: 'flex-end' }}>
-                <div style={{ fontSize: 10.5, color: '#94a3b8', marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
+                <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 4, fontFamily: "'IBM Plex Mono', monospace" }}>
                   {m.total > 0 ? fmt(m.total) : ''}
                 </div>
                 <div
@@ -350,11 +351,11 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
                     width: '100%',
                     maxWidth: 40,
                     height: `${Math.max(2, (m.total / maxRevenueMonth) * 90)}%`,
-                    background: '#2563eb',
+                    background: T.accent,
                     borderRadius: '4px 4px 0 0',
                   }}
                 />
-                <div style={{ fontSize: 10.5, color: '#5b6b82', marginTop: 6 }}>{m.label}</div>
+                <div style={{ fontSize: 10.5, color: T.faint, marginTop: 6 }}>{m.label}</div>
               </div>
             ))}
           </div>
@@ -395,11 +396,11 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
 function BarRow({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
-      <div style={{ width: 90, fontSize: 12, color: '#94a3b8', flexShrink: 0 }}>{label}</div>
-      <div style={{ flex: 1, background: '#0b1220', borderRadius: 4, height: 16, position: 'relative', overflow: 'hidden' }}>
+      <div style={{ width: 90, fontSize: 12, color: T.muted, flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, background: T.bg, borderRadius: 4, height: 16, position: 'relative', overflow: 'hidden' }}>
         <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: color, borderRadius: 4, minWidth: value > 0 ? 4 : 0 }} />
       </div>
-      <div style={{ width: 28, fontSize: 12, fontWeight: 600, color: '#e2e8f0', fontFamily: "'IBM Plex Mono', monospace", textAlign: 'right' }}>{value}</div>
+      <div style={{ width: 28, fontSize: 12, fontWeight: 600, color: T.text, fontFamily: "'IBM Plex Mono', monospace", textAlign: 'right' }}>{value}</div>
     </div>
   )
 }
@@ -428,14 +429,14 @@ function ProfitabilityTable({
   return (
     <div style={{ ...panelStyle, padding: 0, overflow: 'hidden' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 20px 0' }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: '#94a3b8' }}>{title}</div>
+        <div style={{ fontSize: 12, fontWeight: 600, color: T.muted }}>{title}</div>
         <button type="button" onClick={onExport} style={secondaryButtonStyle}>
           Export CSV
         </button>
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: 10 }}>
         <thead>
-          <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+          <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
             <th style={headStyle}>{columnLabel}</th>
             <th style={headStyle}>Revenue</th>
             <th style={headStyle}>Cost</th>
@@ -449,45 +450,45 @@ function ProfitabilityTable({
             const isOpen = expandedKey === r.key
             return (
               <Fragment key={r.key}>
-                <tr onClick={() => onToggle(r.key)} style={{ borderBottom: '1px solid #172033', cursor: 'pointer' }}>
-                  <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{r.key}</td>
-                  <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>{fmt(r.revenue)}</td>
-                  <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#fb7185' }}>{fmt(r.cost)}</td>
-                  <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: margin >= 0 ? '#4ade80' : '#fb7185' }}>{fmt(margin)}</td>
-                  <td style={{ ...cellStyle, fontSize: 12.5, color: '#94a3b8' }}>{r.shipmentIds.size}</td>
+                <tr onClick={() => onToggle(r.key)} style={{ borderBottom: `1px solid ${T.surfaceRaised}`, cursor: 'pointer' }}>
+                  <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: T.ink }}>{r.key}</td>
+                  <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.success }}>{fmt(r.revenue)}</td>
+                  <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.danger }}>{fmt(r.cost)}</td>
+                  <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: margin >= 0 ? T.success : T.danger }}>{fmt(margin)}</td>
+                  <td style={{ ...cellStyle, fontSize: 12.5, color: T.muted }}>{r.shipmentIds.size}</td>
                 </tr>
                 {isOpen && (
-                  <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
+                  <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, background: T.rowStripe }}>
                     <td colSpan={5} style={{ padding: '10px 20px 16px' }}>
-                      <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 6 }}>Underlying shipments</div>
+                      <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 6 }}>Underlying shipments</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
                         {Array.from(r.shipmentIds).map((id) => {
                           const meta = shipmentMeta.get(id)
                           if (!meta) return null
                           return (
-                            <div key={id} style={{ fontSize: 12, color: '#94a3b8' }}>
-                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>{meta.ref}</span> · {meta.mode} ·{' '}
+                            <div key={id} style={{ fontSize: 12, color: T.muted }}>
+                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: T.text }}>{meta.ref}</span> · {meta.mode} ·{' '}
                               {meta.origin} → {meta.destination} · {meta.status}
                             </div>
                           )
                         })}
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 6 }}>Invoices</div>
+                      <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 6 }}>Invoices</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 10 }}>
                         {invoices
                           .filter((i) => i.shipment_id && r.shipmentIds.has(i.shipment_id))
                           .map((i) => (
-                            <div key={i.id} style={{ fontSize: 12, color: '#94a3b8' }}>
-                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>{i.ref}</span> · {fmt(i.amount_inr)} · {i.status}
+                            <div key={i.id} style={{ fontSize: 12, color: T.muted }}>
+                              <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: T.text }}>{i.ref}</span> · {fmt(i.amount_inr)} · {i.status}
                             </div>
                           ))}
                       </div>
-                      <div style={{ fontSize: 11.5, color: '#64748b', marginBottom: 6 }}>Costs</div>
+                      <div style={{ fontSize: 11.5, color: T.muted, marginBottom: 6 }}>Costs</div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                         {costs
                           .filter((c) => r.shipmentIds.has(c.shipment_id))
                           .map((c) => (
-                            <div key={c.id} style={{ fontSize: 12, color: '#94a3b8' }}>
+                            <div key={c.id} style={{ fontSize: 12, color: T.muted }}>
                               {c.description} · {fmt(c.amount)} · {c.vendor_name ?? '—'}
                             </div>
                           ))}
@@ -500,7 +501,7 @@ function ProfitabilityTable({
           })}
         </tbody>
       </table>
-      {rows.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>No data yet.</div>}
+      {rows.length === 0 && <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>No data yet.</div>}
     </div>
   )
 }
@@ -508,9 +509,9 @@ function ProfitabilityTable({
 const secondaryButtonStyle: CSSProperties = {
   padding: '6px 12px',
   borderRadius: 6,
-  border: '1px solid #1e293b',
+  border: `1px solid ${T.border}`,
   background: 'transparent',
-  color: '#94a3b8',
+  color: T.muted,
   fontSize: 11.5,
   fontWeight: 600,
   cursor: 'pointer',

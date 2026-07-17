@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { T } from '../theme/tokens'
 
 interface InfoTooltipProps {
   text: string
@@ -18,8 +19,8 @@ export default function InfoTooltip({ text }: InfoTooltipProps) {
           width: 14,
           height: 14,
           borderRadius: '50%',
-          border: '1px solid #475569',
-          color: '#64748b',
+          border: `1px solid ${T.placeholder}`,
+          color: T.muted,
           fontSize: 9.5,
           fontWeight: 700,
           display: 'flex',
@@ -38,16 +39,18 @@ export default function InfoTooltip({ text }: InfoTooltipProps) {
             left: '50%',
             transform: 'translateX(-50%)',
             width: 220,
-            background: '#1e293b',
-            border: '1px solid #334155',
+            // Inverted tooltip (ADR-0031): ink-on-light everywhere else, light-on-ink here —
+            // the strongest affordance that this is a transient overlay, not page content.
+            background: T.ink,
+            border: 'none',
             borderRadius: 8,
             padding: '8px 10px',
             fontSize: 11.5,
             fontWeight: 400,
-            color: '#cbd5e1',
+            color: T.bg,
             lineHeight: 1.4,
             zIndex: 20,
-            boxShadow: '0 8px 20px rgba(0,0,0,0.4)',
+            boxShadow: T.shadowModal,
           }}
         >
           {text}

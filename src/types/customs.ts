@@ -1,3 +1,5 @@
+import { T } from '../theme/tokens'
+
 export interface HsCode {
   hs_code: string
   description: string
@@ -16,9 +18,9 @@ export const CUSTOMS_FILING_TYPE_META: Record<CustomsFilingType, { label: string
 }
 
 export const CUSTOMS_FILING_STATUS_META: Record<CustomsFilingStatus, { label: string; color: string; background: string }> = {
-  draft: { label: 'Draft', color: '#94a3b8', background: 'rgba(148,163,184,0.12)' },
-  filed: { label: 'Filed', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
-  cleared: { label: 'Cleared', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
+  draft: { label: 'Draft', color: T.statusNeutral, background: T.statusNeutralWash },
+  filed: { label: 'Filed', color: T.info, background: T.infoWash },
+  cleared: { label: 'Cleared', color: T.success, background: T.successWash },
 }
 
 export interface CustomsFiling {

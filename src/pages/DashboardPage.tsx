@@ -20,6 +20,7 @@ import IntegrationsPage from '../components/IntegrationsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import OnboardingChecklist from '../components/OnboardingChecklist'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
+import { T } from '../theme/tokens'
 
 function isModuleEnabled(org: OrganizationWithRole, module: PlatformModule): boolean {
   return org.billing_model === 'model_2' || org.enabled_modules.includes(module)
@@ -34,8 +35,8 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',
-  background: active ? '#1e293b' : 'transparent',
-  color: active ? '#f1f5f9' : '#8291a6',
+  background: active ? T.surfaceInset : 'transparent',
+  color: active ? T.ink : T.muted,
 })
 
 const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'integrations', 'settings', 'auditlog', 'platformadmin']
@@ -117,8 +118,8 @@ export default function DashboardPage() {
           style={{
             height: 64,
             flexShrink: 0,
-            borderBottom: '1px solid #1e293b',
-            background: 'rgba(15,23,42,0.5)',
+            borderBottom: `1px solid ${T.border}`,
+            background: T.surfaceSidebar,
             padding: '0 28px',
             display: 'flex',
             alignItems: 'center',
@@ -134,12 +135,12 @@ export default function DashboardPage() {
               placeholder="Search tracking ref, client, origin, destination..."
               style={{
                 width: '100%',
-                background: '#0f172a',
-                border: '1px solid #1e293b',
+                background: T.surface,
+                border: `1px solid ${T.border}`,
                 borderRadius: 8,
                 padding: '9px 12px',
                 fontSize: 13,
-                color: '#e2e8f0',
+                color: T.text,
               }}
             />
           </div>
@@ -148,9 +149,9 @@ export default function DashboardPage() {
               style={{
                 fontSize: 11,
                 fontWeight: 600,
-                color: '#22c55e',
-                background: '#0f172a',
-                border: '1px solid #1e293b',
+                color: T.success,
+                background: T.surface,
+                border: `1px solid ${T.border}`,
                 padding: '5px 10px',
                 borderRadius: 20,
               }}
@@ -161,8 +162,8 @@ export default function DashboardPage() {
               type="button"
               onClick={() => openBooking('ocean')}
               style={{
-                background: '#2563eb',
-                color: '#fff',
+                background: T.accent,
+                color: T.onAccent,
                 border: 'none',
                 fontWeight: 600,
                 fontSize: 13,
@@ -189,8 +190,8 @@ export default function DashboardPage() {
                 gap: 14,
               }}
             >
-              <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>Active Shipments</h1>
-              <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 9, padding: 3, display: 'flex', gap: 2 }}>
+              <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: T.ink }}>Active Shipments</h1>
+              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 9, padding: 3, display: 'flex', gap: 2 }}>
                 <button type="button" onClick={() => setModeFilter('all')} style={filterButtonStyle(modeFilter === 'all')}>
                   All · {modeCounts.all}
                 </button>
@@ -208,14 +209,14 @@ export default function DashboardPage() {
             {loadError ? (
               <div
                 style={{
-                  background: 'rgba(244,63,94,0.08)',
-                  border: '1px solid rgba(244,63,94,0.3)',
+                  background: T.dangerWash,
+                  border: `1px solid ${T.dangerBorder}`,
                   borderRadius: 12,
                   padding: 24,
                   textAlign: 'center',
                 }}
               >
-                <div style={{ color: '#fb7185', fontSize: 13.5, marginBottom: 12 }}>
+                <div style={{ color: T.danger, fontSize: 13.5, marginBottom: 12 }}>
                   Couldn't load shipments: {loadError}
                 </div>
                 <button
@@ -224,9 +225,9 @@ export default function DashboardPage() {
                   style={{
                     padding: '8px 16px',
                     borderRadius: 8,
-                    border: '1px solid #1e293b',
+                    border: `1px solid ${T.border}`,
                     background: 'transparent',
-                    color: '#e2e8f0',
+                    color: T.text,
                     fontSize: 12.5,
                     fontWeight: 600,
                     cursor: 'pointer',
