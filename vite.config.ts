@@ -16,5 +16,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: 'node',
+    // Vitest owns src/ only. The Playwright E2E/functional specs live under tests/e2e/ and are
+    // run by their own runner (ADR-0032) against a live dev backend — scoping include here keeps
+    // Vitest's default `**/*.spec.ts` glob from picking them up.
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
   },
 })

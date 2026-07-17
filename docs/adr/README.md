@@ -49,5 +49,7 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0029](0029-api-key-rpc-gateway-and-outbox-webhooks.md) | Public API keys as an RPC gateway; outbound webhooks as an outbox + pg_cron poller | Superseded in part by ADR-0030 (Edge-Function-surface stance only) |
 | [0030](0030-business-logic-tier-edge-functions.md) | Business-logic orchestration moves to an Edge Function tier; Postgres keeps enforcement and atomic ops (Quotes pilot) | Accepted |
 | [0031](0031-signal-indigo-theme-tokens-and-brand-lock.md) | Theme tokens on CSS custom properties; "Signal Indigo" light theme; brand-locked SST mark | Accepted |
+| [0032](0032-committed-e2e-layer-and-test-catalog.md) | Committed on-demand Playwright E2E/functional layer; plain-English test catalog with stable IDs; recorded NFR baseline | Accepted |
+| [0033](0033-completing-the-agile-testing-quadrants.md) | Completing the Agile Testing quadrants: page-render smoke layer, Given/When/Then catalog, load/stress baseline, tracked exploratory sessions | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

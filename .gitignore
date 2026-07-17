@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Playwright E2E artifacts (ADR-0032) — generated per run, never tracked
+playwright-report
+test-results
+.playwright
 .env
 .env.local
 .env.*.local

@@ -540,3 +540,92 @@ a repair script across 35 files; (2) a PowerShell in-place replace corrupted UTF
 AccountingPage.tsx — caught immediately, file restored from git and redone with safe tooling;
 (3) the codemod's second run converted two deliberately-literal white glyphs to tokens —
 re-fixed with the codemod-proof `'white'` keyword.
+
+## Week 20 — Committed Agile Testing layer (ADR-0032), 2026-07-17
+
+The change here is *methodological*, not a feature: the throwaway-script QA discipline described in
+the test-environment note above is replaced by a **committed, re-runnable** Playwright layer
+(`tests/e2e/`, `npm run test:e2e`) plus a **measured** performance baseline (`npm run test:perf`).
+Scenarios are catalogued with stable `TC-` IDs in `docs/test-catalog.md`; fixtures in
+`docs/test-data-register.md`. All runs below are against `npm run dev` → dev Supabase.
+
+### Before → after (what re-running a check costs)
+
+| Testing type | Before this pass | After this pass |
+| --- | --- | --- |
+| Functional / system (RLS, RPCs, tier, lifecycle) | Real results, but from uncommitted scripts re-derived each time | 26 committed Playwright tests, re-runnable on demand |
+| End-to-end (full application workflow) | Never assembled as one committed scenario | `TC-E2E-001` golden path — 11 ordered stages across every module |
+| Non-functional (performance) | `srs §3` marked "not measured" | Measured: p95 = 316 ms at 20 concurrent (< 500 ms target) |
+| Regression re-run | Rewrite the script from the doc | `npm run test:e2e` (≈52 s) + `npm run test:perf` |
+
+### Functional + E2E run (26/26 passed, 51.9 s)
+
+| Module | Committed spec(s) | Scenarios | Result |
+| --- | --- | --- | --- |
+| AUTH | `auth.spec.ts`, `auth.api.spec.ts` | smoke, wrong-password, cross-tenant shipments/contacts (RLS) | ✅ 4/4 |
+| QUOTE | `quotes.api.spec.ts`, `quotes.ui.spec.ts` | total recompute + tamper, lifecycle, illegal transition, convert, **the ADR-0030 race**, reject/convert-block, archive, cross-org, module gate; + 2 UI journeys | ✅ 9/9 |
+| DIR | `directory.api.spec.ts` | create shipper, vendor check-constraint, member-can-create | ✅ 3/3 |
+| SHIP | `shipments.api.spec.ts` | forward advance + history attribution, backward rejected | ✅ 2/2 |
+| CUSTOMS | `customs.api.spec.ts` | HS-code reference lookup, filing isolation | ✅ 2/2 |
+| ACCT | `accounting.api.spec.ts` | invoice + cost isolation (GST/aging math stay in the unit layer) | ✅ 1/1 |
+| INTEG | `integrations.api.spec.ts` | webhook outbox + audit continuity across status changes | ✅ 1/1 |
+| ADMIN | `admin.api.spec.ts` | platform-admin gating (both directions), member self-promote rejected | ✅ 3/3 |
+| E2E | `e2e/golden-path.spec.ts` | contact→tariff→quote→convert→shipment→advance→customs→invoice→paid→reporting→audit | ✅ 1/1 |
+
+### Non-functional run
+
+| Case | Result |
+| --- | --- |
+| Sequential read/RPC p95 (6 operations, 30 iters each) | ✅ 205–220 ms, all < 500 ms |
+| Concurrency p95 at 20 users (srs §3 boundary) | ✅ **316 ms < 500 ms** |
+| Concurrency at 40 users (beyond target scope) | ⚠️ ~582 ms — recorded as the degradation point |
+
+Full method, tables, and caveats: `docs/perf-baseline.md`.
+
+**Real issue caught and fixed during the pass**: the golden-path customs-filing insert first failed
+on a `NOT NULL` `ref` (the `src/api` layer generates the ref; a direct insert must supply it) — the
+spec was corrected to provide a unique `ref`, then passed. Recorded here rather than silently fixed.
+
+## Week 21 — Agile Testing completion pass (ADR-0033), 2026-07-18
+
+Closing the framework to 100%: every remaining `manual` catalog row committed at its correct layer,
+a page-render smoke layer over every screen, real load + stress numbers, tracked exploratory
+sessions, and the catalog re-expressed Given/When/Then. Against `npm run dev` → dev Supabase.
+
+### Before → after (what's now committed)
+
+| Testing type | After Week 20 | After Week 21 |
+| --- | --- | --- |
+| Functional catalog | 34 rows still `manual` | 0 `manual` except 3 labelled external-service rows |
+| Component / render | no per-screen check | page-render smoke over all 12 screens (`screens.smoke.spec.ts`) |
+| Non-functional | latency only | latency + sustained load + stress ramp to 100 concurrent (0% errors) |
+| Exploratory (Q3) | untracked | tracked (`docs/exploratory-testing.md`, SBTM charters) |
+| BDD | plain catalog | catalog expressed Given/When/Then (no framework) |
+
+### Committed run (all green)
+
+| Suite | Count | Result |
+| --- | --- | --- |
+| Unit (`npm test`) — incl. new `documentHtml`, `errorLogger` | 45 | ✅ 45/45 |
+| Playwright functional + golden path + smoke (`npm run test:e2e`) | 51 | ✅ 51/51 |
+| Newly closed at API layer | AUTH-003/006, DIR-004, SHIP-003/007, CUSTOMS-002/004, ACCT-004/006, REPORT-004/005, INTEG-001/002, ADMIN-004/005/006/007/008 | ✅ all pass |
+| Newly closed at browser layer | REPORT-001/002/003, INTEG-005, PUBLIC-001/002/003 | ✅ all pass |
+| Newly closed at unit layer | DOC-001/003 (documentHtml), AUTH-007 (errorLogger) | ✅ all pass |
+
+### Non-functional run (`npm run test:stress`)
+
+| Case | Result |
+| --- | --- |
+| Sustained load — 20 concurrent, 300 requests | ✅ p95 305 ms, 0% errors, 153 req/s |
+| Stress ramp p95 knee | ⚠️ p95 first crosses 500 ms at ~60 concurrent (3× target); graceful, no cliff |
+| Error rate to 100 concurrent (5× target) | ✅ 0% — no request failed at any level |
+
+Full numbers + method: `docs/perf-baseline.md`.
+
+**Deliberately-manual set (external services, not gaps — ADR-0033):** TC-DOC-002 (Storage upload),
+TC-DOC-004 (DocuSign envelope), TC-ACCT-003 (live FX value). Everything under our control for those
+modules (RLS isolation, row shape, pure logic) is automated; only the third-party hop is manual.
+
+**Real issue caught during the pass:** the golden-path `computeDocumentRows` unit test first asserted
+Western digit grouping (`100,000`); the app renders Indian grouping (`1,00,000`) via `toLocaleString('en-IN')`
+— the assertion was corrected to the real locale output, not the reverse.

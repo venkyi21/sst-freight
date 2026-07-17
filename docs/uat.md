@@ -292,3 +292,28 @@ daily remain readable, familiar in layout, and recognizably SST Freight? Assesse
 feature pass (no workflow changed; the Week 19 tier UAT two sections up already re-proved every
 quoting behavior on this same build lineage). The user's own staging walkthrough after deploy is
 the final acceptance step and is noted as pending until they confirm.
+
+## Week 20 pass — Committed Agile Testing layer (ADR-0032, 2026-07-17)
+
+Not a feature pass — the deliverable is repeatable tests and a measured baseline (ADR-0032). The
+UAT question is a business-journey one: can a forwarder carry one shipment all the way from a
+customer quote to a paid, reported invoice without the workflow breaking at any module boundary?
+This is exactly the `TC-E2E-001` golden path, so the E2E run *is* the user-journey acceptance.
+
+## Ravi — Owner, Client A Logistics (end-to-end operator journey)
+
+- **"I want to take one job from quote to cash and see it reflected everywhere."** The golden path
+  ran the full chain — add the shipper to the Directory, set a lane rate, raise a line-item quote,
+  send it, mark it accepted, convert it to a booking (a real `BKG-`/`AWB-`/`TRK-` shipment),
+  advance its status, file the Bill of Entry against it, invoice it, mark it paid — and then
+  confirmed the shipment, the paid invoice, and the customs filing all surface in the reporting
+  scope, with the quote's lifecycle recorded in the audit ledger. Every stage succeeded and the
+  final state was consistent across modules. ✅ Accepted (automated golden path, 1/1).
+
+### Week 20 pass summary
+
+**1/1 end-to-end journey accepted**, plus the 26-test functional/E2E suite and the performance
+baseline recorded in `docs/qa-testing.md` (Week 20) and `docs/perf-baseline.md`. The acceptance
+here is that the cross-module workflow a real operator depends on is now proven by a committed,
+re-runnable test rather than a one-off manual click-through — and can be re-accepted on demand with
+`npm run test:e2e`.

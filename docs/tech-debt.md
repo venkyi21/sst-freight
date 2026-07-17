@@ -421,6 +421,51 @@ is a near-term coding task, and none of it should be attempted without that infr
   *first occurrence* window: a wiring bug that has never happened before is still caught only by
   a human or a manual UAT pass, accepted deliberately.
 
+## Committed E2E/functional layer & performance baseline (ADR-0032)
+
+This section records what the ADR-0032 work **closed**, and the residual limitations deliberately
+left open.
+
+- **CLOSED — the "throwaway QA scripts" gap.** Every QA pass before 2026-07-17 ran from an
+  uncommitted scratch script that was written fresh and discarded each time (the methodology note
+  still stands in `docs/qa-testing.md`); reproducing a check meant re-deriving the script. There is
+  now a committed, re-runnable Playwright layer (`tests/e2e/`, `npm run test:e2e`) — 26 tests
+  covering the highest-risk enforcement (quotes-service tier + the ADR-0030 convert race,
+  cross-tenant RLS isolation, role escalation, module gating, forward-only status, the webhook/audit
+  outbox) plus a full end-to-end golden path. Scenarios are catalogued with stable IDs in
+  `docs/test-catalog.md`.
+- **CLOSED — the unmeasured-performance gap.** `srs.md §3`'s performance target was marked "not
+  measured" indefinitely. It is now measured (`npm run test:perf`, `docs/perf-baseline.md`): p95 =
+  316 ms at 20 concurrent against dev, inside the < 500 ms target.
+- **Residual (accepted): the E2E layer is on-demand, not CI-gated.** By decision (ADR-0032), the
+  Playwright layer does not run in CI — it needs live dev credentials and hits a real backend, and
+  gating every push on that would undo the fast dev/preview iteration ADR-0027 protects. The
+  standing rule is to run it before every dev→main merge. The cost: that checkpoint is a
+  discipline, not an enforced gate — skipping it is possible. Closing this would mean provisioning
+  Supabase secrets + a dedicated CI test tenant and accepting network-flakiness on merges to `main`.
+- **Residual (accepted): catalog↔spec sync is by convention.** The `TC-` ID shared between
+  `docs/test-catalog.md` and a spec's test title is maintained by hand (the plain-English format
+  chosen over a BDD framework, ADR-0032), not by a tool that executes the catalog prose. A renamed
+  spec or a re-worded scenario can drift; the CLAUDE.md docs-table row is the backstop.
+- **CLOSED (2026-07-18, ADR-0033) — the "some rows still manual" gap.** Every catalog row is now
+  committed at its correct layer (API / browser / ADR-0026 unit), plus a page-render smoke layer over
+  every screen and a Given/When/Then catalog. The `Automated` column shows zero `manual` rows except
+  the three external-service ones below. Q3 exploratory testing is now tracked in
+  `docs/exploratory-testing.md`.
+- **CLOSED (2026-07-18, ADR-0033) — the "no load/stress" gap.** `npm run test:stress`
+  (`scripts/measure-stress.mjs`) records a sustained 20-user load and a stress ramp to 100 concurrent
+  (0% errors, graceful p95 degradation) in `docs/perf-baseline.md`.
+- **Residual (accepted, external-service): three rows stay manual by necessity.** TC-DOC-002
+  (Supabase Storage upload), TC-DOC-004 (DocuSign sandbox envelope), TC-ACCT-003 (live FX *rate
+  value*) depend on a third party; committing them would make the suite flaky and hostage to that
+  service's uptime. We automate everything under our control for those modules (RLS isolation, row
+  shape, pure logic) and record the external hop as a manual pass — same reasoning class as the
+  defensive-only stance. Labelled `manual*` in `docs/test-catalog.md`.
+- **Residual: the perf baseline is point-in-time, single-region.** It is not a continuous SLO, was
+  run from one client location (RTT-inclusive), and still does not cover a long soak or a write-heavy
+  stress profile — see the caveats in `docs/perf-baseline.md`. The srs §3 read-path target at ≤ 20
+  concurrent is measured with wide margin.
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in

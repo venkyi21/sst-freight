@@ -32,6 +32,7 @@ bumps a version.
 | `@testing-library/jest-dom` | `6.9.1` | devDependency |
 | `@testing-library/react` | `16.3.2` | devDependency |
 | `@testing-library/user-event` | `14.6.1` | devDependency |
+| `@playwright/test` | `1.61.1` | devDependency |
 | `jsdom` | `29.1.1` | devDependency |
 | `typescript` | `5.9.3` | devDependency |
 | `vite` | `5.4.21` | devDependency |
@@ -55,6 +56,14 @@ regression test starts from verified machinery. `jsdom` was initially pinned to 
 20.15.0 — `jsdom@29.1.1` failed at runtime with `ERR_REQUIRE_ESM` (verified, not theoretical).
 **Resolved the same day**: after the Node 24.18.0 upgrade (see the engine-mismatch note above),
 jsdom was bumped to `29.1.1` and the RTL machinery test re-verified passing on it.
+
+**Added 2026-07-17 (ADR-0032)**: `@playwright/test` — the committed E2E/functional test runner.
+Pinned to `1.61.1` (the version whose Chromium build the working sessions had already verified
+against staging). It is a **devDependency**: nothing from it ships in `dist/`, so §2's production
+license inventory is unchanged (re-verified — Playwright does not appear in the `--production`
+tree). Its own license is Apache-2.0 (dev-only, never distributed). The Chromium browser binary it
+drives is fetched to the machine-global `ms-playwright` cache by `npx playwright install`, not into
+`node_modules`, and is not a tracked or bundled artifact.
 
 **Trade-off, stated plainly**: pinning trades "automatically pick up patch fixes" for "nothing
 changes until a human decides it should." For a solo-developer project where an unreviewed patch
@@ -136,6 +145,10 @@ history matters here: the first install resolved `vitest@3.2.4`, which itself fl
 **critical** advisory (GHSA-5xrq-8626-4rwp); bumping to `3.2.7` within the same minor line cleared
 it before anything was committed. `vitest` is a devDependency — nothing from it ships in `dist/`,
 so §2's production license inventory is unchanged (re-verified with the same command).
+
+Re-run 2026-07-17 after adding `@playwright/test@1.61.1` (ADR-0032): same 2 findings, same single
+`esbuild`/`vite` advisory — Playwright introduced no new vulnerability. Still 1 moderate + 1 high,
+both the deferred `vite <= 6.4.2` transitive advisory.
 
 ## How to refresh this file
 
