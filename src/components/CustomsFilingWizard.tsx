@@ -6,6 +6,7 @@ import FieldError from './FieldError'
 import InfoTooltip from './InfoTooltip'
 import { isCheckViolation } from '../lib/formErrors'
 import { CUSTOMS_FILING_TYPE_META, type CustomsFiling, type CustomsFilingType, type HsCode } from '../types'
+import { T } from '../theme/tokens'
 
 interface CustomsFilingWizardProps {
   orgId: string
@@ -17,18 +18,18 @@ const STEPS = ['Filing', 'Goods & HS Code', 'Duty', 'Review'] as const
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -162,7 +163,7 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -177,20 +178,20 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
           maxWidth: 620,
           maxHeight: '90vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>New Customs Filing</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>New Customs Filing</div>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: busy ? 'not-allowed' : 'pointer', lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: busy ? 'not-allowed' : 'pointer', lineHeight: 1 }}
           >
             ×
           </button>
@@ -203,11 +204,11 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
                 style={{
                   height: 4,
                   borderRadius: 2,
-                  background: i <= step ? '#2563eb' : '#1e293b',
+                  background: i <= step ? T.accent : T.surfaceInset,
                   marginBottom: 6,
                 }}
               />
-              <div style={{ fontSize: 10.5, fontWeight: 600, color: i === step ? '#e2e8f0' : '#5b6b82' }}>
+              <div style={{ fontSize: 10.5, fontWeight: 600, color: i === step ? T.text : T.faint }}>
                 {i + 1}. {label}
               </div>
             </div>
@@ -220,8 +221,8 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
               <label style={labelStyle}>Filing Type</label>
               <div
                 style={{
-                  background: '#0b1220',
-                  border: '1px solid #1e293b',
+                  background: T.bg,
+                  border: `1px solid ${T.border}`,
                   borderRadius: 9,
                   padding: 3,
                   display: 'flex',
@@ -241,8 +242,8 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
                       fontSize: 12.5,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      background: filingType === t ? '#2563eb' : 'transparent',
-                      color: filingType === t ? '#fff' : '#8291a6',
+                      background: filingType === t ? T.accent : 'transparent',
+                      color: filingType === t ? T.onAccent : T.muted,
                     }}
                   >
                     {CUSTOMS_FILING_TYPE_META[t].label}
@@ -307,7 +308,7 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
 
             <div
               style={{
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 borderRadius: 9,
                 overflow: 'hidden',
                 marginBottom: 8,
@@ -316,7 +317,7 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
               }}
             >
               {hsMatches.length === 0 && (
-                <div style={{ padding: 16, textAlign: 'center', color: '#475569', fontSize: 12.5 }}>No matching HS codes.</div>
+                <div style={{ padding: 16, textAlign: 'center', color: T.placeholder, fontSize: 12.5 }}>No matching HS codes.</div>
               )}
               {hsMatches.map((h) => (
                 <button
@@ -329,20 +330,20 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
                     textAlign: 'left',
                     padding: '10px 12px',
                     border: 'none',
-                    borderBottom: '1px solid #172033',
-                    background: hsCode?.hs_code === h.hs_code ? 'rgba(37,99,235,0.14)' : 'transparent',
+                    borderBottom: `1px solid ${T.surfaceRaised}`,
+                    background: hsCode?.hs_code === h.hs_code ? T.accentWash : 'transparent',
                     cursor: 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 12.5, color: '#f1f5f9' }}>
+                    <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 700, fontSize: 12.5, color: T.ink }}>
                       {h.hs_code}
                     </span>
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>
+                    <span style={{ fontSize: 11, color: T.muted }}>
                       BCD {h.basic_customs_duty_pct}% · IGST {h.igst_pct}%
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: '#94a3b8', marginTop: 2 }}>{h.description}</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{h.description}</div>
                 </button>
               ))}
             </div>
@@ -365,7 +366,7 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
 
         {step === 2 && hsCode && (
           <div>
-            <div style={{ fontSize: 12.5, color: '#94a3b8', marginBottom: 14 }}>
+            <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 14 }}>
               {hsCode.hs_code} — {hsCode.description}
             </div>
             <DutyRow
@@ -388,19 +389,19 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: '#0b1220',
-                border: '1px solid #1e293b',
+                background: T.bg,
+                border: `1px solid ${T.border}`,
                 borderRadius: 8,
                 padding: '12px 14px',
                 marginTop: 8,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1' }}>Total Duty Payable</div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>Total Duty Payable</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>
                 ₹{totalDuty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </div>
             </div>
-            <div style={{ marginTop: 12, fontSize: 11, color: '#5b6b82' }}>
+            <div style={{ marginTop: 12, fontSize: 11, color: T.faint }}>
               Simulated duty estimate — illustrative only, not a substitute for actual CBIC/ICEGATE assessment.
             </div>
           </div>
@@ -417,31 +418,31 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
               <ReviewField label="Assessable Value" value={`₹${assessableValueN.toLocaleString('en-IN')}`} />
             </div>
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Goods Description</div>
-              <div style={{ fontSize: 12.5, color: '#e2e8f0' }}>{goodsDescription}</div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 4 }}>Goods Description</div>
+              <div style={{ fontSize: 12.5, color: T.text }}>{goodsDescription}</div>
             </div>
             <div
               style={{
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: '#0b1220',
-                border: '1px solid #1e293b',
+                background: T.bg,
+                border: `1px solid ${T.border}`,
                 borderRadius: 8,
                 padding: '12px 14px',
                 marginBottom: 14,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#cbd5e1' }}>Total Duty Payable</div>
-              <div style={{ fontSize: 17, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: T.text }}>Total Duty Payable</div>
+              <div style={{ fontSize: 17, fontWeight: 700, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>
                 ₹{totalDuty.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
               </div>
             </div>
             <div
               style={{
-                background: 'rgba(251,191,36,0.08)',
-                border: '1px solid rgba(251,191,36,0.25)',
-                color: '#fbbf24',
+                background: T.warningWash,
+                border: `1px solid ${T.warningBorder}`,
+                color: T.warning,
                 fontSize: 11.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -457,9 +458,9 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
           <div
             style={{
               marginBottom: 14,
-              background: 'rgba(244,63,94,0.1)',
-              border: '1px solid rgba(244,63,94,0.3)',
-              color: '#fb7185',
+              background: T.dangerWash,
+              border: `1px solid ${T.dangerBorder}`,
+              color: T.danger,
               fontSize: 12.5,
               borderRadius: 8,
               padding: '9px 12px',
@@ -478,9 +479,9 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
               flex: 1,
               padding: 11,
               borderRadius: 8,
-              border: '1px solid #1e293b',
+              border: `1px solid ${T.border}`,
               background: 'transparent',
-              color: '#94a3b8',
+              color: T.muted,
               fontWeight: 600,
               fontSize: 13,
               cursor: busy ? 'not-allowed' : 'pointer',
@@ -497,8 +498,8 @@ export default function CustomsFilingWizard({ orgId, onClose, onCreated }: Custo
               padding: 11,
               borderRadius: 8,
               border: 'none',
-              background: !busy ? '#2563eb' : '#1e293b',
-              color: '#fff',
+              background: !busy ? T.accent : T.surfaceInset,
+              color: T.onAccent,
               fontWeight: 600,
               fontSize: 13,
               cursor: !busy ? 'pointer' : 'not-allowed',
@@ -520,14 +521,14 @@ function DutyRow({ label, tooltip, value }: { label: string; tooltip: string; va
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '9px 2px',
-        borderBottom: '1px solid #172033',
+        borderBottom: `1px solid ${T.surfaceRaised}`,
       }}
     >
-      <div style={{ fontSize: 12.5, color: '#94a3b8', display: 'flex', alignItems: 'center' }}>
+      <div style={{ fontSize: 12.5, color: T.muted, display: 'flex', alignItems: 'center' }}>
         {label}
         <InfoTooltip text={tooltip} />
       </div>
-      <div style={{ fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>
+      <div style={{ fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.text }}>
         ₹{value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
       </div>
     </div>
@@ -537,8 +538,8 @@ function DutyRow({ label, tooltip, value }: { label: string; tooltip: string; va
 function ReviewField({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>{label}</div>
-      <div style={{ color: '#e2e8f0' }}>{value}</div>
+      <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 2 }}>{label}</div>
+      <div style={{ color: T.text }}>{value}</div>
     </div>
   )
 }

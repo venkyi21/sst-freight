@@ -3,6 +3,8 @@
 // decided license price anywhere in this codebase, only the 18%/yr AMC rate. This is a proposal
 // pending real business sign-off, not a verified price; see ADR-0023 and docs/tech-debt.md.
 
+import { T } from '../theme/tokens'
+
 export const AMC_RATE = 0.18 // the one real number stated in the source doc (line 386)
 
 // SST_license = 42,00,000 / (1 + 0.18 * 10) = 15,00,000 — flat, independent of seats/branches.
@@ -30,11 +32,11 @@ export interface CompetitorBaseline {
 // rather than inventing a second. These are estimates, not sourced vendor quotes — surfaced
 // visibly in the UI, not just here.
 export const COMPETITOR_BASELINES: CompetitorBaseline[] = [
-  { name: 'CargoEZ', color: '#60a5fa', tcoAt30SeatsInr: 78_00_000 },
-  { name: 'Shipthis', color: '#60a5fa', tcoAt30SeatsInr: 95_00_000 },
-  { name: 'Fresa Gold', color: '#fbbf24', tcoAt30SeatsInr: 1_30_00_000 },
-  { name: 'Freightify', color: '#fbbf24', tcoAt30SeatsInr: 1_60_00_000 },
-  { name: 'CargoWise', color: '#fb7185', tcoAt30SeatsInr: 2_20_00_000 },
+  { name: 'CargoEZ', color: T.info, tcoAt30SeatsInr: 78_00_000 },
+  { name: 'Shipthis', color: T.info, tcoAt30SeatsInr: 95_00_000 },
+  { name: 'Fresa Gold', color: T.warning, tcoAt30SeatsInr: 1_30_00_000 },
+  { name: 'Freightify', color: T.warning, tcoAt30SeatsInr: 1_60_00_000 },
+  { name: 'CargoWise', color: T.danger, tcoAt30SeatsInr: 2_20_00_000 },
 ]
 
 const BASELINE_SEATS = 30

@@ -7,6 +7,7 @@ import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
 import InfoTooltip from './InfoTooltip'
 import type { Shipment, ShipmentMode } from '../types'
+import { T } from '../theme/tokens'
 
 interface BookingModalProps {
   orgId: string
@@ -17,18 +18,18 @@ interface BookingModalProps {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -122,7 +123,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -137,15 +138,15 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           maxWidth: 560,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>New Booking</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>New Booking</div>
           <button
             type="button"
             onClick={onClose}
@@ -153,7 +154,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             style={{
               background: 'none',
               border: 'none',
-              color: '#64748b',
+              color: T.muted,
               fontSize: 20,
               cursor: busy ? 'not-allowed' : 'pointer',
               lineHeight: 1,
@@ -165,8 +166,8 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
 
         <div
           style={{
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 9,
             padding: 3,
             display: 'flex',
@@ -190,8 +191,8 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: 'pointer',
-                background: mode === m ? '#2563eb' : 'transparent',
-                color: mode === m ? '#fff' : '#8291a6',
+                background: mode === m ? T.accent : 'transparent',
+                color: mode === m ? T.onAccent : T.muted,
               }}
             >
               {m === 'ocean' ? 'Ocean (FCL/LCL)' : m === 'air' ? 'Air' : 'Truck'}
@@ -252,7 +253,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           </div>
 
           {mode === 'ocean' && (
-            <div style={{ borderTop: '1px solid #1e293b', paddingTop: 14, marginTop: 4 }}>
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14, marginTop: 4 }}>
               <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                 {(['FCL', 'LCL'] as const).map((lt) => (
                   <button
@@ -263,12 +264,12 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                       flex: 1,
                       padding: 8,
                       borderRadius: 7,
-                      border: '1px solid #1e293b',
+                      border: `1px solid ${T.border}`,
                       fontSize: 12,
                       fontWeight: 600,
                       cursor: 'pointer',
-                      background: loadType === lt ? '#2563eb' : 'transparent',
-                      color: loadType === lt ? '#fff' : '#8291a6',
+                      background: loadType === lt ? T.accent : 'transparent',
+                      color: loadType === lt ? T.onAccent : T.muted,
                     }}
                   >
                     {lt}
@@ -297,7 +298,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           )}
 
           {mode === 'air' && (
-            <div style={{ borderTop: '1px solid #1e293b', paddingTop: 14, marginTop: 4 }}>
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14, marginTop: 4 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 12 }}>
                 <div>
                   <label style={labelStyle}>Length (cm)</label>
@@ -316,22 +317,22 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 <label style={labelStyle}>Gross Weight (kg)</label>
                 <input type="number" min="0" step="any" value={grossWeight} onChange={(e) => setGrossWeight(e.target.value)} style={inputStyle} />
               </div>
-              <div style={{ display: 'flex', gap: 10, background: '#0b1220', border: '1px solid #1e293b', borderRadius: 8, padding: '11px 14px' }}>
+              <div style={{ display: 'flex', gap: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8, padding: '11px 14px' }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>
+                  <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 2 }}>
                     Volumetric Weight
                     <InfoTooltip text="IATA formula: (Length × Width × Height in cm) ÷ 6000." />
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#c4b5fd', fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.modeAir, fontFamily: "'IBM Plex Mono', monospace" }}>
                     {volumetric.toFixed(1)} kg
                   </div>
                 </div>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 10.5, color: '#64748b', marginBottom: 2 }}>
+                  <div style={{ fontSize: 10.5, color: T.muted, marginBottom: 2 }}>
                     Chargeable Weight
                     <InfoTooltip text="Whichever is higher: gross weight or volumetric weight — the standard air-freight billing basis." />
                   </div>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>
                     {chargeable.toFixed(1)} kg
                   </div>
                 </div>
@@ -340,7 +341,7 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
           )}
 
           {mode === 'truck' && (
-            <div style={{ borderTop: '1px solid #1e293b', paddingTop: 14, marginTop: 4 }}>
+            <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 14, marginTop: 4 }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
                   <label style={labelStyle}>Vehicle Type</label>
@@ -368,9 +369,9 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
             <div
               style={{
                 marginTop: 16,
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -389,9 +390,9 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: busy ? 'not-allowed' : 'pointer',
@@ -407,8 +408,8 @@ export default function BookingModal({ orgId, defaultMode, onClose, onCreated }:
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: !busy ? '#2563eb' : '#1e293b',
-                color: '#fff',
+                background: !busy ? T.accent : T.surfaceInset,
+                color: T.onAccent,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: !busy ? 'pointer' : 'not-allowed',

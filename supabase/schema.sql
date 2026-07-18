@@ -1237,6 +1237,14 @@ begin
     'status', v_shipment.status,
     'client_name', v_shipment.client,
     'created_at', v_shipment.created_at,
+    -- White-label (benchmark-gap sprint): the tracking page renders the agency's own brand, not
+    -- SST's. Stays within the minimal-payload rule — all three fields are already public-facing
+    -- (name/color render to invitees pre-join; org-logos is a public Storage bucket). Still no
+    -- org id, no staff, no internal data.
+    'org', (
+      select jsonb_build_object('name', o.name, 'color', o.color, 'logo_url', o.logo_url)
+      from organizations o where o.id = v_shipment.org_id
+    ),
     'history', (
       select coalesce(jsonb_agg(jsonb_build_object(
         'from_status', h.from_status, 'to_status', h.to_status, 'created_at', h.created_at
@@ -2262,3 +2270,73 @@ revoke execute on function enqueue_webhook_event(uuid, text, jsonb) from public,
 revoke execute on function deliver_pending_webhooks() from public, anon, authenticated;
 grant execute on function list_webhook_deliveries(uuid, uuid, int) to authenticated;
 grant execute on function send_test_webhook(uuid) to authenticated;
+
+-- ============================================================================================
+-- Week 19 (ADR-0030) — Business-logic tier pilot: convert_quote_to_shipment.
+-- The quotes-service Edge Function orchestrates quote workflows; THIS function is the one
+-- "atomic multi-step database operation" of that pattern — shipment creation and the quote's
+-- status flip happen in ONE transaction behind a row lock, which finally and fully closes the
+-- quote-conversion double-submit race left open by ADR-0006 ("accepted risk") and only
+-- narrowed by ADR-0022 (visible rejection, but the orphan shipment insert still happened).
+-- Two concurrent conversions now serialize on FOR UPDATE: exactly one shipment is ever
+-- created; the loser gets a clean 'Quote is already converted' error and zero rows written.
+-- ============================================================================================
+
+create or replace function convert_quote_to_shipment(p_quote_id uuid)
+returns shipments
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_quote quotes;
+  v_shipment shipments;
+  v_prefix text;
+  v_attempt int;
+begin
+  -- The row lock IS the race fix: a concurrent second call blocks here until the first
+  -- transaction commits, then reads the already-converted row and raises below.
+  select * into v_quote from quotes where id = p_quote_id for update;
+  if v_quote.id is null then
+    raise exception 'Quote not found';
+  end if;
+  if not is_org_member(v_quote.org_id) then
+    raise exception 'Not authorized to convert this quote';
+  end if;
+  if v_quote.status = 'converted' or v_quote.converted_shipment_id is not null then
+    raise exception 'Quote is already converted';
+  end if;
+  if v_quote.status = 'rejected' then
+    raise exception 'Invalid quote status transition: rejected -> converted';
+  end if;
+
+  -- Same ref shape and retry-on-collision behavior the client previously implemented
+  -- (src/lib/refGenerator.ts + api/shipments.ts), now server-side and transactional.
+  v_prefix := case v_quote.mode when 'ocean' then 'BKG' when 'air' then 'AWB' else 'TRK' end;
+  for v_attempt in 1..5 loop
+    begin
+      insert into shipments (org_id, ref, mode, client, origin, destination, status,
+                             shipper_contact_id, consignee_contact_id, created_by)
+      values (v_quote.org_id,
+              v_prefix || '-' || extract(year from now())::int || '-' || (100 + floor(random() * 899))::int,
+              v_quote.mode, v_quote.consignee_name, v_quote.origin, v_quote.destination,
+              'Booked', v_quote.shipper_contact_id, v_quote.consignee_contact_id, auth.uid())
+      returning * into v_shipment;
+      exit;
+    exception when unique_violation then
+      if v_attempt = 5 then
+        raise;
+      end if;
+    end;
+  end loop;
+
+  -- Runs through validate_quote_status_transition (draft/sent/accepted -> converted are all
+  -- allowed pairs) and the quotes_audit trigger, exactly like the old client-side update did.
+  update quotes set status = 'converted', converted_shipment_id = v_shipment.id
+    where id = p_quote_id;
+
+  return v_shipment;
+end;
+$$;
+
+grant execute on function convert_quote_to_shipment(uuid) to authenticated;

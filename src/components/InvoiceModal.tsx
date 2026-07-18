@@ -10,6 +10,7 @@ import { isCheckViolation } from '../lib/formErrors'
 import { fetchFxRateToInr } from '../lib/fxRates'
 import { determineSupplyType, computeGstAmounts } from '../lib/gst'
 import { INVOICE_CURRENCIES, type Invoice, type InvoiceLineItem, type MembershipRole, type Shipment } from '../types'
+import { T } from '../theme/tokens'
 
 interface InvoiceModalProps {
   orgId: string
@@ -32,18 +33,18 @@ function blankLineItem(description = ''): LineItemDraft {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -275,7 +276,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -290,20 +291,20 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
           maxWidth: 660,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>New Invoice</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>New Invoice</div>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: busy ? 'not-allowed' : 'pointer', lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: busy ? 'not-allowed' : 'pointer', lineHeight: 1 }}
           >
             ×
           </button>
@@ -321,7 +322,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               ))}
             </select>
             <FieldError message={fieldErrors.shipmentId} />
-            {carryoverNote && <div style={{ marginTop: 6, fontSize: 11.5, color: '#4ade80' }}>✓ {carryoverNote}</div>}
+            {carryoverNote && <div style={{ marginTop: 6, fontSize: 11.5, color: T.success }}>✓ {carryoverNote}</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 14 }}>
@@ -359,10 +360,10 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
           </div>
 
           {fxError && (
-            <div style={{ marginBottom: 14, fontSize: 12, color: '#fbbf24' }}>{fxError}</div>
+            <div style={{ marginBottom: 14, fontSize: 12, color: T.warning }}>{fxError}</div>
           )}
           {!canEditRate && currency !== 'INR' && (
-            <div style={{ marginBottom: 14, fontSize: 11.5, color: '#5b6b82' }}>
+            <div style={{ marginBottom: 14, fontSize: 11.5, color: T.faint }}>
               Only an Owner or Admin can edit the FX rate — this invoice will use the fetched rate above.
             </div>
           )}
@@ -373,7 +374,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               <button
                 type="button"
                 onClick={addLineItem}
-                style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: T.info, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
               >
                 + Add line
               </button>
@@ -430,7 +431,7 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: lineItems.length === 1 ? '#334155' : '#fb7185',
+                      color: lineItems.length === 1 ? T.borderStrong : T.danger,
                       fontSize: 16,
                       lineHeight: 1,
                       cursor: lineItems.length === 1 ? 'not-allowed' : 'pointer',
@@ -447,21 +448,21 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
 
           <div
             style={{
-              background: '#0b1220',
-              border: '1px solid #1e293b',
+              background: T.bg,
+              border: `1px solid ${T.border}`,
               borderRadius: 8,
               padding: '12px 14px',
               marginBottom: 14,
             }}
           >
-            <div style={{ fontSize: 11.5, marginBottom: 10, color: supplyType.stateUnknown ? '#fbbf24' : '#5b6b82' }}>
+            <div style={{ fontSize: 11.5, marginBottom: 10, color: supplyType.stateUnknown ? T.warning : T.faint }}>
               {supplyType.stateUnknown
                 ? '⚠ Set this client\'s state (Directory → Contacts) for an accurate CGST/SGST-vs-IGST split — defaulting to inter-state (IGST) for now.'
                 : supplyType.isSameState
                   ? 'Same state as your business → CGST + SGST'
                   : 'Different state from your business → IGST, auto-computed'}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 6, fontSize: 12.5, color: '#94a3b8' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', rowGap: 6, fontSize: 12.5, color: T.muted }}>
               <div>Taxable value</div>
               <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace" }}>{currency} {totalTaxable.toLocaleString('en-IN', { maximumFractionDigits: 2 })}</div>
               {totalCgst > 0 || totalSgst > 0 ? (
@@ -485,18 +486,18 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              background: '#0b1220',
-              border: '1px solid #1e293b',
+              background: T.bg,
+              border: `1px solid ${T.border}`,
               borderRadius: 8,
               padding: '11px 14px',
               marginBottom: 14,
             }}
           >
-            <div style={{ fontSize: 11, color: '#64748b' }}>
+            <div style={{ fontSize: 11, color: T.muted }}>
               Amount in INR
               <InfoTooltip text="Sum of line items (incl. GST) × FX Rate, calculated live and stored on the invoice at creation — never recomputed later, even if the FX rate is edited afterward." />
             </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>
               ₹{amountInr.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -505,9 +506,9 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
             <div
               style={{
                 marginBottom: 14,
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -526,9 +527,9 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: busy ? 'not-allowed' : 'pointer',
@@ -544,8 +545,8 @@ export default function InvoiceModal({ orgId, currentRole, onClose, onCreated }:
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: !busy ? '#2563eb' : '#1e293b',
-                color: '#fff',
+                background: !busy ? T.accent : T.surfaceInset,
+                color: T.onAccent,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: !busy ? 'pointer' : 'not-allowed',

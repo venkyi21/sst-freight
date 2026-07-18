@@ -10,6 +10,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:perf": "node scripts/measure-perf.mjs",
+    "test:stress": "node scripts/measure-stress.mjs",
     "docs:gen-api": "node scripts/generate-api-reference.js",
     "docs:check": "node scripts/check-docs-sync.js"
   },
@@ -25,6 +29,7 @@
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
+    "@playwright/test": "1.61.1",
     "@types/node": "20.19.43",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",

@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
-import type { Contact, ContactKind, VendorType } from '../types'
+import type { Contact, ContactKind, Invoice, Shipment, VendorType } from '../types'
 
 export async function fetchContacts(orgId: string): Promise<{ data: Contact[] | null; error: string | null }> {
   const { data, error } = await supabase.from('contacts').select('*').eq('org_id', orgId).order('created_at', { ascending: false })
@@ -60,6 +60,39 @@ export async function resolveOrCreateContact(
   const { data, error: insertError } = await supabase.from('contacts').insert({ org_id: orgId, kind, name, created_by: userId }).select('id').single()
   if (insertError || !data) return null
   return (data as { id: string }).id
+}
+
+export interface ContactHistory {
+  shipments: Shipment[]
+  invoices: Invoice[]
+}
+
+// Plain RLS-gated selects (ADR-0002's simple-CRUD side) over the ADR-0003 FK columns — the name
+// snapshots on each row are for display, the FKs are what make this list accurate after renames.
+export async function fetchContactHistory(orgId: string, contactId: string): Promise<{ data: ContactHistory | null; error: string | null }> {
+  const [shipmentsRes, invoicesRes] = await Promise.all([
+    supabase
+      .from('shipments')
+      .select('*')
+      .eq('org_id', orgId)
+      .or(`shipper_contact_id.eq.${contactId},consignee_contact_id.eq.${contactId}`)
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('invoices')
+      .select('*')
+      .eq('org_id', orgId)
+      .eq('client_contact_id', contactId)
+      .order('created_at', { ascending: false }),
+  ])
+  const error = shipmentsRes.error?.message ?? invoicesRes.error?.message ?? null
+  if (error) return { data: null, error }
+  return {
+    data: {
+      shipments: (shipmentsRes.data as Shipment[] | null) ?? [],
+      invoices: (invoicesRes.data as Invoice[] | null) ?? [],
+    },
+    error: null,
+  }
 }
 
 export async function fetchContactEmail(contactId: string): Promise<string | null> {

@@ -457,3 +457,202 @@ active remains in the dev project from this QA run.
 recorded in `docs/tech-debt.md`, not hidden); walking the backoff ladder all the way to `failed`
 after 5 attempts (the full ladder spans hours by design; the first two rungs and the terminal
 logic were verified directly, the rest is the same code path).
+
+## Week 19 — Quotes business-logic tier pilot (ADR-0030), 2026-07-17
+
+Two passes against the dev project after the user deployed the `quotes-service` Edge Function and
+applied the `convert_quote_to_shipment` RPC: a **direct-invoke API pass** (a node script using
+`@supabase/supabase-js`, signing in as the standing QA users and calling
+`functions.invoke('quotes-service', …)` — the exact path the app uses) and a **Playwright UI
+regression** (headless Chromium against `npm run dev` → dev Supabase) re-walking the Week 15
+quote journeys now that every quote write routes through the tier.
+
+**A real deployment gap was caught and fixed by the first API run, not glossed over**: the first
+run failed every convert scenario with `Could not find the function
+public.convert_quote_to_shipment` — the Edge Function had been deployed but the Week 19 SQL
+section had not actually been applied to dev. Verified as genuinely missing (not a stale
+PostgREST cache), applied, and the suite re-run clean. This is exactly the repo↔dashboard drift
+risk now recorded in `docs/tech-debt.md`'s pilot section.
+
+### API pass — direct `functions.invoke` (16/16 passed on re-run)
+
+Taxonomy coverage: functional (create/lifecycle/convert), concurrency, security (tampered input,
+cross-tenant, module gating), integration continuity (webhooks, audit, triggers).
+
+| # | Case | Result |
+| --- | --- | --- |
+| S1 | **The race, killed**: two deliberately concurrent `convert` calls on one accepted quote → exactly **one** `shipments` row (count delta measured before/after = 1), one success (`BKG-2026-265`), one clean "Quote is already converted" error | ✅ Verified |
+| S1b | The winning transaction was atomic: quote `status='converted'` **and** `converted_shipment_id` set together | ✅ Verified |
+| S2 | **Authoritative math**: `create` carrying a tampered client `total: 1` against line items 2×100 + 3×50 → stored `total` = **350**; every `quote_line_items.amount` = its own qty×rate | ✅ Verified |
+| S3a/b | `send` (draft→sent) and `accept` (sent→accepted) via the tier | ✅ Verified |
+| S3c | Illegal `accepted→sent` via the tier rejected by the DB trigger ("Invalid quote status transition: accepted -> sent") — enforcement stayed in Postgres | ✅ Verified |
+| S3d | `reject` persists `rejection_reason` ("Rate too high — QA W19") | ✅ Verified |
+| S3e | `convert` of a rejected quote rejected by the RPC ("Invalid quote status transition: rejected -> converted") | ✅ Verified |
+| S3f | `archive` round-trip via the tier (true → false) | ✅ Verified |
+| S4a | **Webhook continuity**: quote.sent / quote.accepted / quote.rejected all captured to the outbox for a live endpoint registered before the pass — the Week 18 pipeline is unbroken by the tier | ✅ Verified |
+| S4b | **Audit continuity**: `quotes_audit` rows written for every tier-driven change (4 rows for quote 1: insert + 3 status changes) | ✅ Verified |
+| S5a–c | **Cross-tenant, through the tier**: Org B's owner calling `send` (0 rows via RLS), `convert` ("Not authorized to convert this quote"), and `create` into Org A ("violates row-level security policy") — all rejected; the caller's-JWT model proven | ✅ Verified |
+| S6 | **Module gating through the tier**: with `quotes` removed from Org A's `enabled_modules` (via `set_org_config`), tier `create` rejected by RLS; modules restored and verified after | ✅ Verified |
+
+### UI pass — Playwright regression of the Week 15 journeys (9/9 passed)
+
+| # | Case | Result |
+| --- | --- | --- |
+| UI0 | Sign-in → org pick → Quotes tab renders (pipeline strip + table) | ✅ Verified |
+| UI1a | Create via modal → draft row appears with the server-computed total (₹300 for 2×150) | ✅ Verified |
+| UI1b–d | Send → SENT chip; Mark Accepted → ACCEPTED chip; Convert to Booking → "Converted — BKG-2026-479" chip with the live booking ref | ✅ Verified |
+| UI1e / UI2b | Archive hides the row from the default view (both journeys) | ✅ Verified |
+| UI2a | Send → Mark Rejected with reason → REJECTED chip with the reason rendered under it | ✅ Verified |
+| UI3 | Zero uncaught page errors across both journeys | ✅ Verified |
+
+**Cleanup**: QA webhook endpoint disabled, all QA quotes archived, Org A's `enabled_modules`
+restored — the converted QA shipments remain (shipments have no delete path, by design/ADR-0004).
+
+**Explicitly out of scope / pending**: the structured-log observability check (scenario 8 of the
+plan) needs a human eyeball on the Supabase dashboard's per-function logs — the script cannot
+read them; every action *returned* its structured envelope correctly, but the dashboard log lines
+themselves are pending user confirmation. **(Closed later the same day: the user confirmed the
+structured JSON lines visible in the dashboard's Logs tab — screenshot reviewed.)** Cold-start
+latency was not measured (recorded in `docs/tech-debt.md`). The E-Sign panel journeys were not
+re-walked (untouched by this migration — `esign.ts` and `docusign-envelope` are unchanged).
+
+## Week 19b — Signal Indigo re-theme (ADR-0031), 2026-07-17
+
+An architecture-of-styling migration (849 hardcoded hex occurrences → a CSS-custom-property
+token layer + the new light theme), so the QA question was regression-shaped: does every page
+still render, behave, and stay legible? Run against `npm run dev` → dev Supabase.
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Unit suite unaffected (verified beforehand that no test asserts colors) | ✅ 38/38 |
+| 2 | Build (`tsc -b && vite build`) + lint (oxlint) clean after ~965 automated + 18 manual color conversions | ✅ Verified |
+| 3 | **Grep gate**: hex/rgba literals in `src/` confined to the documented exception set (index.css token defs, theme/brand.ts, TENANT_COLORS, documentHtml.ts + print CSS, 4 commented gradients, 1 commented severity literal) | ✅ Verified |
+| 4 | **dataviz palette validator** — mode categorical triple (#0369a1/#6d28d9/#b45309) on the light surface | ✅ ALL CHECKS PASS |
+| 5 | dataviz validator — full 8-color status set: status-neutral gray flagged (gray **by design**); warning↔danger ΔE 2.8 under deutan CVD flagged — accepted via the validator's own text-label exception, recorded in tech-debt | ⚠️ Accepted with mitigation |
+| 6 | **16-page Playwright walkthrough** (auth, org picker, dashboard, quotes tariffs+list, quote modal, directory, team, accounting, customs, reporting, integrations, settings, audit log, public TCO) — every page rendered, screenshots saved and eyeballed for contrast/regressions | ✅ 15/15 script + TCO re-shot |
+| 7 | Zero uncaught page errors across the whole walkthrough | ✅ Verified |
+| 8 | Brand-lock: SST mark/wordmark render from `BRAND` literals on auth/org-picker/public pages + footers; org avatars keep white-label `org.color` | ✅ Verified in screenshots |
+| 9 | Aging-severity ramp (amber → mid-orange → red) and status/mode chips legible on light surfaces | ✅ Verified in screenshots |
+
+**Real bugs caught and fixed during the pass, not glossed over**: (1) the conversion codemod
+initially inserted the token import *inside* multi-line import blocks — caught by `tsc`, fixed by
+a repair script across 35 files; (2) a PowerShell in-place replace corrupted UTF-8 en-dashes in
+AccountingPage.tsx — caught immediately, file restored from git and redone with safe tooling;
+(3) the codemod's second run converted two deliberately-literal white glyphs to tokens —
+re-fixed with the codemod-proof `'white'` keyword.
+
+## Week 20 — Committed Agile Testing layer (ADR-0032), 2026-07-17
+
+The change here is *methodological*, not a feature: the throwaway-script QA discipline described in
+the test-environment note above is replaced by a **committed, re-runnable** Playwright layer
+(`tests/e2e/`, `npm run test:e2e`) plus a **measured** performance baseline (`npm run test:perf`).
+Scenarios are catalogued with stable `TC-` IDs in `docs/test-catalog.md`; fixtures in
+`docs/test-data-register.md`. All runs below are against `npm run dev` → dev Supabase.
+
+### Before → after (what re-running a check costs)
+
+| Testing type | Before this pass | After this pass |
+| --- | --- | --- |
+| Functional / system (RLS, RPCs, tier, lifecycle) | Real results, but from uncommitted scripts re-derived each time | 26 committed Playwright tests, re-runnable on demand |
+| End-to-end (full application workflow) | Never assembled as one committed scenario | `TC-E2E-001` golden path — 11 ordered stages across every module |
+| Non-functional (performance) | `srs §3` marked "not measured" | Measured: p95 = 316 ms at 20 concurrent (< 500 ms target) |
+| Regression re-run | Rewrite the script from the doc | `npm run test:e2e` (≈52 s) + `npm run test:perf` |
+
+### Functional + E2E run (26/26 passed, 51.9 s)
+
+| Module | Committed spec(s) | Scenarios | Result |
+| --- | --- | --- | --- |
+| AUTH | `auth.spec.ts`, `auth.api.spec.ts` | smoke, wrong-password, cross-tenant shipments/contacts (RLS) | ✅ 4/4 |
+| QUOTE | `quotes.api.spec.ts`, `quotes.ui.spec.ts` | total recompute + tamper, lifecycle, illegal transition, convert, **the ADR-0030 race**, reject/convert-block, archive, cross-org, module gate; + 2 UI journeys | ✅ 9/9 |
+| DIR | `directory.api.spec.ts` | create shipper, vendor check-constraint, member-can-create | ✅ 3/3 |
+| SHIP | `shipments.api.spec.ts` | forward advance + history attribution, backward rejected | ✅ 2/2 |
+| CUSTOMS | `customs.api.spec.ts` | HS-code reference lookup, filing isolation | ✅ 2/2 |
+| ACCT | `accounting.api.spec.ts` | invoice + cost isolation (GST/aging math stay in the unit layer) | ✅ 1/1 |
+| INTEG | `integrations.api.spec.ts` | webhook outbox + audit continuity across status changes | ✅ 1/1 |
+| ADMIN | `admin.api.spec.ts` | platform-admin gating (both directions), member self-promote rejected | ✅ 3/3 |
+| E2E | `e2e/golden-path.spec.ts` | contact→tariff→quote→convert→shipment→advance→customs→invoice→paid→reporting→audit | ✅ 1/1 |
+
+### Non-functional run
+
+| Case | Result |
+| --- | --- |
+| Sequential read/RPC p95 (6 operations, 30 iters each) | ✅ 205–220 ms, all < 500 ms |
+| Concurrency p95 at 20 users (srs §3 boundary) | ✅ **316 ms < 500 ms** |
+| Concurrency at 40 users (beyond target scope) | ⚠️ ~582 ms — recorded as the degradation point |
+
+Full method, tables, and caveats: `docs/perf-baseline.md`.
+
+**Real issue caught and fixed during the pass**: the golden-path customs-filing insert first failed
+on a `NOT NULL` `ref` (the `src/api` layer generates the ref; a direct insert must supply it) — the
+spec was corrected to provide a unique `ref`, then passed. Recorded here rather than silently fixed.
+
+## Week 21 — Agile Testing completion pass (ADR-0033), 2026-07-18
+
+Closing the framework to 100%: every remaining `manual` catalog row committed at its correct layer,
+a page-render smoke layer over every screen, real load + stress numbers, tracked exploratory
+sessions, and the catalog re-expressed Given/When/Then. Against `npm run dev` → dev Supabase.
+
+### Before → after (what's now committed)
+
+| Testing type | After Week 20 | After Week 21 |
+| --- | --- | --- |
+| Functional catalog | 34 rows still `manual` | 0 `manual` except 3 labelled external-service rows |
+| Component / render | no per-screen check | page-render smoke over all 12 screens (`screens.smoke.spec.ts`) |
+| Non-functional | latency only | latency + sustained load + stress ramp to 100 concurrent (0% errors) |
+| Exploratory (Q3) | untracked | tracked (`docs/exploratory-testing.md`, SBTM charters) |
+| BDD | plain catalog | catalog expressed Given/When/Then (no framework) |
+
+### Committed run (all green)
+
+| Suite | Count | Result |
+| --- | --- | --- |
+| Unit (`npm test`) — incl. new `documentHtml`, `errorLogger` | 45 | ✅ 45/45 |
+| Playwright functional + golden path + smoke (`npm run test:e2e`) | 51 | ✅ 51/51 |
+| Newly closed at API layer | AUTH-003/006, DIR-004, SHIP-003/007, CUSTOMS-002/004, ACCT-004/006, REPORT-004/005, INTEG-001/002, ADMIN-004/005/006/007/008 | ✅ all pass |
+| Newly closed at browser layer | REPORT-001/002/003, INTEG-005, PUBLIC-001/002/003 | ✅ all pass |
+| Newly closed at unit layer | DOC-001/003 (documentHtml), AUTH-007 (errorLogger) | ✅ all pass |
+
+### Non-functional run (`npm run test:stress`)
+
+| Case | Result |
+| --- | --- |
+| Sustained load — 20 concurrent, 300 requests | ✅ p95 305 ms, 0% errors, 153 req/s |
+| Stress ramp p95 knee | ⚠️ p95 first crosses 500 ms at ~60 concurrent (3× target); graceful, no cliff |
+| Error rate to 100 concurrent (5× target) | ✅ 0% — no request failed at any level |
+
+Full numbers + method: `docs/perf-baseline.md`.
+
+**Deliberately-manual set (external services, not gaps — ADR-0033):** TC-DOC-002 (Storage upload),
+TC-DOC-004 (DocuSign envelope), TC-ACCT-003 (live FX value). Everything under our control for those
+modules (RLS isolation, row shape, pure logic) is automated; only the third-party hop is manual.
+
+## Benchmark-gap sprint — white-label tracking, contact history, ageing chart, 2026-07-18
+
+Three closeable rows from the client-benchmark cross-check (docs/competitor-dashboard.html), built
+and tested against `npm run dev` → dev Supabase. No new ADR (extends ADR-0002/0003/0008 patterns).
+
+### Before → after (per feature)
+
+| Feature | Before | After |
+| --- | --- | --- |
+| Public tracking page brand | showed "SST Freight" to every client (§2.2 gap, 50%) | shows the agency's own name/logo/colour, "Powered by SST Freight" footer |
+| Contact → shipment history | contacts had no drill-down view (§2.1 partial, 70%) | per-contact **History** modal: all linked shipments + invoices, FK-resolved |
+| Invoice ageing on Reporting | ageing only as Accounting chips (§8.3 partial, 60%) | ageing panel (1–30 / 31–60 / 61+ buckets) reusing `computeInvoiceAging()` |
+
+### Run (all green)
+
+| Suite | Count | Result |
+| --- | --- | --- |
+| `npm run build` (tsc -b + vite) | — | ✅ clean |
+| `npm run lint` (oxlint) | 92 files | ✅ 0 warnings / 0 errors |
+| Unit (`npm test`) | 45 | ✅ 45/45 (unchanged — ageing math already unit-covered) |
+| `directory.api.spec.ts` incl. new **TC-DIR-005** | 5 | ✅ 5/5 |
+| `reporting.ui.spec.ts` incl. new **TC-REPORT-006** | 2 | ✅ 2/2 |
+| **TC-PUBLIC-001** (white-label assertion) | 1 | ⏳ pending — needs the `get_public_shipment_tracking` payload extension applied to dev Supabase (SQL editor) before it can assert the org brand; frontend already falls back safely without it |
+
+Once the dev SQL is applied, `npm run test:e2e -- public.ui` closes TC-PUBLIC-001 and the whole
+suite returns to fully green.
+
+**Real issue caught during the pass:** the golden-path `computeDocumentRows` unit test first asserted
+Western digit grouping (`100,000`); the app renders Indian grouping (`1,00,000`) via `toLocaleString('en-IN')`
+— the assertion was corrected to the real locale output, not the reverse.

@@ -7,6 +7,7 @@ import {
   type AuditTableName,
   type MembershipRole,
 } from '../types'
+import { T } from '../theme/tokens'
 
 type TableFilter = 'all' | AuditTableName
 
@@ -17,15 +18,15 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',
-  background: active ? '#1e293b' : 'transparent',
-  color: active ? '#f1f5f9' : '#8291a6',
+  background: active ? T.surfaceInset : 'transparent',
+  color: active ? T.ink : T.muted,
 })
 
 const headStyle: CSSProperties = {
   padding: '13px 20px',
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -103,9 +104,9 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
   if (!isAdminViewer) {
     return (
       <div style={{ padding: '28px 32px', flex: 1 }}>
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 18px', color: '#f1f5f9' }}>Audit Log</h1>
-        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, padding: 40, textAlign: 'center' }}>
-          <div style={{ color: '#64748b', fontSize: 13.5 }}>Only Owners and Admins can view the audit log.</div>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 18px', color: T.ink }}>Audit Log</h1>
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, padding: 40, textAlign: 'center' }}>
+          <div style={{ color: T.muted, fontSize: 13.5 }}>Only Owners and Admins can view the audit log.</div>
         </div>
       </div>
     )
@@ -120,14 +121,14 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
   return (
     <div style={{ padding: '28px 32px', flex: 1 }}>
       <div style={{ marginBottom: 18 }}>
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 4px', color: '#f1f5f9' }}>Audit Log</h1>
-        <div style={{ fontSize: 12.5, color: '#64748b' }}>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 4px', color: T.ink }}>Audit Log</h1>
+        <div style={{ fontSize: 12.5, color: T.muted }}>
           Every change to contacts, team roles, invoices, and shipment costs — who, what, and when.
         </div>
       </div>
 
       <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 4, background: '#0f172a', border: '1px solid #1e293b', borderRadius: 8, padding: 4 }}>
+        <div style={{ display: 'flex', gap: 4, background: T.surface, border: `1px solid ${T.border}`, borderRadius: 8, padding: 4 }}>
           <button type="button" onClick={() => setTableFilter('all')} style={filterButtonStyle(tableFilter === 'all')}>
             All
           </button>
@@ -145,12 +146,12 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
           style={{
             flex: 1,
             minWidth: 220,
-            background: '#0f172a',
-            border: '1px solid #1e293b',
+            background: T.surface,
+            border: `1px solid ${T.border}`,
             borderRadius: 8,
             padding: '8px 12px',
             fontSize: 12.5,
-            color: '#e2e8f0',
+            color: T.text,
           }}
         />
       </div>
@@ -158,23 +159,23 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
       {loadError ? (
         <div
           style={{
-            background: 'rgba(244,63,94,0.08)',
-            border: '1px solid rgba(244,63,94,0.3)',
+            background: T.dangerWash,
+            border: `1px solid ${T.dangerBorder}`,
             borderRadius: 12,
             padding: 24,
             textAlign: 'center',
           }}
         >
-          <div style={{ color: '#fb7185', fontSize: 13.5, marginBottom: 12 }}>Couldn't load audit log: {loadError}</div>
+          <div style={{ color: T.danger, fontSize: 13.5, marginBottom: 12 }}>Couldn't load audit log: {loadError}</div>
           <button
             type="button"
             onClick={() => setReloadToken((t) => t + 1)}
             style={{
               padding: '8px 16px',
               borderRadius: 8,
-              border: '1px solid #1e293b',
+              border: `1px solid ${T.border}`,
               background: 'transparent',
-              color: '#e2e8f0',
+              color: T.text,
               fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
@@ -184,10 +185,10 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
           </button>
         </div>
       ) : (
-        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+              <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                 <th style={headStyle}>Table</th>
                 <th style={headStyle}>Change</th>
                 <th style={headStyle}>Changed by</th>
@@ -202,39 +203,39 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
                   <Fragment key={entry.id}>
                     <tr
                       onClick={() => setExpandedId(isExpanded ? null : entry.id)}
-                      style={{ borderBottom: '1px solid #172033', cursor: 'pointer' }}
+                      style={{ borderBottom: `1px solid ${T.surfaceRaised}`, cursor: 'pointer' }}
                     >
-                      <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>
+                      <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: T.ink }}>
                         {AUDIT_TABLE_META[entry.table_name as AuditTableName]?.label ?? entry.table_name}
                       </td>
                       <td style={cellStyle}>
                         <span style={opChipStyle(entry.operation)}>{AUDIT_OPERATION_META[entry.operation].label}</span>
                       </td>
-                      <td style={{ ...cellStyle, fontSize: 12.5, color: '#94a3b8' }}>
+                      <td style={{ ...cellStyle, fontSize: 12.5, color: T.muted }}>
                         {entry.changed_by_email ?? '—'}
                       </td>
-                      <td style={{ ...cellStyle, fontSize: 12, color: '#5b6b82', whiteSpace: 'nowrap' }}>
+                      <td style={{ ...cellStyle, fontSize: 12, color: T.faint, whiteSpace: 'nowrap' }}>
                         {new Date(entry.changed_at).toLocaleString()}
                       </td>
                     </tr>
                     {isExpanded && (
-                      <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
+                      <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, background: T.rowStripe }}>
                         <td colSpan={4} style={{ padding: '10px 20px 16px' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                             {diffs.length === 0 && (
-                              <div style={{ fontSize: 12, color: '#475569' }}>No field-level changes recorded.</div>
+                              <div style={{ fontSize: 12, color: T.placeholder }}>No field-level changes recorded.</div>
                             )}
                             {diffs.map(({ field, before, after }) => (
                               <div key={field} style={{ display: 'flex', gap: 10, fontSize: 12, fontFamily: "'IBM Plex Mono', monospace" }}>
-                                <span style={{ color: '#64748b', minWidth: 140 }}>{field}</span>
+                                <span style={{ color: T.muted, minWidth: 140 }}>{field}</span>
                                 {entry.operation === 'update' ? (
                                   <span>
-                                    <span style={{ color: '#fb7185' }}>{formatValue(before)}</span>
-                                    <span style={{ color: '#475569' }}> → </span>
-                                    <span style={{ color: '#4ade80' }}>{formatValue(after)}</span>
+                                    <span style={{ color: T.danger }}>{formatValue(before)}</span>
+                                    <span style={{ color: T.placeholder }}> → </span>
+                                    <span style={{ color: T.success }}>{formatValue(after)}</span>
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#cbd5e1' }}>{formatValue(entry.operation === 'delete' ? before : after)}</span>
+                                  <span style={{ color: T.text }}>{formatValue(entry.operation === 'delete' ? before : after)}</span>
                                 )}
                               </div>
                             ))}
@@ -248,9 +249,9 @@ export default function AuditLogPage({ orgId, currentRole }: AuditLogPageProps) 
             </tbody>
           </table>
           {!loading && filtered.length === 0 && (
-            <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>No audit entries found.</div>
+            <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>No audit entries found.</div>
           )}
-          {loading && <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>Loading audit log…</div>}
+          {loading && <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>Loading audit log…</div>}
         </div>
       )}
     </div>

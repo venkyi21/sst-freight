@@ -11,6 +11,11 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Playwright E2E artifacts (ADR-0032) — generated per run, never tracked
+playwright-report
+test-results
+.playwright
 .env
 .env.local
 .env.*.local
@@ -18,6 +23,14 @@ dist-ssr
 # Supabase CLI local state (project ref, pooler URL, version cache) — machine-local, not secret
 # content itself, but not meant to be tracked (same principle as node_modules).
 supabase/.temp
+
+# Local reference material (screenshots/PDFs saved during working sessions) — kept on disk,
+# deliberately not tracked (docs-as-code covers the actual documentation).
+SupabaseEdge_EnterpriseBuyout.png
+docs/ProjDoc_System.png
+docs/Dual-Engine Monetization Core v2.pdf
+docs/SST Freight — Roadmap & Gap Reference.pdf
+docs/SST Freight — User Guide.pdf
 
 # Editor directories and files
 .vscode/*

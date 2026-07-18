@@ -16,6 +16,12 @@ import {
   type PlatformRevenueEntry,
   type ShipmentCost,
 } from '../types'
+import { T } from '../theme/tokens'
+
+// Deliberate literal (ADR-0031): the middle step of the 3-step invoice-aging severity ramp
+// (warning amber → THIS orange → danger red). It sits between two existing tokens on purpose;
+// darkened from the old #f97316 for contrast on light surfaces.
+const SEVERITY_MID = '#c2410c'
 
 type Tab = 'invoices' | 'pnl'
 
@@ -26,15 +32,15 @@ const tabButtonStyle = (active: boolean): CSSProperties => ({
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',
-  background: active ? '#1e293b' : 'transparent',
-  color: active ? '#f1f5f9' : '#8291a6',
+  background: active ? T.surfaceInset : 'transparent',
+  color: active ? T.ink : T.muted,
 })
 
 const headStyle: CSSProperties = {
   padding: '13px 20px',
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -42,8 +48,8 @@ const headStyle: CSSProperties = {
 const cellStyle: CSSProperties = { padding: '14px 20px' }
 
 const statCardStyle: CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 12,
   padding: '16px 18px',
 }
@@ -188,7 +194,7 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
   return (
     <div style={{ padding: '28px 32px', flex: 1 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 14 }}>
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>Accounting</h1>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: T.ink }}>Accounting</h1>
         {tab === 'invoices' ? (
           <button type="button" onClick={() => setInvoiceModalOpen(true)} style={primaryButtonStyle}>
             + New Invoice
@@ -200,7 +206,7 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
         )}
       </div>
 
-      <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 9, padding: 3, display: 'flex', gap: 2, marginBottom: 20, width: 'fit-content' }}>
+      <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 9, padding: 3, display: 'flex', gap: 2, marginBottom: 20, width: 'fit-content' }}>
         <button type="button" onClick={() => setTab('invoices')} style={tabButtonStyle(tab === 'invoices')}>
           Invoices
         </button>
@@ -212,40 +218,40 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
       {tab === 'invoices' && (
         <>
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#94a3b8', cursor: 'pointer' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: T.muted, cursor: 'pointer' }}>
               <input type="checkbox" checked={showArchivedInvoices} onChange={(e) => setShowArchivedInvoices(e.target.checked)} />
               Show archived
             </label>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
             <div style={statCardStyle}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Total Outstanding</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#e2e8f0', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.outstanding)}</div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Total Outstanding</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.text, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.outstanding)}</div>
             </div>
-            <div style={{ ...statCardStyle, borderColor: 'rgba(251,191,36,0.3)' }}>
-              <div style={{ fontSize: 11, color: '#fbbf24', marginBottom: 6 }}>0–30 Days Overdue</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#fbbf24', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.buckets.d0_30.amount)}</div>
-              <div style={{ fontSize: 11, color: '#5b6b82', marginTop: 4 }}>{aging.buckets.d0_30.count} invoice(s)</div>
+            <div style={{ ...statCardStyle, borderColor: T.warningBorder }}>
+              <div style={{ fontSize: 11, color: T.warning, marginBottom: 6 }}>0–30 Days Overdue</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.warning, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.buckets.d0_30.amount)}</div>
+              <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>{aging.buckets.d0_30.count} invoice(s)</div>
             </div>
-            <div style={{ ...statCardStyle, borderColor: 'rgba(249,115,22,0.3)' }}>
-              <div style={{ fontSize: 11, color: '#f97316', marginBottom: 6 }}>31–60 Days Overdue</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#f97316', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.buckets.d31_60.amount)}</div>
-              <div style={{ fontSize: 11, color: '#5b6b82', marginTop: 4 }}>{aging.buckets.d31_60.count} invoice(s)</div>
+            <div style={{ ...statCardStyle, borderColor: T.warningBorder }}>
+              <div style={{ fontSize: 11, color: SEVERITY_MID, marginBottom: 6 }}>31–60 Days Overdue</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: SEVERITY_MID, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.buckets.d31_60.amount)}</div>
+              <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>{aging.buckets.d31_60.count} invoice(s)</div>
             </div>
-            <div style={{ ...statCardStyle, borderColor: 'rgba(239,68,68,0.3)' }}>
-              <div style={{ fontSize: 11, color: '#ef4444', marginBottom: 6 }}>61+ Days Overdue</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#ef4444', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.buckets.d61.amount)}</div>
-              <div style={{ fontSize: 11, color: '#5b6b82', marginTop: 4 }}>{aging.buckets.d61.count} invoice(s)</div>
+            <div style={{ ...statCardStyle, borderColor: T.dangerBorder }}>
+              <div style={{ fontSize: 11, color: T.danger, marginBottom: 6 }}>61+ Days Overdue</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.danger, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(aging.buckets.d61.amount)}</div>
+              <div style={{ fontSize: 11, color: T.faint, marginTop: 4 }}>{aging.buckets.d61.count} invoice(s)</div>
             </div>
           </div>
 
           {invoicesError ? (
             <ErrorBox message={invoicesError} />
           ) : (
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+                  <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                     <th style={headStyle}>Ref</th>
                     <th style={headStyle}>Client</th>
                     <th style={headStyle}>Amount</th>
@@ -262,25 +268,25 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                     const dnaOpen = dnaInvoiceId === inv.id
                     return (
                       <Fragment key={inv.id}>
-                      <tr style={{ borderBottom: '1px solid #172033', opacity: inv.archived ? 0.55 : 1 }}>
-                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{inv.ref}</td>
-                        <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{inv.client_name}</td>
-                        <td style={{ ...cellStyle, fontSize: 13, color: '#e2e8f0' }}>
+                      <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, opacity: inv.archived ? 0.55 : 1 }}>
+                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: T.ink }}>{inv.ref}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, color: T.muted }}>{inv.client_name}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, color: T.text }}>
                           {inv.currency} {inv.amount.toLocaleString('en-IN')}
                         </td>
-                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>{fmt(inv.amount_inr)}</td>
-                        <td style={{ ...cellStyle, fontSize: 12.5, color: '#94a3b8' }}>{inv.due_date ?? '—'}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.success }}>{fmt(inv.amount_inr)}</td>
+                        <td style={{ ...cellStyle, fontSize: 12.5, color: T.muted }}>{inv.due_date ?? '—'}</td>
                         <td style={cellStyle}>
                           {inv.status === 'paid' ? (
-                            <span style={{ fontSize: 11.5, color: '#4ade80', fontWeight: 600 }}>● Paid</span>
+                            <span style={{ fontSize: 11.5, color: T.success, fontWeight: 600 }}>● Paid</span>
                           ) : (
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                               {overdue !== null && overdue > 0 ? (
-                                <span style={{ fontSize: 11, fontWeight: 600, color: overdue > 60 ? '#ef4444' : overdue > 30 ? '#f97316' : '#fbbf24' }}>
+                                <span style={{ fontSize: 11, fontWeight: 600, color: overdue > 60 ? T.danger : overdue > 30 ? SEVERITY_MID : T.warning }}>
                                   {overdue}d overdue
                                 </span>
                               ) : (
-                                <span style={{ fontSize: 11, color: '#5b6b82' }}>Not due</span>
+                                <span style={{ fontSize: 11, color: T.faint }}>Not due</span>
                               )}
                               <button
                                 type="button"
@@ -289,9 +295,9 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                                 style={{
                                   padding: '4px 9px',
                                   borderRadius: 6,
-                                  border: '1px solid #1e293b',
+                                  border: `1px solid ${T.border}`,
                                   background: 'transparent',
-                                  color: '#94a3b8',
+                                  color: T.muted,
                                   fontSize: 11,
                                   fontWeight: 600,
                                   cursor: 'pointer',
@@ -319,40 +325,40 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                         </td>
                       </tr>
                       {dnaOpen && (
-                        <tr style={{ borderBottom: '1px solid #172033', background: 'rgba(255,255,255,0.015)' }}>
+                        <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, background: T.rowStripe }}>
                           <td colSpan={8} style={{ padding: '10px 20px 16px' }}>
                             {dnaLoading ? (
-                              <div style={{ fontSize: 12, color: '#5b6b82' }}>Loading trace…</div>
+                              <div style={{ fontSize: 12, color: T.faint }}>Loading trace…</div>
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 12.5 }}>
-                                <div style={{ color: '#94a3b8' }}>
-                                  Shipment <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>{inv.shipment_id ?? '—'}</span>
-                                  {' → '}Invoice <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: '#e2e8f0' }}>{inv.ref}</span>
+                                <div style={{ color: T.muted }}>
+                                  Shipment <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: T.text }}>{inv.shipment_id ?? '—'}</span>
+                                  {' → '}Invoice <span style={{ fontFamily: "'IBM Plex Mono', monospace", color: T.text }}>{inv.ref}</span>
                                   {' · '}
                                   {inv.currency} {inv.amount.toLocaleString('en-IN')} @ fx {inv.fx_rate} = {fmt(inv.amount_inr)}
                                 </div>
                                 <div>
-                                  <div style={{ color: '#64748b', marginBottom: 4 }}>
+                                  <div style={{ color: T.muted, marginBottom: 4 }}>
                                     Platform rake breakdown (simulated)
                                     <InfoTooltip text="Model 2 orgs only. Each rake is a fixed % computed from a real amount on this invoice/shipment (e.g. 2% FX spread) — no real funds move (ADR-0013)." />
                                   </div>
                                   {dnaRakes.length === 0 ? (
-                                    <div style={{ color: '#475569' }}>No platform rake recorded for this invoice.</div>
+                                    <div style={{ color: T.placeholder }}>No platform rake recorded for this invoice.</div>
                                   ) : (
                                     dnaRakes.map((r) => (
-                                      <div key={r.id} style={{ color: '#4ade80' }}>
+                                      <div key={r.id} style={{ color: T.success }}>
                                         {PLATFORM_RAKE_META[r.rake_type].label} — {r.rate_pct}% of {fmt(r.base_amount_inr)} = {fmt(r.rake_amount_inr)}
                                       </div>
                                     ))
                                   )}
                                 </div>
                                 <div>
-                                  <div style={{ color: '#64748b', marginBottom: 4 }}>Audit history</div>
+                                  <div style={{ color: T.muted, marginBottom: 4 }}>Audit history</div>
                                   {dnaHistory.length === 0 ? (
-                                    <div style={{ color: '#475569' }}>No changes recorded.</div>
+                                    <div style={{ color: T.placeholder }}>No changes recorded.</div>
                                   ) : (
                                     dnaHistory.map((h) => (
-                                      <div key={h.id} style={{ color: '#94a3b8' }}>
+                                      <div key={h.id} style={{ color: T.muted }}>
                                         {h.operation} by {h.changed_by_email ?? '—'} · {new Date(h.changed_at).toLocaleString()}
                                       </div>
                                     ))
@@ -379,16 +385,16 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 20 }}>
             <div style={statCardStyle}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Total Revenue</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(pnl.revenue)}</div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Total Revenue</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(pnl.revenue)}</div>
             </div>
             <div style={statCardStyle}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Total Cost</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: '#fb7185', fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(pnl.cost)}</div>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Total Cost</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: T.danger, fontFamily: "'IBM Plex Mono', monospace" }}>{fmt(pnl.cost)}</div>
             </div>
             <div style={statCardStyle}>
-              <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>Profit</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: pnl.profit >= 0 ? '#4ade80' : '#fb7185', fontFamily: "'IBM Plex Mono', monospace" }}>
+              <div style={{ fontSize: 11, color: T.muted, marginBottom: 6 }}>Profit</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: pnl.profit >= 0 ? T.success : T.danger, fontFamily: "'IBM Plex Mono', monospace" }}>
                 {fmt(pnl.profit)}
               </div>
             </div>
@@ -397,13 +403,13 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
           {profitability.length > 0 && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: '#f1f5f9' }}>Profitability by shipment</div>
-                <div style={{ fontSize: 11.5, color: '#5b6b82' }}>See margin the moment you invoice — not at month-end.</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>Profitability by shipment</div>
+                <div style={{ fontSize: 11.5, color: T.faint }}>See margin the moment you invoice — not at month-end.</div>
               </div>
-              <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                   <thead>
-                    <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+                    <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                       <th style={headStyle}>Shipment</th>
                       <th style={headStyle}>Revenue</th>
                       <th style={headStyle}>Cost</th>
@@ -413,14 +419,14 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                   </thead>
                   <tbody>
                     {profitability.map((p) => (
-                      <tr key={p.shipmentId} style={{ borderBottom: '1px solid #172033' }}>
-                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: '#f1f5f9' }}>{p.ref}</td>
-                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#4ade80' }}>{fmt(p.revenue)}</td>
-                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#fb7185' }}>{fmt(p.cost)}</td>
-                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: p.margin >= 0 ? '#4ade80' : '#fb7185' }}>
+                      <tr key={p.shipmentId} style={{ borderBottom: `1px solid ${T.surfaceRaised}` }}>
+                        <td style={{ ...cellStyle, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, color: T.ink }}>{p.ref}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.success }}>{fmt(p.revenue)}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.danger }}>{fmt(p.cost)}</td>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, color: p.margin >= 0 ? T.success : T.danger }}>
                           {fmt(p.margin)}
                         </td>
-                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: p.margin >= 0 ? '#4ade80' : '#fb7185' }}>
+                        <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: p.margin >= 0 ? T.success : T.danger }}>
                           {p.marginPct.toFixed(1)}%
                         </td>
                       </tr>
@@ -434,10 +440,10 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
           {costsError ? (
             <ErrorBox message={costsError} />
           ) : (
-            <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+            <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+                  <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                     <th style={headStyle}>Vendor</th>
                     <th style={headStyle}>Description</th>
                     <th style={headStyle}>Amount</th>
@@ -452,15 +458,15 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                 </thead>
                 <tbody>
                   {costs.map((c) => (
-                    <tr key={c.id} style={{ borderBottom: '1px solid #172033' }}>
-                      <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{c.vendor_name ?? '—'}</td>
-                      <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{c.description}</td>
-                      <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: '#fb7185' }}>{fmt(c.amount)}</td>
-                      <td style={{ ...cellStyle, fontSize: 12, color: '#5b6b82' }}>{new Date(c.created_at).toLocaleDateString()}</td>
+                    <tr key={c.id} style={{ borderBottom: `1px solid ${T.surfaceRaised}` }}>
+                      <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: T.ink }}>{c.vendor_name ?? '—'}</td>
+                      <td style={{ ...cellStyle, fontSize: 13, color: T.muted }}>{c.description}</td>
+                      <td style={{ ...cellStyle, fontSize: 13, fontFamily: "'IBM Plex Mono', monospace", color: T.danger }}>{fmt(c.amount)}</td>
+                      <td style={{ ...cellStyle, fontSize: 12, color: T.faint }}>{new Date(c.created_at).toLocaleDateString()}</td>
                       {billingModel === 'model_2' && (
                         <td style={cellStyle}>
                           {instantPayoutDoneIds.has(c.id) ? (
-                            <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 600 }}>● Settled (simulated)</span>
+                            <span style={{ fontSize: 11, color: T.success, fontWeight: 600 }}>● Settled (simulated)</span>
                           ) : (
                             <button
                               type="button"
@@ -496,17 +502,17 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
 const dnaButtonStyle: CSSProperties = {
   padding: '4px 9px',
   borderRadius: 6,
-  border: '1px solid #1e293b',
+  border: `1px solid ${T.border}`,
   background: 'transparent',
-  color: '#94a3b8',
+  color: T.muted,
   fontSize: 11,
   fontWeight: 600,
   cursor: 'pointer',
 }
 
 const primaryButtonStyle: CSSProperties = {
-  background: '#2563eb',
-  color: '#fff',
+  background: T.accent,
+  color: T.onAccent,
   border: 'none',
   fontWeight: 600,
   fontSize: 13,
@@ -519,19 +525,19 @@ function ErrorBox({ message }: { message: string }) {
   return (
     <div
       style={{
-        background: 'rgba(244,63,94,0.08)',
-        border: '1px solid rgba(244,63,94,0.3)',
+        background: T.dangerWash,
+        border: `1px solid ${T.dangerBorder}`,
         borderRadius: 12,
         padding: 24,
         textAlign: 'center',
         marginBottom: 16,
       }}
     >
-      <div style={{ color: '#fb7185', fontSize: 13.5 }}>{message}</div>
+      <div style={{ color: T.danger, fontSize: 13.5 }}>{message}</div>
     </div>
   )
 }
 
 function EmptyState({ label }: { label: string }) {
-  return <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>{label}</div>
+  return <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>{label}</div>
 }

@@ -13,6 +13,7 @@ import {
   type ShipmentDocument,
   type ShipmentDocumentType,
 } from '../types'
+import { T } from '../theme/tokens'
 
 interface ShipmentDocumentsPanelProps {
   shipment: Shipment
@@ -21,9 +22,9 @@ interface ShipmentDocumentsPanelProps {
 const buttonStyle: CSSProperties = {
   padding: '6px 10px',
   borderRadius: 6,
-  border: '1px solid #1e293b',
+  border: `1px solid ${T.border}`,
   background: 'transparent',
-  color: '#94a3b8',
+  color: T.muted,
   fontSize: 11.5,
   fontWeight: 600,
   cursor: 'pointer',
@@ -106,7 +107,7 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
 
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Documents
       </div>
 
@@ -128,7 +129,7 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
         <select
           value={uploadType}
           onChange={(e) => setUploadType(e.target.value as ShipmentDocumentType)}
-          style={{ background: '#0b1220', border: '1px solid #1e293b', borderRadius: 6, padding: '6px 8px', fontSize: 11.5, color: '#e2e8f0' }}
+          style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 6, padding: '6px 8px', fontSize: 11.5, color: T.text }}
         >
           {[...GENERATED_DOCUMENT_TYPES, 'other' as const].map((t) => (
             <option key={t} value={t}>
@@ -144,14 +145,14 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
             const file = e.target.files?.[0]
             if (file) void handleUpload(file)
           }}
-          style={{ fontSize: 11.5, color: '#94a3b8', flex: 1 }}
+          style={{ fontSize: 11.5, color: T.muted, flex: 1 }}
         />
       </div>
 
-      {error && <div style={{ fontSize: 12, color: '#fb7185', marginBottom: 10 }}>{error}</div>}
+      {error && <div style={{ fontSize: 12, color: T.danger, marginBottom: 10 }}>{error}</div>}
 
-      {loading && <div style={{ fontSize: 12.5, color: '#5b6b82' }}>Loading documents…</div>}
-      {!loading && documents.length === 0 && <div style={{ fontSize: 12.5, color: '#5b6b82' }}>No documents yet.</div>}
+      {loading && <div style={{ fontSize: 12.5, color: T.faint }}>Loading documents…</div>}
+      {!loading && documents.length === 0 && <div style={{ fontSize: 12.5, color: T.faint }}>No documents yet.</div>}
       {!loading && documents.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {documents.map((d) => (
@@ -161,16 +162,16 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
-                background: '#0b1220',
-                border: '1px solid #1e293b',
+                background: T.bg,
+                border: `1px solid ${T.border}`,
                 borderRadius: 8,
                 padding: '8px 12px',
                 fontSize: 12,
               }}
             >
               <div>
-                <span style={{ color: '#e2e8f0', fontWeight: 600 }}>{SHIPMENT_DOCUMENT_TYPE_META[d.document_type].label}</span>
-                <span style={{ color: '#5b6b82' }}> · {d.source === 'generated' ? d.ref : d.file_name}</span>
+                <span style={{ color: T.text, fontWeight: 600 }}>{SHIPMENT_DOCUMENT_TYPE_META[d.document_type].label}</span>
+                <span style={{ color: T.faint }}> · {d.source === 'generated' ? d.ref : d.file_name}</span>
               </div>
               {d.source === 'generated' ? (
                 <button type="button" onClick={() => setViewing({ documentType: d.document_type, documentRef: d.ref ?? '' })} style={buttonStyle}>
@@ -194,7 +195,7 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
         const bol = documents.find((d) => d.document_type === 'bill_of_lading' && d.source === 'generated')
         return (
           <div style={{ marginTop: 18 }}>
-            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <div style={{ fontSize: 11, color: T.muted, marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
               E-Signature (Bill of Lading)
             </div>
             {bol ? (
@@ -212,7 +213,7 @@ export default function ShipmentDocumentsPanel({ shipment }: ShipmentDocumentsPa
                 }}
               />
             ) : (
-              <div style={{ fontSize: 11.5, color: '#5b6b82' }}>Generate a Bill of Lading above before sending it for signature.</div>
+              <div style={{ fontSize: 11.5, color: T.faint }}>Generate a Bill of Lading above before sending it for signature.</div>
             )}
           </div>
         )

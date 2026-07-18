@@ -1,3 +1,5 @@
+import { T } from '../theme/tokens'
+
 export type ShipmentDocumentType =
   | 'bill_of_lading'
   | 'packing_list'
@@ -44,11 +46,11 @@ export type EsignDocumentType = 'quote' | 'bill_of_lading'
 export type EsignStatus = 'sent' | 'delivered' | 'completed' | 'declined' | 'voided'
 
 export const ESIGN_STATUS_META: Record<EsignStatus, { label: string; color: string; background: string }> = {
-  sent: { label: 'Sent', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
-  delivered: { label: 'Delivered', color: '#fbbf24', background: 'rgba(251,191,36,0.12)' },
-  completed: { label: 'Completed', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
-  declined: { label: 'Declined', color: '#fb7185', background: 'rgba(244,63,94,0.14)' },
-  voided: { label: 'Voided', color: '#94a3b8', background: 'rgba(148,163,184,0.12)' },
+  sent: { label: 'Sent', color: T.info, background: T.infoWash },
+  delivered: { label: 'Delivered', color: T.warning, background: T.warningWash },
+  completed: { label: 'Completed', color: T.success, background: T.successWash },
+  declined: { label: 'Declined', color: T.danger, background: T.dangerWash },
+  voided: { label: 'Voided', color: T.statusNeutral, background: T.statusNeutralWash },
 }
 
 export interface EsignRequest {

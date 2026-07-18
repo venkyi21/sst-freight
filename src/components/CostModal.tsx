@@ -6,6 +6,7 @@ import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
 import { isCheckViolation } from '../lib/formErrors'
 import type { Shipment, ShipmentCost } from '../types'
+import { T } from '../theme/tokens'
 
 interface CostModalProps {
   orgId: string
@@ -15,18 +16,18 @@ interface CostModalProps {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -101,7 +102,7 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -116,20 +117,20 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
           maxWidth: 480,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>Add Cost</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>Add Cost</div>
           <button
             type="button"
             onClick={onClose}
             disabled={busy}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: busy ? 'not-allowed' : 'pointer', lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: busy ? 'not-allowed' : 'pointer', lineHeight: 1 }}
           >
             ×
           </button>
@@ -179,9 +180,9 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
             <div
               style={{
                 marginBottom: 14,
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -200,9 +201,9 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: busy ? 'not-allowed' : 'pointer',
@@ -218,8 +219,8 @@ export default function CostModal({ orgId, onClose, onCreated }: CostModalProps)
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: !busy ? '#2563eb' : '#1e293b',
-                color: '#fff',
+                background: !busy ? T.accent : T.surfaceInset,
+                color: T.onAccent,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: !busy ? 'pointer' : 'not-allowed',

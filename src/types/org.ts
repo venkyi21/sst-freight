@@ -1,3 +1,5 @@
+import { T } from '../theme/tokens'
+
 export type MembershipRole = 'owner' | 'admin' | 'member'
 export type BillingModel = 'model_1' | 'model_2'
 export type PlatformModule = 'directory' | 'quotes' | 'accounting'
@@ -49,8 +51,8 @@ export const PLATFORM_MODULE_META: Record<PlatformModule, { label: string }> = {
 }
 
 export const BILLING_MODEL_META: Record<BillingModel, { label: string; color: string; background: string }> = {
-  model_1: { label: 'Model 1 · Add-on Engine', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
-  model_2: { label: 'Model 2 · FinTech Slice', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
+  model_1: { label: 'Model 1 · Add-on Engine', color: T.info, background: T.infoWash },
+  model_2: { label: 'Model 2 · FinTech Slice', color: T.success, background: T.successWash },
 }
 
 export interface PlatformOrgSummary {
@@ -109,9 +111,9 @@ export const AUDIT_TABLE_META: Record<AuditTableName, { label: string }> = {
 }
 
 export const AUDIT_OPERATION_META: Record<AuditOperation, { label: string; color: string; background: string }> = {
-  insert: { label: 'Created', color: '#4ade80', background: 'rgba(34,197,94,0.14)' },
-  update: { label: 'Updated', color: '#60a5fa', background: 'rgba(37,99,235,0.14)' },
-  delete: { label: 'Deleted', color: '#fb7185', background: 'rgba(244,63,94,0.14)' },
+  insert: { label: 'Created', color: T.success, background: T.successWash },
+  update: { label: 'Updated', color: T.info, background: T.infoWash },
+  delete: { label: 'Deleted', color: T.danger, background: T.dangerWash },
 }
 
 export type DashboardWidgetKey =
@@ -121,6 +123,7 @@ export type DashboardWidgetKey =
   | 'revenue_trend'
   | 'customer_profitability'
   | 'route_profitability'
+  | 'invoice_aging'
 
 export const DASHBOARD_WIDGET_META: Record<DashboardWidgetKey, { label: string }> = {
   kpi_tiles: { label: 'KPI Summary' },
@@ -129,6 +132,7 @@ export const DASHBOARD_WIDGET_META: Record<DashboardWidgetKey, { label: string }
   revenue_trend: { label: 'Revenue Trend (6 months)' },
   customer_profitability: { label: 'Customer Profitability' },
   route_profitability: { label: 'Route Profitability' },
+  invoice_aging: { label: 'Invoice Ageing' },
 }
 
 export const DASHBOARD_WIDGET_ORDER: DashboardWidgetKey[] = [
@@ -138,6 +142,7 @@ export const DASHBOARD_WIDGET_ORDER: DashboardWidgetKey[] = [
   'revenue_trend',
   'customer_profitability',
   'route_profitability',
+  'invoice_aging',
 ]
 
 export interface DashboardPreference {

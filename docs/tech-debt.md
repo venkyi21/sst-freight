@@ -18,8 +18,8 @@ fast otherwise.
   delete/archive path at all; `shipments` explicitly can't get this same plain-column treatment
   without first revisiting ADR-0004 (its `UPDATE` grant is fully revoked, forcing every mutation
   through `advance_shipment_status()` — a status-only RPC, not a general-purpose update path).
-- **Converted bookings don't carry Ocean/Air/Truck-specific fields.** `RatesQuotesPage.tsx`'s
-  quote→booking conversion only sets mode/route/client/shipper/consignee/status
+- **Converted bookings don't carry Ocean/Air/Truck-specific fields.** The quote→booking
+  conversion (`convert_quote_to_shipment` since Week 19) only sets mode/route/client/shipper/consignee/status
   (`container_size`, `vessel_name`, `voyage_no`, dimensions, `vehicle_type`, `driver_phone` are
   all left `null`) — a converted shipment looks like a booking whose optional fields were simply
   never filled in. Quotes never captured that level of detail (ADR-0006's scope), so there's
@@ -46,18 +46,15 @@ fast otherwise.
   `validate_quote_status_transition()` trigger (not just a loose `check` on allowed values — the
   allowed *sequence* is enforced too). Rejecting a quote can optionally capture a
   `rejection_reason`. A pipeline stat strip on `RatesQuotesPage.tsx` shows live counts per stage.
-- **Quote-to-booking conversion's double-submit race is improved, not fully closed** (Week 15,
-  ADR-0022 — updates the ADR-0006 entry this replaces): a second near-simultaneous "Convert" click
-  now gets a **visible rejection** instead of silently overwriting `converted_shipment_id`. Note
-  the mechanism precisely, since a first attempt at this got it wrong (caught by direct testing,
-  corrected same day): it is **not** the status-transition check — both racing clicks target the
-  same `'converted'` value, so that check's no-op branch (needed for archiving) lets the second one
-  through. The actual fix is a separate guard making `converted_shipment_id` **immutable once
-  set** — the second update is rejected for trying to change it, independent of `status`.
-  **Still open**: the second attempt's `shipments` insert itself isn't prevented — it still creates
-  an orphan booking row, just no longer a silently-mislinked quote. Fully closing this needs
-  shipment creation moved inside a transactional RPC together with the status flip, a larger
-  change than Week 15's scope.
+- ~~Quote-to-booking conversion's double-submit race~~ **Fully closed 2026-07-17, Week 19
+  (ADR-0030)** — this registry's oldest entry, open since ADR-0006 ("accepted risk") and only
+  narrowed by ADR-0022 (visible rejection, but the orphan `shipments` insert still happened).
+  The fix is exactly what this entry said it would take: shipment creation moved inside a
+  transactional `SECURITY DEFINER` RPC together with the status flip
+  (`convert_quote_to_shipment`, called via the `quotes-service` Edge Function tier). A
+  `SELECT … FOR UPDATE` row lock serializes concurrent converts — **measured in QA (dev,
+  2026-07-17): two deliberately concurrent convert calls produced exactly one shipment; the
+  loser got a clean "Quote is already converted" error with zero rows written.**
 - ~~No GST/tax handling anywhere in Accounting~~ **Closed Week 14 (ADR-0021)**: invoice line items
   carry `sac_code`/`gst_rate`, and CGST+SGST-vs-IGST is auto-computed by comparing
   `organizations.gst_state` to the billed contact's `contacts.state`. **Still open**: (1) real
@@ -239,6 +236,13 @@ is a near-term coding task, and none of it should be attempted without that infr
 - **Per-org custom domain is explicitly out of scope** (ADR-0019) — this app is a single static
   GitHub Pages site with no per-tenant routing layer; a real custom domain per org is a hosting/
   DNS/TLS decision needing its own scoping conversation, not a code change.
+- **Public tracking page brand (benchmark-gap sprint, 18 Jul 2026)** — the page now renders the
+  org's `name`/`color`/`logo_url` (via the `get_public_shipment_tracking` payload). Two accepted
+  limitations: (1) a broken/404 `logo_url` shows the browser's default broken-image glyph — there
+  is no `onError` fallback to the letter-avatar yet; and (2) the same no-contrast-check caveat above
+  now also applies to the public page (a low-contrast brand colour behind the white wordmark isn't
+  warned against). Both are cosmetic-only and don't leak data. Closing (1) is a small `onError`
+  handler on the `<img>`; closing (2) is the same shared contrast check noted above.
 
 ## E-signature on Quotes and Bill of Lading (ADR-0020)
 
@@ -355,6 +359,54 @@ is a near-term coding task, and none of it should be attempted without that infr
   `apikey` header. Any future anon-key rotation must be communicated to integrators (noted in
   `docs/api-reference.md`).
 
+## Business-logic tier pilot (Week 19, ADR-0030)
+
+- **Only the Quotes module runs on the Edge Function tier.** Bookings, invoicing, customs,
+  documents, and team writes still use their pre-Week-19 patterns (client orchestration or direct
+  Pattern A/B calls) — the codebase deliberately shows both patterns during the transition.
+  Closing this means running ADR-0030's migration playbook per module (the pilot took one working
+  session including QA and docs) — or deliberately stopping at one module with a working
+  reference implementation; that's a user decision, not an oversight.
+- **Edge Function deploys are manual dashboard-editor pastes** (no CLI — house precedent from
+  ADR-0020), now across **two** functions and two environments. Nothing detects drift between
+  `supabase/functions/*/index.ts` in the repo and what's actually deployed; the Week 19 QA run
+  itself caught a partial deploy (function deployed, RPC SQL not yet applied). Closing it:
+  adopt the Supabase CLI (`supabase functions deploy`) in CI, its own decision.
+- **Deno cold-start latency on first invocation** of `quotes-service` after idle — an extra
+  browser→Edge-Function hop on every quote write besides. Not measured as a user-visible problem
+  in QA; revisit with real measurements only if users report slow quote actions.
+- **The quote total's preview math is duplicated** — once in `QuoteModal.tsx` (live form
+  preview) and once, authoritatively, in the tier. They can drift; the tier always wins (the
+  stored total is recomputed from raw qty×rate), so drift shows as a preview differing from the
+  saved quote, never a wrong stored value. Accepted as the price of never trusting client math.
+- **Quote-creation's quote-insert/line-items-insert is still not atomic** (carried forward from
+  ADR-0021 — quotes have no delete grant, so the tier can't compensate a failed line-items
+  insert). What changed in Week 19: the failure is now loudly logged server-side (structured log
+  line in the function's dashboard logs) instead of only in the creating user's browser console.
+  Fully closing it means hoisting quote+lines creation into one RPC, like conversion.
+
+## Signal Indigo theme & token layer (ADR-0031)
+
+- **Local style-object duplication is only partially consolidated.** `src/theme/styles.ts` holds
+  the shared primitives, but many components keep near-identical local `panelStyle`/`inputStyle`/
+  `headStyle` objects (tokenized in place) — the re-theme pass was deliberately chromatic-only.
+  Closing it: adopt the shared module file-by-file where the shapes truly match, as files are
+  touched for other reasons.
+- **Existing orgs' stored `org.color` values were not migrated** when `TENANT_COLORS` darkened
+  amber→`#d97706` and cyan→`#0891b2` — an org that picked the old `#f59e0b`/`#06b6d4` keeps it,
+  and its white avatar glyph has marginal contrast on the light theme. Closing it: a one-time
+  UPDATE mapping the two old values, or a "re-pick your color" nudge in Org Settings.
+- **`public/favicon.svg` is still the legacy purple abstract mark**, not the indigo "S" block
+  the app now brand-locks everywhere else. Small asset task, needs an actual SVG redesign.
+- **A future dark org theme is not free**: it needs a `wordmarkInverse` brand variant (the
+  brand-locked `#14141a` wordmark vanishes on dark) and a re-derived status/mode ramp (the
+  light-theme 700-weight colors are too dark for dark surfaces) before it can ship.
+- **Warning (`#b45309`) vs danger (`#dc2626`) are near-identical under deutan CVD** (ΔE 2.8,
+  measured with the dataviz validator — affects the Booked/Docs shipment chips and the aging
+  cards). Accepted because every such surface carries a text label, the validator's own stated
+  exception; revisit only with a real accessibility complaint. The truck-mode/warning color
+  collision (`#b45309` shared) predates this theme and is preserved knowingly.
+
 ## Unit testing (ADR-0026)
 
 - **Automated unit coverage is real but deliberately narrow: 4 `src/lib/` modules, nothing else.**
@@ -375,6 +427,51 @@ is a near-term coding task, and none of it should be attempted without that infr
   workflow in `docs/ui-fix-playbook.md`. The open part of this debt is therefore only the
   *first occurrence* window: a wiring bug that has never happened before is still caught only by
   a human or a manual UAT pass, accepted deliberately.
+
+## Committed E2E/functional layer & performance baseline (ADR-0032)
+
+This section records what the ADR-0032 work **closed**, and the residual limitations deliberately
+left open.
+
+- **CLOSED — the "throwaway QA scripts" gap.** Every QA pass before 2026-07-17 ran from an
+  uncommitted scratch script that was written fresh and discarded each time (the methodology note
+  still stands in `docs/qa-testing.md`); reproducing a check meant re-deriving the script. There is
+  now a committed, re-runnable Playwright layer (`tests/e2e/`, `npm run test:e2e`) — 26 tests
+  covering the highest-risk enforcement (quotes-service tier + the ADR-0030 convert race,
+  cross-tenant RLS isolation, role escalation, module gating, forward-only status, the webhook/audit
+  outbox) plus a full end-to-end golden path. Scenarios are catalogued with stable IDs in
+  `docs/test-catalog.md`.
+- **CLOSED — the unmeasured-performance gap.** `srs.md §3`'s performance target was marked "not
+  measured" indefinitely. It is now measured (`npm run test:perf`, `docs/perf-baseline.md`): p95 =
+  316 ms at 20 concurrent against dev, inside the < 500 ms target.
+- **Residual (accepted): the E2E layer is on-demand, not CI-gated.** By decision (ADR-0032), the
+  Playwright layer does not run in CI — it needs live dev credentials and hits a real backend, and
+  gating every push on that would undo the fast dev/preview iteration ADR-0027 protects. The
+  standing rule is to run it before every dev→main merge. The cost: that checkpoint is a
+  discipline, not an enforced gate — skipping it is possible. Closing this would mean provisioning
+  Supabase secrets + a dedicated CI test tenant and accepting network-flakiness on merges to `main`.
+- **Residual (accepted): catalog↔spec sync is by convention.** The `TC-` ID shared between
+  `docs/test-catalog.md` and a spec's test title is maintained by hand (the plain-English format
+  chosen over a BDD framework, ADR-0032), not by a tool that executes the catalog prose. A renamed
+  spec or a re-worded scenario can drift; the CLAUDE.md docs-table row is the backstop.
+- **CLOSED (2026-07-18, ADR-0033) — the "some rows still manual" gap.** Every catalog row is now
+  committed at its correct layer (API / browser / ADR-0026 unit), plus a page-render smoke layer over
+  every screen and a Given/When/Then catalog. The `Automated` column shows zero `manual` rows except
+  the three external-service ones below. Q3 exploratory testing is now tracked in
+  `docs/exploratory-testing.md`.
+- **CLOSED (2026-07-18, ADR-0033) — the "no load/stress" gap.** `npm run test:stress`
+  (`scripts/measure-stress.mjs`) records a sustained 20-user load and a stress ramp to 100 concurrent
+  (0% errors, graceful p95 degradation) in `docs/perf-baseline.md`.
+- **Residual (accepted, external-service): three rows stay manual by necessity.** TC-DOC-002
+  (Supabase Storage upload), TC-DOC-004 (DocuSign sandbox envelope), TC-ACCT-003 (live FX *rate
+  value*) depend on a third party; committing them would make the suite flaky and hostage to that
+  service's uptime. We automate everything under our control for those modules (RLS isolation, row
+  shape, pure logic) and record the external hop as a manual pass — same reasoning class as the
+  defensive-only stance. Labelled `manual*` in `docs/test-catalog.md`.
+- **Residual: the perf baseline is point-in-time, single-region.** It is not a continuous SLO, was
+  run from one client location (RTT-inclusive), and still does not cover a long soak or a write-heavy
+  stress profile — see the caveats in `docs/perf-baseline.md`. The srs §3 read-path target at ≤ 20
+  concurrent is measured with wide margin.
 
 ## Dependencies
 

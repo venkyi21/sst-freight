@@ -1,6 +1,7 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import { dismissOnboarding, fetchOnboardingCounts, fetchOnboardingState } from '../api/onboarding'
 import type { NavPage } from '../types'
+import { T } from '../theme/tokens'
 
 interface OnboardingChecklistProps {
   orgId: string
@@ -17,8 +18,8 @@ interface Step {
 }
 
 const cardStyle: CSSProperties = {
-  background: '#0f172a',
-  border: '1px solid #1e293b',
+  background: T.surface,
+  border: `1px solid ${T.border}`,
   borderRadius: 12,
   padding: '20px 24px',
   marginBottom: 20,
@@ -84,8 +85,8 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
     <div style={cardStyle}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#f1f5f9', marginBottom: 3 }}>Getting Started</div>
-          <div style={{ fontSize: 12, color: '#64748b' }}>{doneCount} of {steps.length} done</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 3 }}>Getting Started</div>
+          <div style={{ fontSize: 12, color: T.muted }}>{doneCount} of {steps.length} done</div>
         </div>
         <button
           type="button"
@@ -94,7 +95,7 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
           style={{
             background: 'none',
             border: 'none',
-            color: '#64748b',
+            color: T.muted,
             fontSize: 12,
             cursor: busy ? 'not-allowed' : 'pointer',
             fontWeight: 600,
@@ -113,8 +114,8 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
               justifyContent: 'space-between',
               padding: '9px 12px',
               borderRadius: 8,
-              background: s.done ? 'rgba(34,197,94,0.06)' : '#0b1220',
-              border: `1px solid ${s.done ? 'rgba(34,197,94,0.2)' : '#1e293b'}`,
+              background: s.done ? T.successWash : T.bg,
+              border: `1px solid ${s.done ? T.successWash : T.border}`,
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -123,19 +124,19 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
                   width: 18,
                   height: 18,
                   borderRadius: '50%',
-                  background: s.done ? '#4ade80' : 'transparent',
-                  border: s.done ? 'none' : '1.5px solid #334155',
+                  background: s.done ? T.success : 'transparent',
+                  border: s.done ? 'none' : `1.5px solid ${T.borderStrong}`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   fontSize: 11,
-                  color: '#0b1220',
+                  color: T.bg,
                   flexShrink: 0,
                 }}
               >
                 {s.done ? '✓' : ''}
               </div>
-              <span style={{ fontSize: 13, color: s.done ? '#86efac' : '#cbd5e1', textDecoration: s.done ? 'line-through' : 'none' }}>
+              <span style={{ fontSize: 13, color: s.done ? T.success : T.text, textDecoration: s.done ? 'line-through' : 'none' }}>
                 {s.label}
               </span>
             </div>
@@ -145,9 +146,9 @@ export default function OnboardingChecklist({ orgId, userId, onNavigate }: Onboa
                 onClick={() => onNavigate(s.targetPage)}
                 style={{
                   background: 'none',
-                  border: '1px solid #1e293b',
+                  border: `1px solid ${T.border}`,
                   borderRadius: 6,
-                  color: '#94a3b8',
+                  color: T.muted,
                   fontSize: 11,
                   fontWeight: 600,
                   padding: '4px 9px',

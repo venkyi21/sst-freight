@@ -1,4 +1,5 @@
 import type { ShipmentMode } from './shipments'
+import { T } from '../theme/tokens'
 
 export interface Tariff {
   id: string
@@ -21,11 +22,11 @@ export interface Tariff {
 export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'converted'
 
 export const QUOTE_STATUS_META: Record<QuoteStatus, { label: string; color: string; bg: string }> = {
-  draft: { label: 'Draft', color: '#94a3b8', bg: 'rgba(148,163,184,0.12)' },
-  sent: { label: 'Sent', color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
-  accepted: { label: 'Accepted', color: '#4ade80', bg: 'rgba(34,197,94,0.12)' },
-  rejected: { label: 'Rejected', color: '#fb7185', bg: 'rgba(244,63,94,0.12)' },
-  converted: { label: 'Converted', color: '#4ade80', bg: 'rgba(34,197,94,0.12)' },
+  draft: { label: 'Draft', color: T.statusNeutral, bg: T.statusNeutralWash },
+  sent: { label: 'Sent', color: T.info, bg: T.infoWash },
+  accepted: { label: 'Accepted', color: T.success, bg: T.successWash },
+  rejected: { label: 'Rejected', color: T.danger, bg: T.dangerWash },
+  converted: { label: 'Converted', color: T.success, bg: T.successWash },
 }
 
 export interface Quote {

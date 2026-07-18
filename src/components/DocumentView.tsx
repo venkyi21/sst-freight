@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { computeDocumentRows, fetchShipmentDocumentData, type ShipmentDocumentData } from '../lib/documentHtml'
 import { SHIPMENT_DOCUMENT_TYPE_META, type Shipment, type ShipmentDocumentType } from '../types'
+import { T } from '../theme/tokens'
 
 interface DocumentViewProps {
   shipment: Shipment
@@ -40,7 +41,7 @@ export default function DocumentView({ shipment, documentType, documentRef: docR
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -68,33 +69,33 @@ export default function DocumentView({ shipment, documentType, documentRef: docR
           maxWidth: 620,
           maxHeight: '90vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 30,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: '#5b6b82', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+          <div style={{ fontSize: 11, fontWeight: 600, color: T.faint, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
             {SHIPMENT_DOCUMENT_TYPE_META[documentType].label}
           </div>
           <button
             type="button"
             onClick={onClose}
-            style={{ background: 'none', border: 'none', color: '#64748b', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
+            style={{ background: 'none', border: 'none', color: T.muted, fontSize: 20, cursor: 'pointer', lineHeight: 1 }}
           >
             ×
           </button>
         </div>
 
-        <div style={{ fontSize: 19, fontWeight: 700, color: '#f1f5f9', marginBottom: 2 }}>{SHIPMENT_DOCUMENT_TYPE_META[documentType].label}</div>
-        <div style={{ fontSize: 12.5, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace", marginBottom: 20 }}>
+        <div style={{ fontSize: 19, fontWeight: 700, color: T.ink, marginBottom: 2 }}>{SHIPMENT_DOCUMENT_TYPE_META[documentType].label}</div>
+        <div style={{ fontSize: 12.5, color: T.muted, fontFamily: "'IBM Plex Mono', monospace", marginBottom: 20 }}>
           {shipment.ref} · {docRef}
         </div>
 
         {loading ? (
-          <div style={{ color: '#5b6b82', fontSize: 13 }}>Loading…</div>
+          <div style={{ color: T.faint, fontSize: 13 }}>Loading…</div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 0, marginBottom: 20 }}>
             {rows.map((r) => (
@@ -105,18 +106,18 @@ export default function DocumentView({ shipment, documentType, documentRef: docR
                   justifyContent: 'space-between',
                   gap: 16,
                   padding: '9px 0',
-                  borderBottom: '1px solid #172033',
+                  borderBottom: `1px solid ${T.surfaceRaised}`,
                   fontSize: 13,
                 }}
               >
-                <div style={{ color: '#64748b' }}>{r.label}</div>
-                <div style={{ color: '#e2e8f0', textAlign: 'right' }}>{r.value}</div>
+                <div style={{ color: T.muted }}>{r.label}</div>
+                <div style={{ color: T.text, textAlign: 'right' }}>{r.value}</div>
               </div>
             ))}
           </div>
         )}
 
-        <div style={{ fontSize: 11, color: '#4ade80', lineHeight: 1.5, marginBottom: 20 }}>
+        <div style={{ fontSize: 11, color: T.success, lineHeight: 1.5, marginBottom: 20 }}>
           Generated live from this shipment's own records — shipper, consignee, and cargo details are
           never re-typed, so this always agrees with your other shipment documents.
         </div>
@@ -130,8 +131,8 @@ export default function DocumentView({ shipment, documentType, documentRef: docR
             padding: 11,
             borderRadius: 8,
             border: 'none',
-            background: '#2563eb',
-            color: '#fff',
+            background: T.accent,
+            color: T.onAccent,
             fontWeight: 600,
             fontSize: 13,
             cursor: 'pointer',

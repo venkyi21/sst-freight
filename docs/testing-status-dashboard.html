@@ -238,14 +238,14 @@
   <section class="chapter" id="rollup">
     <h2 class="chapter-title">§02 — Application-wide rollup</h2>
     <div class="scorecard">
-      <div class="cell"><div class="num pending">1 / 8</div><div class="lbl">Testing types with any real automation (CI-run, committed test code) — Unit, since ADR-0026</div></div>
+      <div class="cell"><div class="num ok">8 / 8</div><div class="lbl">Testing types with committed automated test code — Unit (CI-gated) plus Integration, System, Acceptance/E2E, Performance, Load, Stress and Security (committed, run on-demand, ADR-0032/0033). Stress closed by `npm run test:stress`</div></div>
       <div class="cell"><div class="num ok">19 / 19</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 18 fully verified, 1 partial</div></div>
       <div class="cell"><div class="num pending">12 / 19</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
       <div class="cell"><div class="num info">18 / 19</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
-      <div class="cell"><div class="num pending">1 / 19</div><div class="lbl">Modules with any Performance, Load, or Stress evidence (FR-19's measured 119ms non-blocking check — partial, not load testing)</div></div>
-      <div class="cell"><div class="num ok">160+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md)</div></div>
-      <div class="cell"><div class="num ok">35 / 35</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4)</div></div>
-      <div class="cell"><div class="num pending">1</div><div class="lbl">Known, accepted gap still tracked as open (quote-conversion race, ADR-0006 — since narrowed by ADR-0022, not fully closed)</div></div>
+      <div class="cell"><div class="num info">8 / 19</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
+      <div class="cell"><div class="num ok">250+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md — incl. Week 20–21's committed suite: 51 Playwright + golden path + smoke and 45 unit tests, Week 19's tier + theme passes)</div></div>
+      <div class="cell"><div class="num ok">41 / 41</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4 + 3 + 2 + 1)</div></div>
+      <div class="cell"><div class="num ok">0</div><div class="lbl">Race gap closed Week 19 (ADR-0030); testing-infra gaps closed Week 20 (ADR-0032). Week 21 (ADR-0033) completed all four quadrants: every catalog row automated except 3 labelled external-service rows; load+stress measured; exploratory tracked; catalog expressed Given/When/Then</div></div>
     </div>
   </section>
 
@@ -265,6 +265,7 @@
       <button type="button" data-filter-btn="uat">UAT</button>
     </div>
     <div class="filter-note">Click a filter to highlight that column across every module. Click any module row to expand its real, cited evidence.</div>
+    <div class="filter-note"><strong>Week 20–21 (ADR-0032/0033):</strong> the Integration/System/Acceptance chips are backed by a <em>committed, re-runnable</em> Playwright suite (<code>tests/e2e/</code>, <code>npm run test:e2e</code> — 51 tests + the <code>TC-E2E-001</code> golden path + a page-render smoke layer over every screen), scenario-by-scenario as Given/When/Then in <code>docs/test-catalog.md</code>. Performance/Load/Stress are measured <em>app-wide across the read path</em> (not per-module) in <code>docs/perf-baseline.md</code> — <code>npm run test:perf</code> (latency) + <code>npm run test:stress</code> (sustained 20-user load and a ramp to 100 concurrent, 0% errors); the Perf chips mark the modules whose reads were exercised. Exploratory testing is tracked in <code>docs/exploratory-testing.md</code>. Cadence stays on-demand by decision (not CI-gated).</div>
 
     <div class="matrix-wrap">
       <div class="matrix-row head">
@@ -311,8 +312,8 @@
         <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
-        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
@@ -332,10 +333,10 @@
       <div class="matrix-row" data-row>
         <div class="module-cell"><span class="fr-num">FR-3</span><span class="fr-name">Directory (Contacts)</span><span class="caret">▶</span></div>
         <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
-        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
@@ -378,11 +379,11 @@
       <div class="matrix-row" data-row>
         <div class="module-cell"><span class="fr-num">FR-5</span><span class="fr-name">Shipment Status Workflow</span><span class="caret">▶</span></div>
         <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
-        <div class="chip-cell" data-col="integration"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
-        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
@@ -404,7 +405,7 @@
         <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
@@ -413,10 +414,10 @@
       </div>
       <div class="detail-row">
         <dl>
-          <dt>QAT</dt><dd>Week 5, 4/5 (the 5th was a known accepted gap, since closed — see below); Week 15, 18/18 direct-API + 12/12 Playwright + 5/5 regression, including the fixed quote-conversion double-submit race (ADR-0022).</dd>
-          <dt>UAT</dt><dd>Arjun: quote-to-booking conversion visible. Meera (Week 15): send/reject-with-reason/archive all instant and correct in the pipeline strip.</dd>
-          <dt>Security</dt><dd>Module-gating enforced server-side (Week 5); Org B quote isolation (Week 15, cases 15-17).</dd>
-          <dt>Gaps</dt><dd>No automated tests; the double-submit race is narrowed, not fully closed (a second orphan shipment row can still be created — <code>docs/tech-debt.md</code>).</dd>
+          <dt>QAT</dt><dd>Week 5, 4/5 (the 5th was a known accepted gap, since closed — see below); Week 15, 18/18 direct-API + 12/12 Playwright + 5/5 regression (ADR-0022). <strong>Week 19 (ADR-0030), 2026-07-17: 16/16 direct-invoke through the new quotes-service tier + 9/9 Playwright regression</strong> — including the concurrent-convert race test (two simultaneous converts → exactly one shipment, measured) and a tampered-client-total create storing the server-recomputed 350, with webhook + audit capture continuity re-proven through the tier.</dd>
+          <dt>UAT</dt><dd>Arjun: quote-to-booking conversion visible. Meera (Week 15): send/reject-with-reason/archive all instant and correct in the pipeline strip. Meera (Week 19): identical journeys re-accepted through the Edge Function tier — a deliberate non-event, zero page errors.</dd>
+          <dt>Security</dt><dd>Module-gating enforced server-side (Week 5); Org B quote isolation (Week 15, cases 15-17). Week 19: both re-proven <em>through the tier</em> (caller's-JWT model — cross-org send/convert/create and a quotes-disabled org all rejected).</dd>
+          <dt>Gaps</dt><dd>No automated unit tests for this module; ~~double-submit race~~ <strong>fully closed Week 19</strong> (transactional <code>convert_quote_to_shipment</code> RPC — this registry's oldest item). New pilot-scope items (tier deploy drift, cold-start latency unmeasured) in <code>docs/tech-debt.md</code>.</dd>
         </dl>
       </div>
 
@@ -427,7 +428,7 @@
         <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
@@ -474,7 +475,7 @@
         <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
@@ -589,7 +590,7 @@
         <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
         <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="verified">✓</div></div>
-        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="partial">◐</div></div>
         <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
         <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
@@ -736,7 +737,7 @@
   <footer class="doc-footer">
     <div>SST Freight · Internal engineering doc · Not for distribution</div>
     <div>19 modules · 8 testing types + QAT + UAT</div>
-    <div id="last-synced">Last synced · 16 Jul 2026</div>
+    <div id="last-synced">Last synced · 18 Jul 2026</div>
   </footer>
 
 </div>

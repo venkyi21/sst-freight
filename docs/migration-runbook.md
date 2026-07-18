@@ -103,6 +103,32 @@ Its three secrets (`DOCUSIGN_INTEGRATION_KEY`, `DOCUSIGN_USER_ID`, `DOCUSIGN_ACC
 environment (e.g. a future production DocuSign integration) means redeploying the function code
 *and* re-setting all four secrets there — neither step is covered by re-applying `schema.sql`.
 
+### Edge Function deployment (quotes-service, ADR-0030) — a two-part deploy
+
+`supabase/functions/quotes-service/` (the Quotes business-logic tier, Week 19) deploys the same
+dashboard-editor way, with two things that differ from `docusign-envelope`:
+
+1. **It has a paired SQL dependency.** The `convert_quote_to_shipment` RPC (schema.sql's Week 19
+   section) must be applied in the SQL Editor **in addition to** deploying the function — the
+   function's `convert` action fails with `Could not find the function
+   public.convert_quote_to_shipment in the schema cache` until it is. **This exact partial-deploy
+   happened on dev during the Week 19 QA pass (2026-07-17, verified live, not hypothetical)**:
+   the function was deployed, the SQL section wasn't, and every convert failed while all other
+   actions worked. Verify the RPC landed with
+   `select proname from pg_proc where proname = 'convert_quote_to_shipment';` (expect 1 row).
+2. **It needs no secrets.** It uses only the auto-injected `SUPABASE_URL`/`SUPABASE_ANON_KEY` —
+   nothing to set in Manage Secrets.
+
+Dashboard-editor gotchas (both hit during the dev deploy): the editor defaults to an
+auto-generated function name (e.g. `hyper-worker`) and a file named after your paste — the
+function **name must be exactly `quotes-service`** (the client calls
+`functions.invoke('quotes-service', …)`) and the file must be `index.ts`.
+
+Because every quote mutation in the UI routes through this function, **a frontend deploy whose
+matching function isn't deployed yet breaks all quote writes** in that environment (reads are
+unaffected — they're still direct RLS-gated selects). Order for production: deploy the function +
+apply the Week 19 SQL first, then merge the frontend.
+
 ### Order
 
 1. Apply to the **dev** Supabase project.

@@ -1,11 +1,10 @@
 import { useEffect, useState, type CSSProperties, type FormEvent } from 'react'
 import { useAuth } from '../context/AuthContext'
-import { resolveOrCreateContact } from '../api/contacts'
-import { fetchTariffsByMode, insertQuote, insertQuoteLineItems } from '../api/quotes'
+import { createQuote, fetchTariffsByMode } from '../api/quotes'
 import ContactAutocomplete from './ContactAutocomplete'
 import FieldError from './FieldError'
-import { isCheckViolation } from '../lib/formErrors'
-import { RATE_BASIS_META, type Quote, type QuoteLineItem, type ShipmentMode, type Tariff } from '../types'
+import { RATE_BASIS_META, type Quote, type ShipmentMode, type Tariff } from '../types'
+import { T } from '../theme/tokens'
 
 interface QuoteModalProps {
   orgId: string
@@ -26,18 +25,18 @@ function blankLineItem(description = ''): LineItemDraft {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -124,60 +123,36 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
     setFieldErrors({})
     setBusy(true)
 
-    const shipperId = await resolveOrCreateContact(orgId, shipperContactId, 'shipper', shipper.trim(), user.id)
-    const consigneeId = await resolveOrCreateContact(orgId, consigneeContactId, 'consignee', consignee.trim(), user.id)
-
-    // Line item #1 (usually "Freight") also backfills the legacy rate/quantity columns, so a
-    // quote row is never itemless even before quote_line_items exist for it — same additive
-    // shape as every other Week 14 column (ADR-0021).
-    const base = {
-      org_id: orgId,
-      tariff_id: selectedTariffId || null,
+    // ADR-0030: the whole creation workflow — contact resolution, ref generation, line-item
+    // insert, and the AUTHORITATIVE amount/total math — runs in the quotes-service tier. The
+    // `total` computed above is only the live preview shown in this form; the server recomputes
+    // it from the raw quantities/rates and never trusts the client's number.
+    const { data: quote, error: createError } = await createQuote({
+      orgId,
       mode,
+      tariffId: selectedTariffId || null,
       origin: origin.trim(),
       destination: destination.trim(),
-      shipper_contact_id: shipperId,
-      shipper_name: shipper.trim(),
-      consignee_contact_id: consigneeId,
-      consignee_name: consignee.trim(),
-      quantity: Math.max(0, parseFloat(lineItems[0].quantity) || 0),
-      rate: Math.max(0, parseFloat(lineItems[0].rate) || 0),
-      total,
-      status: 'draft',
-      created_by: user.id,
-    }
-
-    const { data: quote, error: lastError } = await insertQuote(base)
+      shipperContactId,
+      shipperName: shipper.trim(),
+      consigneeContactId,
+      consigneeName: consignee.trim(),
+      lineItems: lineItems.map((li) => ({
+        description: li.description.trim(),
+        sacCode: li.sacCode.trim() || null,
+        quantity: Math.max(0, parseFloat(li.quantity) || 0),
+        rate: Math.max(0, parseFloat(li.rate) || 0),
+      })),
+    })
 
     if (!quote) {
-      if (lastError && isCheckViolation(lastError, 'quotes_quantity_check')) {
-        setFieldErrors({ lineItems: 'Every line needs a quantity greater than 0' })
+      if (createError?.toLowerCase().includes('line needs')) {
+        setFieldErrors({ lineItems: createError })
       } else {
-        setError(lastError?.message ?? 'Could not create quote')
+        setError(createError ?? 'Could not create quote')
       }
       setBusy(false)
       return
-    }
-
-    const lineItemRows: Omit<QuoteLineItem, 'id' | 'created_at'>[] = lineItems.map((li, i) => ({
-      org_id: orgId,
-      quote_id: quote.id,
-      description: li.description.trim(),
-      sac_code: li.sacCode.trim() || null,
-      quantity: Math.max(0, parseFloat(li.quantity) || 0),
-      rate: Math.max(0, parseFloat(li.rate) || 0),
-      currency: 'INR',
-      amount: lineAmounts[i],
-      created_by: user.id,
-    }))
-
-    const { error: lineItemsError } = await insertQuoteLineItems(lineItemRows)
-    if (lineItemsError) {
-      // The quote row itself was created successfully — onCreated below closes this modal
-      // regardless (the quote is real and must appear in the list), so there's no in-modal
-      // error UI left to show. Same accepted, documented non-atomicity as the two-step
-      // quote-conversion flow (ADR-0006/tech-debt.md); logged, not silently dropped.
-      console.error(`Quote ${quote.ref} line items failed to save:`, lineItemsError)
     }
 
     onCreated(quote)
@@ -190,7 +165,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -205,15 +180,15 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
           maxWidth: 640,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>New Quote</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>New Quote</div>
           <button
             type="button"
             onClick={onClose}
@@ -221,7 +196,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
             style={{
               background: 'none',
               border: 'none',
-              color: '#64748b',
+              color: T.muted,
               fontSize: 20,
               cursor: busy ? 'not-allowed' : 'pointer',
               lineHeight: 1,
@@ -233,8 +208,8 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
 
         <div
           style={{
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 9,
             padding: 3,
             display: 'flex',
@@ -259,8 +234,8 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: 'pointer',
-                background: mode === m ? '#2563eb' : 'transparent',
-                color: mode === m ? '#fff' : '#8291a6',
+                background: mode === m ? T.accent : 'transparent',
+                color: mode === m ? T.onAccent : T.muted,
               }}
             >
               {m === 'ocean' ? 'Ocean' : m === 'air' ? 'Air' : 'Truck'}
@@ -326,7 +301,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
               <button
                 type="button"
                 onClick={addLineItem}
-                style={{ background: 'none', border: 'none', color: '#60a5fa', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
+                style={{ background: 'none', border: 'none', color: T.info, fontSize: 11.5, fontWeight: 600, cursor: 'pointer', padding: 0 }}
               >
                 + Add line
               </button>
@@ -374,7 +349,7 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
                     style={{
                       background: 'none',
                       border: 'none',
-                      color: lineItems.length === 1 ? '#334155' : '#fb7185',
+                      color: lineItems.length === 1 ? T.borderStrong : T.danger,
                       fontSize: 16,
                       lineHeight: 1,
                       cursor: lineItems.length === 1 ? 'not-allowed' : 'pointer',
@@ -394,15 +369,15 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              background: '#0b1220',
-              border: '1px solid #1e293b',
+              background: T.bg,
+              border: `1px solid ${T.border}`,
               borderRadius: 8,
               padding: '11px 14px',
               marginBottom: 14,
             }}
           >
-            <div style={{ fontSize: 11, color: '#64748b' }}>Total</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: '#4ade80', fontFamily: "'IBM Plex Mono', monospace" }}>
+            <div style={{ fontSize: 11, color: T.muted }}>Total</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.success, fontFamily: "'IBM Plex Mono', monospace" }}>
               ₹{total.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
             </div>
           </div>
@@ -411,9 +386,9 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
             <div
               style={{
                 marginBottom: 14,
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -432,9 +407,9 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: busy ? 'not-allowed' : 'pointer',
@@ -450,8 +425,8 @@ export default function QuoteModal({ orgId, onClose, onCreated }: QuoteModalProp
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: !busy ? '#2563eb' : '#1e293b',
-                color: '#fff',
+                background: !busy ? T.accent : T.surfaceInset,
+                color: T.onAccent,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: !busy ? 'pointer' : 'not-allowed',

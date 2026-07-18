@@ -2,7 +2,9 @@ import { useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { contactsQueryKey, useArchiveContact, useContacts } from '../hooks/useContacts'
 import ContactModal from './ContactModal'
+import ContactHistoryModal from './ContactHistoryModal'
 import { CONTACT_KIND_META, VENDOR_TYPE_META, type Contact, type ContactKind } from '../types'
+import { T } from '../theme/tokens'
 
 type KindFilter = 'all' | ContactKind
 
@@ -13,15 +15,15 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   fontSize: 12,
   fontWeight: 600,
   cursor: 'pointer',
-  background: active ? '#1e293b' : 'transparent',
-  color: active ? '#f1f5f9' : '#8291a6',
+  background: active ? T.surfaceInset : 'transparent',
+  color: active ? T.ink : T.muted,
 })
 
 const headStyle: CSSProperties = {
   padding: '13px 20px',
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   textTransform: 'uppercase',
   letterSpacing: '0.05em',
 }
@@ -35,8 +37,8 @@ const chipStyle: CSSProperties = {
   borderRadius: 20,
   fontSize: 11,
   fontWeight: 600,
-  background: 'rgba(37,99,235,0.14)',
-  color: '#60a5fa',
+  background: T.accentWash,
+  color: T.info,
 }
 
 interface DirectoryPageProps {
@@ -54,6 +56,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [archivingId, setArchivingId] = useState<string | null>(null)
+  const [historyContact, setHistoryContact] = useState<Contact | null>(null)
 
   const kindCounts = useMemo(
     () => ({
@@ -118,13 +121,13 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
           gap: 14,
         }}
       >
-        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: '#f1f5f9' }}>Client &amp; Vendor Directory</h1>
+        <h1 style={{ fontSize: 21, fontWeight: 700, margin: 0, color: T.ink }}>Client &amp; Vendor Directory</h1>
         <button
           type="button"
           onClick={openAdd}
           style={{
-            background: '#2563eb',
-            color: '#fff',
+            background: T.accent,
+            color: T.onAccent,
             border: 'none',
             fontWeight: 600,
             fontSize: 13,
@@ -146,16 +149,16 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
             placeholder="Search name, email, phone, city..."
             style={{
               width: '100%',
-              background: '#0f172a',
-              border: '1px solid #1e293b',
+              background: T.surface,
+              border: `1px solid ${T.border}`,
               borderRadius: 8,
               padding: '9px 12px',
               fontSize: 13,
-              color: '#e2e8f0',
+              color: T.text,
             }}
           />
         </div>
-        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 9, padding: 3, display: 'flex', gap: 2 }}>
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 9, padding: 3, display: 'flex', gap: 2 }}>
           <button type="button" onClick={() => setKindFilter('all')} style={filterButtonStyle(kindFilter === 'all')}>
             All · {kindCounts.all}
           </button>
@@ -172,7 +175,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
             Vendor · {kindCounts.vendor}
           </button>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: '#94a3b8', cursor: 'pointer' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11.5, color: T.muted, cursor: 'pointer' }}>
           <input type="checkbox" checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
           Show archived
         </label>
@@ -181,23 +184,23 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
       {loadError ? (
         <div
           style={{
-            background: 'rgba(244,63,94,0.08)',
-            border: '1px solid rgba(244,63,94,0.3)',
+            background: T.dangerWash,
+            border: `1px solid ${T.dangerBorder}`,
             borderRadius: 12,
             padding: 24,
             textAlign: 'center',
           }}
         >
-          <div style={{ color: '#fb7185', fontSize: 13.5, marginBottom: 12 }}>Couldn't load contacts: {loadError}</div>
+          <div style={{ color: T.danger, fontSize: 13.5, marginBottom: 12 }}>Couldn't load contacts: {loadError}</div>
           <button
             type="button"
             onClick={() => void refetch()}
             style={{
               padding: '8px 16px',
               borderRadius: 8,
-              border: '1px solid #1e293b',
+              border: `1px solid ${T.border}`,
               background: 'transparent',
-              color: '#e2e8f0',
+              color: T.text,
               fontSize: 12.5,
               fontWeight: 600,
               cursor: 'pointer',
@@ -207,16 +210,17 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
           </button>
         </div>
       ) : (
-        <div style={{ background: '#0f172a', border: '1px solid #1e293b', borderRadius: 12, overflow: 'hidden' }}>
+        <div style={{ background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12, overflow: 'hidden' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr style={{ borderBottom: '1px solid #1e293b', background: 'rgba(255,255,255,0.02)' }}>
+              <tr style={{ borderBottom: `1px solid ${T.border}`, background: T.rowStripe }}>
                 <th style={headStyle}>Name</th>
                 <th style={headStyle}>Kind</th>
                 <th style={headStyle}>Email</th>
                 <th style={headStyle}>Phone</th>
                 <th style={headStyle}>Location</th>
                 <th style={headStyle}>Added</th>
+                <th style={headStyle}>History</th>
                 <th style={headStyle}>Archive</th>
               </tr>
             </thead>
@@ -225,24 +229,45 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                 <tr
                   key={c.id}
                   onClick={() => openEdit(c)}
-                  style={{ borderBottom: '1px solid #172033', cursor: 'pointer', opacity: c.archived ? 0.55 : 1 }}
+                  style={{ borderBottom: `1px solid ${T.surfaceRaised}`, cursor: 'pointer', opacity: c.archived ? 0.55 : 1 }}
                 >
-                  <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: '#f1f5f9' }}>{c.name}</td>
+                  <td style={{ ...cellStyle, fontSize: 13, fontWeight: 600, color: T.ink }}>{c.name}</td>
                   <td style={cellStyle}>
                     <span style={chipStyle}>{CONTACT_KIND_META[c.kind].label}</span>
                     {c.kind === 'vendor' && c.vendor_type && (
-                      <span style={{ ...chipStyle, marginLeft: 6, background: 'rgba(180,83,9,0.14)', color: '#fbbf24' }}>
+                      <span style={{ ...chipStyle, marginLeft: 6, background: T.warningWash, color: T.warning }}>
                         {VENDOR_TYPE_META[c.vendor_type].label}
                       </span>
                     )}
                   </td>
-                  <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{c.email ?? '—'}</td>
-                  <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>{c.phone ?? '—'}</td>
-                  <td style={{ ...cellStyle, fontSize: 13, color: '#94a3b8' }}>
+                  <td style={{ ...cellStyle, fontSize: 13, color: T.muted }}>{c.email ?? '—'}</td>
+                  <td style={{ ...cellStyle, fontSize: 13, color: T.muted }}>{c.phone ?? '—'}</td>
+                  <td style={{ ...cellStyle, fontSize: 13, color: T.muted }}>
                     {[c.city, c.country].filter(Boolean).join(', ') || '—'}
                   </td>
-                  <td style={{ ...cellStyle, fontSize: 12, color: '#5b6b82' }}>
+                  <td style={{ ...cellStyle, fontSize: 12, color: T.faint }}>
                     {new Date(c.created_at).toLocaleDateString()}
+                  </td>
+                  <td style={cellStyle}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setHistoryContact(c)
+                      }}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: 6,
+                        border: `1px solid ${T.border}`,
+                        background: 'transparent',
+                        color: T.info,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      History
+                    </button>
                   </td>
                   <td style={cellStyle}>
                     <button
@@ -252,9 +277,9 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                       style={{
                         padding: '5px 10px',
                         borderRadius: 6,
-                        border: '1px solid #1e293b',
+                        border: `1px solid ${T.border}`,
                         background: 'transparent',
-                        color: '#94a3b8',
+                        color: T.muted,
                         fontSize: 11.5,
                         fontWeight: 600,
                         cursor: 'pointer',
@@ -268,16 +293,20 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
             </tbody>
           </table>
           {!loading && filtered.length === 0 && (
-            <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>
+            <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>
               No contacts match your search or filter.
             </div>
           )}
-          {loading && <div style={{ padding: 40, textAlign: 'center', color: '#475569', fontSize: 13 }}>Loading contacts…</div>}
+          {loading && <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>Loading contacts…</div>}
         </div>
       )}
 
       {modalOpen && (
         <ContactModal orgId={orgId} contact={modalContact} onClose={() => setModalOpen(false)} onSaved={handleSaved} />
+      )}
+
+      {historyContact && (
+        <ContactHistoryModal orgId={orgId} contact={historyContact} onClose={() => setHistoryContact(null)} />
       )}
     </div>
   )

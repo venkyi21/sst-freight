@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 import { createContact, updateContact } from '../api/contacts'
 import FieldError from './FieldError'
 import { CONTACT_KIND_META, INDIAN_STATES, VENDOR_TYPE_META, type Contact, type ContactKind, type VendorType } from '../types'
+import { T } from '../theme/tokens'
 
 interface ContactModalProps {
   orgId: string
@@ -13,18 +14,18 @@ interface ContactModalProps {
 
 const inputStyle: CSSProperties = {
   width: '100%',
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 5,
 }
@@ -91,7 +92,7 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(4,8,16,0.7)',
+        background: T.overlay,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -106,15 +107,15 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
           maxWidth: 520,
           maxHeight: '88vh',
           overflowY: 'auto',
-          background: '#0f172a',
-          border: '1px solid #1e293b',
+          background: T.surface,
+          border: `1px solid ${T.border}`,
           borderRadius: 14,
           padding: 26,
-          boxShadow: '0 20px 60px rgba(0,0,0,0.6)',
+          boxShadow: T.shadowModal,
         }}
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18 }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: '#f1f5f9' }}>{contact ? 'Edit Contact' : 'Add Contact'}</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{contact ? 'Edit Contact' : 'Add Contact'}</div>
           <button
             type="button"
             onClick={onClose}
@@ -122,7 +123,7 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
             style={{
               background: 'none',
               border: 'none',
-              color: '#64748b',
+              color: T.muted,
               fontSize: 20,
               cursor: busy ? 'not-allowed' : 'pointer',
               lineHeight: 1,
@@ -134,8 +135,8 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
 
         <div
           style={{
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 9,
             padding: 3,
             display: 'flex',
@@ -159,8 +160,8 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
                 fontSize: 12.5,
                 fontWeight: 600,
                 cursor: 'pointer',
-                background: kind === k ? '#2563eb' : 'transparent',
-                color: kind === k ? '#fff' : '#8291a6',
+                background: kind === k ? T.accent : 'transparent',
+                color: kind === k ? T.onAccent : T.muted,
               }}
             >
               {CONTACT_KIND_META[k].label}
@@ -180,12 +181,12 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
                     flex: 1,
                     padding: 8,
                     borderRadius: 7,
-                    border: '1px solid #1e293b',
+                    border: `1px solid ${T.border}`,
                     fontSize: 12,
                     fontWeight: 600,
                     cursor: 'pointer',
-                    background: vendorType === vt ? '#2563eb' : 'transparent',
-                    color: vendorType === vt ? '#fff' : '#8291a6',
+                    background: vendorType === vt ? T.accent : 'transparent',
+                    color: vendorType === vt ? T.onAccent : T.muted,
                   }}
                 >
                   {VENDOR_TYPE_META[vt].label}
@@ -238,9 +239,9 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
               style={{
                 marginTop: 4,
                 marginBottom: 14,
-                background: 'rgba(244,63,94,0.1)',
-                border: '1px solid rgba(244,63,94,0.3)',
-                color: '#fb7185',
+                background: T.dangerWash,
+                border: `1px solid ${T.dangerBorder}`,
+                color: T.danger,
                 fontSize: 12.5,
                 borderRadius: 8,
                 padding: '9px 12px',
@@ -259,9 +260,9 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
                 flex: 1,
                 padding: 11,
                 borderRadius: 8,
-                border: '1px solid #1e293b',
+                border: `1px solid ${T.border}`,
                 background: 'transparent',
-                color: '#94a3b8',
+                color: T.muted,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: busy ? 'not-allowed' : 'pointer',
@@ -277,8 +278,8 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
                 padding: 11,
                 borderRadius: 8,
                 border: 'none',
-                background: !busy ? '#2563eb' : '#1e293b',
-                color: '#fff',
+                background: !busy ? T.accent : T.surfaceInset,
+                color: T.onAccent,
                 fontWeight: 600,
                 fontSize: 13,
                 cursor: !busy ? 'pointer' : 'not-allowed',

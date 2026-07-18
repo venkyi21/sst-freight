@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { updateOrgBranding, updateOrgGstSettings, uploadOrgLogo } from '../api/org'
 import { INDIAN_STATES, TENANT_COLORS, type OrganizationWithRole } from '../types'
+import { T } from '../theme/tokens'
 
 interface OrgSettingsPageProps {
   org: OrganizationWithRole
@@ -12,18 +13,18 @@ const HEX_PATTERN = /^#[0-9a-fA-F]{6}$/
 const labelStyle: CSSProperties = {
   fontSize: 11,
   fontWeight: 600,
-  color: '#64748b',
+  color: T.muted,
   display: 'block',
   marginBottom: 8,
 }
 
 const inputStyle: CSSProperties = {
-  background: '#0b1220',
-  border: '1px solid #1e293b',
+  background: T.bg,
+  border: `1px solid ${T.border}`,
   borderRadius: 7,
   padding: '9px 11px',
   fontSize: 13,
-  color: '#e2e8f0',
+  color: T.text,
 }
 
 export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
@@ -55,7 +56,7 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
     setError(null)
     setSuccess(false)
     if (!HEX_PATTERN.test(color)) {
-      setError('Color must be a 6-digit hex value, e.g. #2563eb')
+      setError(`Color must be a 6-digit hex value, e.g. ${T.accent}`)
       return
     }
     setBusy(true)
@@ -103,8 +104,8 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
 
   return (
     <div style={{ padding: '28px 32px', flex: 1, maxWidth: 560 }}>
-      <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>Organization Settings</h1>
-      <div style={{ fontSize: 12.5, color: '#5b6b82', marginBottom: 24 }}>
+      <h1 style={{ fontSize: 21, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>Organization Settings</h1>
+      <div style={{ fontSize: 12.5, color: T.faint, marginBottom: 24 }}>
         Logo and brand color shown throughout the app for {org.name}.
       </div>
 
@@ -113,9 +114,9 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           style={{
             marginBottom: 20,
             fontSize: 11.5,
-            color: '#5b6b82',
-            background: '#0b1220',
-            border: '1px solid #1e293b',
+            color: T.faint,
+            background: T.bg,
+            border: `1px solid ${T.border}`,
             borderRadius: 8,
             padding: '9px 12px',
           }}
@@ -137,11 +138,11 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
               alignItems: 'center',
               justifyContent: 'center',
               overflow: 'hidden',
-              background: displayLogoUrl ? '#0b1220' : color,
-              border: '1px solid #1e293b',
+              background: displayLogoUrl ? T.bg : color,
+              border: `1px solid ${T.border}`,
               fontWeight: 700,
               fontSize: 24,
-              color: '#fff',
+              color: T.onAccent,
             }}
           >
             {displayLogoUrl ? (
@@ -160,9 +161,9 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
                 const file = e.target.files?.[0]
                 if (file) handleFileSelected(file)
               }}
-              style={{ fontSize: 11.5, color: '#94a3b8' }}
+              style={{ fontSize: 11.5, color: T.muted }}
             />
-            <div style={{ fontSize: 10.5, color: '#5b6b82', marginTop: 4 }}>PNG/JPG/SVG, up to 2MB.</div>
+            <div style={{ fontSize: 10.5, color: T.faint, marginTop: 4 }}>PNG/JPG/SVG, up to 2MB.</div>
           </div>
         </div>
       </div>
@@ -180,7 +181,7 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
                 width: 28,
                 height: 28,
                 borderRadius: 8,
-                border: color === c ? '2px solid #f1f5f9' : '1px solid #1e293b',
+                border: color === c ? `2px solid ${T.ink}` : `1px solid ${T.border}`,
                 background: c,
                 cursor: canEdit ? 'pointer' : 'not-allowed',
               }}
@@ -201,9 +202,9 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
         <div
           style={{
             marginBottom: 16,
-            background: 'rgba(244,63,94,0.1)',
-            border: '1px solid rgba(244,63,94,0.3)',
-            color: '#fb7185',
+            background: T.dangerWash,
+            border: `1px solid ${T.dangerBorder}`,
+            color: T.danger,
             fontSize: 12.5,
             borderRadius: 8,
             padding: '9px 12px',
@@ -213,7 +214,7 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
         </div>
       )}
       {success && (
-        <div style={{ marginBottom: 16, fontSize: 12.5, color: '#4ade80', fontWeight: 600 }}>Branding updated.</div>
+        <div style={{ marginBottom: 16, fontSize: 12.5, color: T.success, fontWeight: 600 }}>Branding updated.</div>
       )}
 
       {canEdit && (
@@ -225,8 +226,8 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
             padding: '10px 18px',
             borderRadius: 8,
             border: 'none',
-            background: busy ? '#1e293b' : '#2563eb',
-            color: '#fff',
+            background: busy ? T.surfaceInset : T.accent,
+            color: T.onAccent,
             fontWeight: 600,
             fontSize: 13,
             cursor: busy ? 'not-allowed' : 'pointer',
@@ -236,9 +237,9 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
         </button>
       )}
 
-      <div style={{ marginTop: 36, paddingTop: 24, borderTop: '1px solid #1e293b' }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: '#f1f5f9' }}>GST Settings</h2>
-        <div style={{ fontSize: 12, color: '#5b6b82', marginBottom: 18 }}>
+      <div style={{ marginTop: 36, paddingTop: 24, borderTop: `1px solid ${T.border}` }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>GST Settings</h2>
+        <div style={{ fontSize: 12, color: T.faint, marginBottom: 18 }}>
           Your business's home state, used to auto-compute CGST+SGST (same state as a client) vs. IGST (different
           state) on every invoice.
         </div>
@@ -264,9 +265,9 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           <div
             style={{
               marginBottom: 16,
-              background: 'rgba(244,63,94,0.1)',
-              border: '1px solid rgba(244,63,94,0.3)',
-              color: '#fb7185',
+              background: T.dangerWash,
+              border: `1px solid ${T.dangerBorder}`,
+              color: T.danger,
               fontSize: 12.5,
               borderRadius: 8,
               padding: '9px 12px',
@@ -276,7 +277,7 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           </div>
         )}
         {gstSuccess && (
-          <div style={{ marginBottom: 16, fontSize: 12.5, color: '#4ade80', fontWeight: 600 }}>GST settings updated.</div>
+          <div style={{ marginBottom: 16, fontSize: 12.5, color: T.success, fontWeight: 600 }}>GST settings updated.</div>
         )}
 
         {canEdit && (
@@ -288,8 +289,8 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
               padding: '10px 18px',
               borderRadius: 8,
               border: 'none',
-              background: gstBusy ? '#1e293b' : '#2563eb',
-              color: '#fff',
+              background: gstBusy ? T.surfaceInset : T.accent,
+              color: T.onAccent,
               fontWeight: 600,
               fontSize: 13,
               cursor: gstBusy ? 'not-allowed' : 'pointer',

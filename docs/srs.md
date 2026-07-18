@@ -73,6 +73,14 @@ built.
     contact immediately hid it from the default Directory list; it reappeared as soon as "Show
     archived" was toggled on. Direct-API check confirmed a different org cannot archive or read
     the contact at all (`docs/qa-testing.md`).
+- **US-3.4** — As a Member, I can open a contact's **History** to see every shipment (as shipper
+  or consignee) and every invoice linked to that contact, so a single client profile ties back to
+  its whole shipment history without a manual search.
+  - AC (verified 2026-07-18, `functional/directory.api.spec.ts` TC-DIR-005): the history is
+    resolved by the ADR-0003 FK columns (`shipper_contact_id`/`consignee_contact_id`/
+    `client_contact_id`), not by name — a contact referenced by a converted shipment lists that
+    shipment; a contact never referenced returns an empty history. Plain RLS-gated selects, no new
+    RPC (ADR-0002).
 
 ### FR-4: Roles & Team Management
 
@@ -107,10 +115,17 @@ built.
   quote then shows "Converted" plus the resulting booking's real reference.
   - AC: A converted quote's booking has the correct mode-prefixed reference, the quote's
     shipper/consignee carried over, and status `'Booked'`.
-  - AC (verified directly against dev Supabase, 2026-07-15 — corrected once during verification,
-    see `docs/tech-debt.md`): two simultaneous conversions of the same quote to two different,
-    independently-inserted shipments now produce exactly one success and one server-rejected
-    error; the second attempt's orphan `shipments` row itself is still not prevented.
+  - AC (verified directly against dev Supabase, 2026-07-17 — Week 19, ADR-0030, superseding the
+    2026-07-15 partial result): conversion is now a single atomic transaction
+    (`convert_quote_to_shipment` RPC via the `quotes-service` tier). Two deliberately
+    **concurrent** convert calls produced exactly **one** `shipments` row (delta measured
+    before/after), one success and one clean "Quote is already converted" rejection — the orphan
+    booking row of the old two-step flow can no longer occur. The same click-through (Playwright,
+    2026-07-17) showed the "Converted — BKG-2026-479" chip with the live booking ref.
+  - AC (verified directly against dev Supabase, 2026-07-17): the stored quote `total` is
+    recomputed server-side from raw qty×rate — a create request carrying a tampered client
+    `total: 1` against line items summing to 350 stored exactly 350, and every
+    `quote_line_items.amount` equalled its own qty×rate.
 - **US-6.3** — As a Member, I can move a quote through a real sales lifecycle (Draft → Sent →
   Accepted or Rejected → Converted), see the whole pipeline's counts at a glance, and optionally
   record why a quote was rejected — so a declined quote is never indistinguishable from one
@@ -124,6 +139,14 @@ built.
     (draft→sent→accepted→converted, and a separate draft→sent→rejected-with-reason) showed the
     correct status pill and pipeline counts at each step, and the captured rejection reason
     ("Price too high vs Freightify") visible in the row. Full results: `docs/qa-testing.md`.
+  - AC (re-verified 2026-07-17 after the Week 19 tier migration, ADR-0030): the same lifecycle
+    now routed through the `quotes-service` Edge Function preserved every server-side behavior —
+    an illegal `accepted→sent` and a `rejected→convert` were both rejected by the DB through the
+    tier; `quotes_audit` rows were written for every tier-driven change; `quote.sent` /
+    `quote.accepted` / `quote.rejected` webhook events were all captured to the outbox; a
+    cross-org caller and a quotes-module-disabled org were both rejected. Full click-through of
+    both journeys (send→accept→convert→archive, send→reject-with-reason→archive) passed with
+    zero page errors. Full results: `docs/qa-testing.md`.
 - **US-6.4** — As a Member, I can archive a quote (any status) and unarchive it later, same as
   contacts/invoices.
   - AC (verified by real Playwright click-through against dev Supabase, 2026-07-15): archiving a
@@ -203,6 +226,16 @@ built.
     only the rendered page.
   - AC: An invalid/guessed link shows a plain "not found" message; no SQL or stack trace text is
     ever shown, and no other shipment's data is returned.
+- **US-8.2** — As a forwarding agency, the public tracking page my client opens shows **my**
+  brand (agency name, logo, accent colour), not "SST Freight", so the link reinforces my
+  relationship with my customer (white-label; SST appears only as a small "Powered by" footer).
+  - AC (verified 2026-07-18, `functional/public.ui.spec.ts` TC-PUBLIC-001): opening a real
+    tracking token renders the owning org's name in the header and a "Powered by SST Freight"
+    footer line; still no auth session is created and the payload adds only `name`/`color`/
+    `logo_url` (all already public-facing) — no org id, no staff, no internal data.
+  - AC: The three white-label fields ride inside the existing `get_public_shipment_tracking`
+    anon RPC (no new endpoint, no new grant); the frontend treats them as optional, so a database
+    that has not applied the payload extension falls back to the SST brand rather than breaking.
 
 ### FR-9: Audit Trail
 
@@ -381,6 +414,14 @@ built.
     figures.
   - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — widget drag-and-drop reordering;
     a true multi-series/interactive charting layer beyond styled bar `<div>`s.
+- **US-14.5** — As a Member, I can see an **invoice-ageing** panel on Reporting that buckets
+  outstanding invoices into 1–30 / 31–60 / 61+ days overdue (with count and ₹ amount per bucket,
+  plus the not-yet-due balance), so overdue exposure is visible as a chart, not only as the
+  per-invoice chips on the Accounting screen.
+  - AC (verified 2026-07-18, `functional/reporting.ui.spec.ts` TC-REPORT-006): the panel renders
+    its three buckets from the same unit-tested `computeInvoiceAging()` engine the Accounting
+    screen uses, and honours the per-user Customize show/hide toggle (`invoice_aging` widget key).
+    No schema change — `dashboard_preferences.widget_key` is unconstrained text.
 
 ### FR-15: White-Label Branding
 
@@ -527,11 +568,12 @@ number to compare against it; until then, treat it as directional.
 | --- | --- | --- | --- |
 | **Tenant isolation** | No organization can ever read or write another organization's data, under any client-reachable code path. | N/A — binary correctness property, not a threshold. | ✅ Verified — automated multi-org test suite, re-run after every subsequent feature to confirm no regression. |
 | **Availability** | No formal SLA is defined or contracted. Uptime is bounded by GitHub Pages' and Supabase's own platform availability (both third-party, both outside this project's control). | **99% monthly uptime** (≈7.3 hours/month allowed downtime) — chosen as a realistic floor given GitHub Pages' and Supabase free/starter-tier published targets, appropriate for this app's current small-B2B scale (not a number to advertise to customers as an SLA). | Not measured — inherited, not engineered. |
-| **Performance** | No load testing has been performed. No claim is made about response time under concurrent load. | **RPC/query response < 500ms at p95, under ≤ 20 concurrent users** — sized to this app's actual current user base (small forwarding teams), not a generic web-scale figure. | ⚠️ Not measured — do not assume a specific number without testing first. |
+| **Performance** | Measured with `npm run test:perf` + `npm run test:stress` against dev (2026-07-18); full method + tables in `docs/perf-baseline.md`. | **RPC/query response < 500ms at p95, under ≤ 20 concurrent users** — sized to this app's actual current user base (small forwarding teams), not a generic web-scale figure. | ✅ Measured — **p95 = 305–316 ms at 20 concurrent** (target < 500 ms); sequential read p95 ≈ 205–220 ms. A sustained 20-user load holds p95 = 305 ms at 0% errors; a stress ramp to 100 concurrent (5× target) keeps 0% errors with p95 first crossing 500 ms only around 60 concurrent (3× target). Against dev, single client location (RTT-inclusive), point-in-time — not a continuous SLO. |
 | **Backup / recovery** | See `docs/migration-runbook.md` — as of the last check, the dev Supabase project's dashboard showed "No backups" under its free tier. Reconfirm current backup status directly in Supabase before relying on it. | **Daily backups, 7-day retention** on the production project once on a paid Supabase tier — matches Supabase's own smallest paid-tier backup offering, not a custom figure. | ⚠️ Not guaranteed — verify before trusting. |
 | **Browser support** | No explicit browser matrix defined; built and manually verified against Chromium (headless, via automated QA passes each week). | Chromium, Firefox, and Safari (desktop), latest 2 major versions each. | Untested outside Chromium-based browsers. |
 | **Error observability** | Global JS errors, unhandled promise rejections, React render errors, and the FX-rate external API call are captured client-side (ADR-0011); no external log vendor is wired in yet, so today coverage means "visible in the browser console," not "alerts someone." | An external vendor (Axiom/Logflare or similar) actually receiving these events, once one is chosen. | ⚠️ Console-only today — verified the capture fires correctly, not that anyone is watching. |
 | **Inline validation** | The 6 core creation/edit forms (Booking, Contact, Tariff, Quote, Invoice, Cost) show validation errors under the specific offending field, sourced from real Postgres `check`-constraint/RPC errors — not a frontend validation library, not a single generic banner for everything (ADR-0015). | 100% of the known, enumerated error cases per form show inline; anything outside that list still shows the pre-existing generic banner (an intentional, stated fallback, not a gap). | ✅ Verified — deliberately triggered a real error per form (e.g. `rate = 0`, `amount = 0`, empty required field) and confirmed each renders under its field, not as a banner. |
+| **Visual theme & contrast** | The app renders in the "Signal Indigo" light enterprise theme (ADR-0031, 2026-07-17): all colors resolve through a central token layer; the SST Freight brand mark is brand-locked (renders identically under any future theme); per-org branding (ADR-0019) is a separate axis. | Body text, chips, and chart categorical colors ≥ AA-appropriate contrast on the white/`#f6f6f9` surfaces (status text ≥ 4.5:1; chart marks ≥ 3:1). | ✅ Verified for chart categorical colors + surface contrast (dataviz validator, all-pass on the mode triple; the full status set's two flags are label-mitigated, recorded in `docs/tech-debt.md`) and by a 16-page screenshot walkthrough with zero page errors. Not audited: exhaustive per-element WCAG sweep. |
 
 ## 4. Explicitly out of scope (this SRS's boundary)
 

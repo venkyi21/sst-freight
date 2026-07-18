@@ -1,8 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { archiveQuoteToggle, fetchQuotes, fetchTariffs, markQuoteConverted, updateQuoteStatus } from '../api/quotes'
-import { insertShipment } from '../api/shipments'
+import { archiveQuoteToggle, convertQuote, fetchQuotes, fetchTariffs, updateQuoteStatus } from '../api/quotes'
 import { shipmentsQueryKey } from './useShipments'
-import type { Quote, QuoteStatus, ShipmentMode } from '../types'
+import type { Quote, QuoteStatus } from '../types'
 
 export function tariffsQueryKey(orgId: string) {
   return ['tariffs', orgId] as const
@@ -54,17 +53,16 @@ export function useArchiveQuote(orgId: string) {
   })
 }
 
-// Composes insertShipment + markQuoteConverted — same accepted two-step shape as before
-// (ADR-0006) — and invalidates both the quotes and shipments caches on success.
+// One atomic call through the quotes-service tier (ADR-0030) — shipment creation and the
+// quote's status flip happen in a single server-side transaction, so the old two-step race
+// (ADR-0006) is gone. Invalidates both the quotes and shipments caches on success.
 export function useConvertQuote(orgId: string) {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: async ({ quote, payload, mode }: { quote: Quote; payload: Record<string, unknown>; mode: ShipmentMode }) => {
-      const { data: newShipment, error: insertErr } = await insertShipment(payload, mode)
-      if (!newShipment) return { newShipment: null, updatedQuote: null, error: insertErr }
-      const { data: updatedQuote, error: updateErr } = await markQuoteConverted(quote.id, newShipment.id)
-      if (!updatedQuote) return { newShipment, updatedQuote: null, error: updateErr ?? 'Booking created, but could not update the quote' }
-      return { newShipment, updatedQuote, error: null }
+    mutationFn: async (quote: Quote) => {
+      const { data, error } = await convertQuote(quote.id)
+      if (!data) return { newShipment: null, updatedQuote: null, error }
+      return { newShipment: data.shipment, updatedQuote: data.quote, error: null }
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: quotesQueryKey(orgId) })
