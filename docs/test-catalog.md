@@ -53,6 +53,7 @@ pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelop
 | TC-DIR-002 | neg | a vendor contact with null `vendor_type` | it is inserted | the check constraint rejects it | ✅ `functional/directory.api.spec.ts` |
 | TC-DIR-003 | role | a plain member | they create a contact | it is allowed (Directory is never module-gated, ADR-0012) | ✅ `functional/directory.api.spec.ts` |
 | TC-DIR-004 | happy | a contact referenced by a quote | the contact is renamed | the quote keeps its denormalized name snapshot (ADR-0003) | ✅ `functional/directory.api.spec.ts` |
+| TC-DIR-005 | happy | one contact referenced by a converted shipment and one that is not | each contact's history is fetched (FK-based, ADR-0003) | the referenced contact's history contains that shipment; the unreferenced contact's history is empty | ✅ `functional/directory.api.spec.ts` |
 
 ## QUOTE — Rates & Quoting
 
@@ -125,6 +126,7 @@ pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelop
 | TC-REPORT-003 | happy | real org data | the Reporting screen loads | customer profitability renders | ✅ `functional/reporting.ui.spec.ts` |
 | TC-REPORT-004 | happy | a user's dashboard prefs | they are upserted | they persist and a teammate cannot read them (per-user RLS, ADR-0018) | ✅ `functional/reporting.api.spec.ts` |
 | TC-REPORT-005 | happy | a user's onboarding state | it is written | it is per-user and cross-user isolated (ADR-0024) | ✅ `functional/reporting.api.spec.ts` |
+| TC-REPORT-006 | happy | an org with unpaid invoices | the Reporting screen loads | the invoice-ageing panel renders its 1–30 / 31–60 / 61+ buckets and hides via the Customize toggle | ✅ `functional/reporting.ui.spec.ts` |
 
 ## INTEG — Integrations (API keys + webhooks)
 
@@ -153,7 +155,7 @@ pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelop
 
 | ID | Cat | Given | When | Then | Automated |
 | --- | --- | --- | --- | --- | --- |
-| TC-PUBLIC-001 | happy | a valid tracking token | the public link is opened | the shipment shows and **no auth session** is created (ADR-0008) | ✅ `functional/public.ui.spec.ts` |
+| TC-PUBLIC-001 | happy | a valid tracking token | the public link is opened | the shipment shows under the **agency's own brand** (white-label, "Powered by SST Freight" footer) and **no auth session** is created (ADR-0008) | ✅ `functional/public.ui.spec.ts` |
 | TC-PUBLIC-002 | neg | a bad/tampered token | it is opened | nothing is shown, no data leak | ✅ `functional/public.ui.spec.ts` |
 | TC-PUBLIC-003 | happy | the `?tco` route | it is opened | the TCO calculator renders with no login (ADR-0023) | ✅ `functional/public.ui.spec.ts` |
 

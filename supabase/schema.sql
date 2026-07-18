@@ -1237,6 +1237,14 @@ begin
     'status', v_shipment.status,
     'client_name', v_shipment.client,
     'created_at', v_shipment.created_at,
+    -- White-label (benchmark-gap sprint): the tracking page renders the agency's own brand, not
+    -- SST's. Stays within the minimal-payload rule — all three fields are already public-facing
+    -- (name/color render to invitees pre-join; org-logos is a public Storage bucket). Still no
+    -- org id, no staff, no internal data.
+    'org', (
+      select jsonb_build_object('name', o.name, 'color', o.color, 'logo_url', o.logo_url)
+      from organizations o where o.id = v_shipment.org_id
+    ),
     'history', (
       select coalesce(jsonb_agg(jsonb_build_object(
         'from_status', h.from_status, 'to_status', h.to_status, 'created_at', h.created_at

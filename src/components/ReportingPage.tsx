@@ -2,6 +2,7 @@ import { Fragment, useMemo, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { toggleDashboardWidget } from '../api/reporting'
 import { useReportingData } from '../hooks/useReporting'
+import { computeInvoiceAging } from '../lib/invoiceAging'
 import {
   DASHBOARD_WIDGET_META,
   DASHBOARD_WIDGET_ORDER,
@@ -213,6 +214,8 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
     return Array.from(rows.values()).sort((a, b) => b.revenue - a.revenue)
   }, [invoices, costs, shipmentMeta])
 
+  const aging = useMemo(() => computeInvoiceAging(invoices), [invoices])
+
   function exportProfitability(label: string, rows: ProfitRow[]) {
     downloadCsv(`${label}-profitability.csv`, [
       [label, 'Revenue (INR)', 'Cost (INR)', 'Margin (INR)', 'Shipments'],
@@ -241,6 +244,7 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
   const maxModeCount = Math.max(1, ...Object.values(volumeByMode))
   const maxStatusCount = Math.max(1, ...Array.from(shipmentsByStatus.values()))
   const maxRevenueMonth = Math.max(1, ...revenueTrend.map((m) => m.total))
+  const maxAgingAmount = Math.max(1, aging.buckets.d0_30.amount, aging.buckets.d31_60.amount, aging.buckets.d61.amount)
 
   return (
     <div style={{ padding: '28px 32px', flex: 1 }}>
@@ -389,6 +393,31 @@ export default function ReportingPage({ orgId }: ReportingPageProps) {
           costs={costs}
         />
       )}
+
+      {isVisible('invoice_aging') && (
+        <div style={panelStyle}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: T.muted }}>Invoice Ageing</div>
+            <div style={{ fontSize: 11.5, color: T.faint }}>
+              Outstanding {fmt(aging.outstanding)}
+              {' · '}
+              {fmt(aging.outstanding - aging.buckets.d0_30.amount - aging.buckets.d31_60.amount - aging.buckets.d61.amount)} not yet due
+            </div>
+          </div>
+          {(
+            [
+              { label: '1–30 days overdue', bucket: aging.buckets.d0_30, color: T.warning },
+              { label: '31–60 days overdue', bucket: aging.buckets.d31_60, color: T.warning },
+              { label: '61+ days overdue', bucket: aging.buckets.d61, color: T.danger },
+            ] as const
+          ).map(({ label, bucket, color }) => (
+            <AgingRow key={label} label={label} bucket={bucket} color={color} maxAmount={maxAgingAmount} />
+          ))}
+          {aging.buckets.d0_30.count + aging.buckets.d31_60.count + aging.buckets.d61.count === 0 && (
+            <div style={{ fontSize: 12.5, color: T.faint }}>No overdue invoices — everything unpaid is still within its due date.</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -401,6 +430,38 @@ function BarRow({ label, value, max, color }: { label: string; value: number; ma
         <div style={{ width: `${(value / max) * 100}%`, height: '100%', background: color, borderRadius: 4, minWidth: value > 0 ? 4 : 0 }} />
       </div>
       <div style={{ width: 28, fontSize: 12, fontWeight: 600, color: T.text, fontFamily: "'IBM Plex Mono', monospace", textAlign: 'right' }}>{value}</div>
+    </div>
+  )
+}
+
+function AgingRow({
+  label,
+  bucket,
+  color,
+  maxAmount,
+}: {
+  label: string
+  bucket: { count: number; amount: number }
+  color: string
+  maxAmount: number
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+      <div style={{ width: 130, fontSize: 12, color: T.muted, flexShrink: 0 }}>{label}</div>
+      <div style={{ flex: 1, background: T.bg, borderRadius: 4, height: 16, position: 'relative', overflow: 'hidden' }}>
+        <div
+          style={{
+            width: `${(bucket.amount / maxAmount) * 100}%`,
+            height: '100%',
+            background: color,
+            borderRadius: 4,
+            minWidth: bucket.amount > 0 ? 4 : 0,
+          }}
+        />
+      </div>
+      <div style={{ width: 150, fontSize: 12, fontWeight: 600, color: T.text, fontFamily: "'IBM Plex Mono', monospace", textAlign: 'right' }}>
+        {bucket.count} inv · {fmt(bucket.amount)}
+      </div>
     </div>
   )
 }

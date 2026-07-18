@@ -81,6 +81,61 @@ test.describe('DIR — Directory (Contacts)', () => {
     await ownerA.from('contacts').update({ archived: true }).eq('id', contact!.id)
   })
 
+  test('TC-DIR-005 · contact history returns only that contact\'s shipments (FK-based, not name-based)', async () => {
+    const ownerA = await signInAs('ownerA')
+    const orgA = await getOrg(ownerA, QA_ORGS.A)
+    const usedName = tag()
+    const unusedName = tag()
+
+    // Contact A gets referenced by a quote → converted shipment; contact B never does.
+    const { data: used } = await ownerA
+      .from('contacts')
+      .insert({ org_id: orgA.id, kind: 'shipper', name: usedName, created_by: await uid(ownerA) })
+      .select('id')
+      .single()
+    const { data: unused } = await ownerA
+      .from('contacts')
+      .insert({ org_id: orgA.id, kind: 'shipper', name: unusedName, created_by: await uid(ownerA) })
+      .select('id')
+      .single()
+
+    const created = await invokeQuotesService(ownerA, {
+      action: 'create',
+      orgId: orgA.id,
+      mode: 'ocean',
+      origin: tag(),
+      destination: 'Rotterdam',
+      shipperName: usedName,
+      consigneeName: 'QA DIR-005 Consignee',
+      lineItems: [{ description: 'x', quantity: 1, rate: 100 }],
+    })
+    const quote = created.data as { id: string; shipper_contact_id: string | null }
+    expect(quote.shipper_contact_id, 'the tier resolved the existing contact by name').toBe(used!.id)
+    await invokeQuotesService(ownerA, { action: 'send', quoteId: quote.id })
+    await invokeQuotesService(ownerA, { action: 'accept', quoteId: quote.id })
+    const converted = await invokeQuotesService(ownerA, { action: 'convert', quoteId: quote.id })
+    const shipment = (converted.data as { shipment: { id: string; ref: string } }).shipment
+
+    // The exact query ContactHistoryModal runs (src/api/contacts.ts fetchContactHistory).
+    const historyFor = (contactId: string) =>
+      ownerA
+        .from('shipments')
+        .select('id, ref')
+        .eq('org_id', orgA.id)
+        .or(`shipper_contact_id.eq.${contactId},consignee_contact_id.eq.${contactId}`)
+
+    const { data: usedHistory, error: usedErr } = await historyFor(used!.id)
+    expect(usedErr).toBeNull()
+    expect(usedHistory?.map((s) => s.ref), 'the converted shipment appears in the used contact\'s history').toContain(shipment.ref)
+
+    const { data: unusedHistory, error: unusedErr } = await historyFor(unused!.id)
+    expect(unusedErr).toBeNull()
+    expect(unusedHistory, 'an unreferenced contact has an empty history').toHaveLength(0)
+
+    await ownerA.from('contacts').update({ archived: true }).eq('id', used!.id)
+    await ownerA.from('contacts').update({ archived: true }).eq('id', unused!.id)
+  })
+
   test('TC-DIR-003 · a plain member can create a contact (Directory is never module-gated)', async () => {
     const memberA = await signInAs('memberA')
     const orgA = await getOrg(memberA, QA_ORGS.A)

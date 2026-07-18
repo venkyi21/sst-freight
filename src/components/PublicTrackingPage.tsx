@@ -52,26 +52,9 @@ export default function PublicTrackingPage({ token }: PublicTrackingPageProps) {
       }}
     >
       <div style={cardStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
-          <div
-            style={{
-              width: 38,
-              height: 38,
-              borderRadius: 10,
-              background: BRAND.markBg,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: 17,
-              color: BRAND.markFg,
-              flexShrink: 0,
-            }}
-          >
-            S
-          </div>
-          <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: BRAND.wordmark }}>SST Freight</div>
-        </div>
+        {/* White-label (benchmark-gap sprint): the agency's own brand when the payload carries
+            it; the SST brand only as the pre-data / error / older-database fallback. */}
+        {!loading && <BrandHeader org={data?.org ?? null} />}
 
         {loading && <div style={{ color: T.muted, fontSize: 13 }}>Loading tracking details…</div>}
 
@@ -82,7 +65,48 @@ export default function PublicTrackingPage({ token }: PublicTrackingPageProps) {
         )}
 
         {data && <TrackingContent data={data} />}
+
+        {data?.org && (
+          <div style={{ marginTop: 28, paddingTop: 14, borderTop: `1px solid ${T.border}`, fontSize: 11, color: T.faint, textAlign: 'center' }}>
+            Powered by SST Freight
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+function BrandHeader({ org }: { org: { name: string; color: string | null; logo_url: string | null } | null }) {
+  const markBg = org ? org.color ?? BRAND.markBg : BRAND.markBg
+  const name = org?.name ?? 'SST Freight'
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 24 }}>
+      {org?.logo_url ? (
+        <img
+          src={org.logo_url}
+          alt={`${name} logo`}
+          style={{ width: 38, height: 38, borderRadius: 10, objectFit: 'contain', flexShrink: 0 }}
+        />
+      ) : (
+        <div
+          style={{
+            width: 38,
+            height: 38,
+            borderRadius: 10,
+            background: markBg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontWeight: 700,
+            fontSize: 17,
+            color: org ? '#ffffff' : BRAND.markFg,
+            flexShrink: 0,
+          }}
+        >
+          {name.charAt(0).toUpperCase()}
+        </div>
+      )}
+      <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: 0.2, color: BRAND.wordmark }}>{name}</div>
     </div>
   )
 }

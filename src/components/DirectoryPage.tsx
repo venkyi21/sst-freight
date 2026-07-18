@@ -2,6 +2,7 @@ import { useMemo, useState, type CSSProperties, type MouseEvent } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { contactsQueryKey, useArchiveContact, useContacts } from '../hooks/useContacts'
 import ContactModal from './ContactModal'
+import ContactHistoryModal from './ContactHistoryModal'
 import { CONTACT_KIND_META, VENDOR_TYPE_META, type Contact, type ContactKind } from '../types'
 import { T } from '../theme/tokens'
 
@@ -55,6 +56,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
   const [modalOpen, setModalOpen] = useState(false)
   const [showArchived, setShowArchived] = useState(false)
   const [archivingId, setArchivingId] = useState<string | null>(null)
+  const [historyContact, setHistoryContact] = useState<Contact | null>(null)
 
   const kindCounts = useMemo(
     () => ({
@@ -218,6 +220,7 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                 <th style={headStyle}>Phone</th>
                 <th style={headStyle}>Location</th>
                 <th style={headStyle}>Added</th>
+                <th style={headStyle}>History</th>
                 <th style={headStyle}>Archive</th>
               </tr>
             </thead>
@@ -244,6 +247,27 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
                   </td>
                   <td style={{ ...cellStyle, fontSize: 12, color: T.faint }}>
                     {new Date(c.created_at).toLocaleDateString()}
+                  </td>
+                  <td style={cellStyle}>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        setHistoryContact(c)
+                      }}
+                      style={{
+                        padding: '5px 10px',
+                        borderRadius: 6,
+                        border: `1px solid ${T.border}`,
+                        background: 'transparent',
+                        color: T.info,
+                        fontSize: 11.5,
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                      }}
+                    >
+                      History
+                    </button>
                   </td>
                   <td style={cellStyle}>
                     <button
@@ -279,6 +303,10 @@ export default function DirectoryPage({ orgId }: DirectoryPageProps) {
 
       {modalOpen && (
         <ContactModal orgId={orgId} contact={modalContact} onClose={() => setModalOpen(false)} onSaved={handleSaved} />
+      )}
+
+      {historyContact && (
+        <ContactHistoryModal orgId={orgId} contact={historyContact} onClose={() => setHistoryContact(null)} />
       )}
     </div>
   )

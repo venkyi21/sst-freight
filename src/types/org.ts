@@ -123,6 +123,7 @@ export type DashboardWidgetKey =
   | 'revenue_trend'
   | 'customer_profitability'
   | 'route_profitability'
+  | 'invoice_aging'
 
 export const DASHBOARD_WIDGET_META: Record<DashboardWidgetKey, { label: string }> = {
   kpi_tiles: { label: 'KPI Summary' },
@@ -131,6 +132,7 @@ export const DASHBOARD_WIDGET_META: Record<DashboardWidgetKey, { label: string }
   revenue_trend: { label: 'Revenue Trend (6 months)' },
   customer_profitability: { label: 'Customer Profitability' },
   route_profitability: { label: 'Route Profitability' },
+  invoice_aging: { label: 'Invoice Ageing' },
 }
 
 export const DASHBOARD_WIDGET_ORDER: DashboardWidgetKey[] = [
@@ -140,6 +142,7 @@ export const DASHBOARD_WIDGET_ORDER: DashboardWidgetKey[] = [
   'revenue_trend',
   'customer_profitability',
   'route_profitability',
+  'invoice_aging',
 ]
 
 export interface DashboardPreference {

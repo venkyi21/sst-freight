@@ -73,6 +73,14 @@ built.
     contact immediately hid it from the default Directory list; it reappeared as soon as "Show
     archived" was toggled on. Direct-API check confirmed a different org cannot archive or read
     the contact at all (`docs/qa-testing.md`).
+- **US-3.4** — As a Member, I can open a contact's **History** to see every shipment (as shipper
+  or consignee) and every invoice linked to that contact, so a single client profile ties back to
+  its whole shipment history without a manual search.
+  - AC (verified 2026-07-18, `functional/directory.api.spec.ts` TC-DIR-005): the history is
+    resolved by the ADR-0003 FK columns (`shipper_contact_id`/`consignee_contact_id`/
+    `client_contact_id`), not by name — a contact referenced by a converted shipment lists that
+    shipment; a contact never referenced returns an empty history. Plain RLS-gated selects, no new
+    RPC (ADR-0002).
 
 ### FR-4: Roles & Team Management
 
@@ -218,6 +226,16 @@ built.
     only the rendered page.
   - AC: An invalid/guessed link shows a plain "not found" message; no SQL or stack trace text is
     ever shown, and no other shipment's data is returned.
+- **US-8.2** — As a forwarding agency, the public tracking page my client opens shows **my**
+  brand (agency name, logo, accent colour), not "SST Freight", so the link reinforces my
+  relationship with my customer (white-label; SST appears only as a small "Powered by" footer).
+  - AC (verified 2026-07-18, `functional/public.ui.spec.ts` TC-PUBLIC-001): opening a real
+    tracking token renders the owning org's name in the header and a "Powered by SST Freight"
+    footer line; still no auth session is created and the payload adds only `name`/`color`/
+    `logo_url` (all already public-facing) — no org id, no staff, no internal data.
+  - AC: The three white-label fields ride inside the existing `get_public_shipment_tracking`
+    anon RPC (no new endpoint, no new grant); the frontend treats them as optional, so a database
+    that has not applied the payload extension falls back to the SST brand rather than breaking.
 
 ### FR-9: Audit Trail
 
@@ -396,6 +414,14 @@ built.
     figures.
   - AC: **Explicitly not implemented** (see `docs/tech-debt.md`) — widget drag-and-drop reordering;
     a true multi-series/interactive charting layer beyond styled bar `<div>`s.
+- **US-14.5** — As a Member, I can see an **invoice-ageing** panel on Reporting that buckets
+  outstanding invoices into 1–30 / 31–60 / 61+ days overdue (with count and ₹ amount per bucket,
+  plus the not-yet-due balance), so overdue exposure is visible as a chart, not only as the
+  per-invoice chips on the Accounting screen.
+  - AC (verified 2026-07-18, `functional/reporting.ui.spec.ts` TC-REPORT-006): the panel renders
+    its three buckets from the same unit-tested `computeInvoiceAging()` engine the Accounting
+    screen uses, and honours the per-user Customize show/hide toggle (`invoice_aging` widget key).
+    No schema change — `dashboard_preferences.widget_key` is unconstrained text.
 
 ### FR-15: White-Label Branding
 

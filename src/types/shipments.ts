@@ -86,4 +86,7 @@ export interface PublicTrackingData {
     due_date: string | null
   }[]
   documents: { document_type: ShipmentDocumentType; ref: string | null; created_at: string }[]
+  // Optional so the page keeps rendering (with the SST fallback brand) against a database that
+  // hasn't applied the white-label payload extension yet.
+  org?: { name: string; color: string | null; logo_url: string | null } | null
 }

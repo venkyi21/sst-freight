@@ -158,6 +158,7 @@ see ADR-0008), and returns a single JSON object:
   "status": "Docs",
   "client_name": "Track Consignee Corp",
   "created_at": "2026-07-13T01:06:20.891019+00:00",
+  "org": { "name": "Smart Shipping Services", "color": "#0369a1", "logo_url": null },
   "history": [
     { "from_status": null, "to_status": "Booked", "created_at": "..." },
     { "from_status": "Booked", "to_status": "Docs", "created_at": "..." }
@@ -175,6 +176,14 @@ see ADR-0008), and returns a single JSON object:
 `created_at`, never `file_name`/`storage_path`. An uploaded file's actual content is never
 reachable through this anon-facing payload; full document render and file download stay behind
 org login (see `docs/tech-debt.md`).
+
+`org` (benchmark-gap sprint, 18 Jul 2026) white-labels the tracking page: it carries the
+agency's own `name`/`color`/`logo_url` so a client sees the forwarder's brand, not "SST Freight"
+(which becomes a small "Powered by" footer). This stays inside the minimal-payload rule below —
+all three fields are already public-facing (the white-label name/color render to invitees before
+they join, and `org-logos` is the app's one deliberately-public Storage bucket), and no org `id`
+is included. The frontend treats `org` as optional, so a database that has not yet applied this
+payload extension simply falls back to the SST brand rather than breaking.
 
 Raises `Tracking link not found` for any token with no match — deliberately generic, to avoid
 distinguishing "wrong token" from "token exists but something else went wrong" in a way that

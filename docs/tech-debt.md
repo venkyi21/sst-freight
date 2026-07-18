@@ -236,6 +236,13 @@ is a near-term coding task, and none of it should be attempted without that infr
 - **Per-org custom domain is explicitly out of scope** (ADR-0019) — this app is a single static
   GitHub Pages site with no per-tenant routing layer; a real custom domain per org is a hosting/
   DNS/TLS decision needing its own scoping conversation, not a code change.
+- **Public tracking page brand (benchmark-gap sprint, 18 Jul 2026)** — the page now renders the
+  org's `name`/`color`/`logo_url` (via the `get_public_shipment_tracking` payload). Two accepted
+  limitations: (1) a broken/404 `logo_url` shows the browser's default broken-image glyph — there
+  is no `onError` fallback to the letter-avatar yet; and (2) the same no-contrast-check caveat above
+  now also applies to the public page (a low-contrast brand colour behind the white wordmark isn't
+  warned against). Both are cosmetic-only and don't leak data. Closing (1) is a small `onError`
+  handler on the `<img>`; closing (2) is the same shared contrast check noted above.
 
 ## E-signature on Quotes and Bill of Lading (ADR-0020)
 

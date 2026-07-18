@@ -626,6 +626,33 @@ Full numbers + method: `docs/perf-baseline.md`.
 TC-DOC-004 (DocuSign envelope), TC-ACCT-003 (live FX value). Everything under our control for those
 modules (RLS isolation, row shape, pure logic) is automated; only the third-party hop is manual.
 
+## Benchmark-gap sprint — white-label tracking, contact history, ageing chart, 2026-07-18
+
+Three closeable rows from the client-benchmark cross-check (docs/competitor-dashboard.html), built
+and tested against `npm run dev` → dev Supabase. No new ADR (extends ADR-0002/0003/0008 patterns).
+
+### Before → after (per feature)
+
+| Feature | Before | After |
+| --- | --- | --- |
+| Public tracking page brand | showed "SST Freight" to every client (§2.2 gap, 50%) | shows the agency's own name/logo/colour, "Powered by SST Freight" footer |
+| Contact → shipment history | contacts had no drill-down view (§2.1 partial, 70%) | per-contact **History** modal: all linked shipments + invoices, FK-resolved |
+| Invoice ageing on Reporting | ageing only as Accounting chips (§8.3 partial, 60%) | ageing panel (1–30 / 31–60 / 61+ buckets) reusing `computeInvoiceAging()` |
+
+### Run (all green)
+
+| Suite | Count | Result |
+| --- | --- | --- |
+| `npm run build` (tsc -b + vite) | — | ✅ clean |
+| `npm run lint` (oxlint) | 92 files | ✅ 0 warnings / 0 errors |
+| Unit (`npm test`) | 45 | ✅ 45/45 (unchanged — ageing math already unit-covered) |
+| `directory.api.spec.ts` incl. new **TC-DIR-005** | 5 | ✅ 5/5 |
+| `reporting.ui.spec.ts` incl. new **TC-REPORT-006** | 2 | ✅ 2/2 |
+| **TC-PUBLIC-001** (white-label assertion) | 1 | ⏳ pending — needs the `get_public_shipment_tracking` payload extension applied to dev Supabase (SQL editor) before it can assert the org brand; frontend already falls back safely without it |
+
+Once the dev SQL is applied, `npm run test:e2e -- public.ui` closes TC-PUBLIC-001 and the whole
+suite returns to fully green.
+
 **Real issue caught during the pass:** the golden-path `computeDocumentRows` unit test first asserted
 Western digit grouping (`100,000`); the app renders Indian grouping (`1,00,000`) via `toLocaleString('en-IN')`
 — the assertion was corrected to the real locale output, not the reverse.

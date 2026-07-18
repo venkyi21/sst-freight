@@ -29,7 +29,10 @@ test.describe('PUBLIC — no-auth pages', () => {
     const errors = pageErrorGuard(page)
     await page.goto(`/?track=${shipment!.tracking_token}`)
     await expect(page.getByText(/Tracking for/)).toBeVisible({ timeout: 15_000 })
-    await expect(page.getByText('SST Freight')).toBeVisible()
+    // White-label (benchmark-gap sprint): the header carries the org's own brand, with SST
+    // demoted to a "Powered by" footer line.
+    await expect(page.getByText(orgA.name)).toBeVisible()
+    await expect(page.getByText('Powered by SST Freight')).toBeVisible()
     // No login surface on a public page.
     await expect(page.locator('input[type="email"]')).toHaveCount(0)
     // No Supabase auth session persisted in the browser.

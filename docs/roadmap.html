@@ -393,6 +393,26 @@
           user transaction (measured 119ms invoice insert with a dead endpoint registered). With
           that, <strong>every item on this backlog is either shipped or explicitly declined</strong>.
         </div>
+
+        <div class="note ok">
+          <b>Post-launch phase — client acquisition (from 18 Jul 2026):</b> the product build is
+          complete; the work now is winning the two pilot clients (Smart Shipping Services · Suresh;
+          Winners Logistics · Vijay) and going live. Phasing: <strong>(1)</strong> client pitch
+          (demo videos + tracking links + per-client benchmark) → <strong>(2)</strong> benchmark-gap
+          sprint → <strong>(3)</strong> production promotion (dev→prod Supabase, then merge) →
+          <strong>(4)</strong> client onboarding → <strong>(5)</strong> monetization switch-on →
+          <strong>(6)</strong> ICEGATE live-filing (client-side regulatory prerequisite: agency
+          licence + DSC; a connection task once credentials exist, not a build).
+          <br><br>
+          <b>Phase 2 — benchmark-gap sprint (done, 18 Jul 2026):</b> the client-feature benchmark
+          (34 features vs. each client's current software) left three closeable non-green rows, now
+          shipped on <code>dev</code>: <strong>white-label public tracking</strong> (the client sees
+          the agency's own brand, SST demoted to a "Powered by" footer — FR-8.2), <strong>per-contact
+          shipment/invoice history</strong> in Directory (FR-3.4), and an <strong>invoice-ageing
+          chart</strong> on Reporting (FR-14.5). No new ADR — each extends an existing pattern
+          (ADR-0008 minimal-payload, ADR-0003 FK+snapshot, ADR-0018 per-user widgets). Benchmark
+          rose ~92% → ~97%; ICEGATE live-filing (Phase 6, regulatory) is now the only structural gap.
+        </div>
       </section>
 
       <!-- 4. CUSTOMS DIFFICULTY -->
