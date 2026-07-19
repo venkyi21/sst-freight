@@ -42,6 +42,12 @@ bumps a version.
 cache/dedupe layer and hash-based client-side routing, both pinned to the exact versions
 `npm install` resolved at pin time, per the same convention as every other entry above.
 
+**No dependency added 2026-07-18 (ADR-0034, Razorpay billing)**: the Razorpay integration adds
+**no npm package** — the `billing-service` and `razorpay-webhook` Edge Functions call the Razorpay
+REST API via `fetch` and verify the webhook HMAC via the runtime's built-in Web Crypto, exactly as
+`docusign-envelope`/`quotes-service` avoid an SDK. Recorded here so a future contributor doesn't
+"add the missing Razorpay SDK" — its absence is deliberate.
+
 **Added 2026-07-16 (ADR-0026)**: `vitest` — the project's first unit-test framework. Pinned to
 `3.2.7`, **not** the latest 4.x, deliberately: Vitest 4 requires `vite >= 6` and this project pins
 `vite@5.4.21`; 3.2.x is the newest line compatible with Vite 5. Within 3.2.x, `3.2.7` (not the

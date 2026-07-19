@@ -656,3 +656,31 @@ suite returns to fully green.
 **Real issue caught during the pass:** the golden-path `computeDocumentRows` unit test first asserted
 Western digit grouping (`100,000`); the app renders Indian grouping (`1,00,000`) via `toLocaleString('en-IN')`
 — the assertion was corrected to the real locale output, not the reverse.
+
+## Week 22 — SaaS subscription billing (Razorpay, ADR-0034), 2026-07-18
+
+Wired real payment collection: a 14-day trial seeded at org creation, a DB-enforced soft block, the
+`billing-service` + signature-verified `razorpay-webhook` functions, and the Billing UI. Built and
+verified locally against dev source.
+
+### Build/test run (green)
+
+| Suite | Count | Result |
+| --- | --- | --- |
+| `npm run build` (tsc + vite) | — | ✅ clean (216 modules) |
+| `npm run lint` (oxlint) | 99 files | ✅ 0/0 |
+| Unit (`npm test`) incl. new `subscription.test.ts` | 56 | ✅ 56/56 (45 prior + 11 new billing) |
+| `billing.api.spec.ts` (TC-BILL-001/002/003) | 3 | ⏳ pending — needs the ADR-0034 schema applied to dev + the two functions deployed; runs green after (same "after dev apply" cadence as TC-PUBLIC-001) |
+
+### Before → after
+
+| Concern | Before | After |
+| --- | --- | --- |
+| Collect money from clients | ❌ scaffold only (calculated, never charged) | ✅ Razorpay subscription (test mode verified end-to-end) |
+| Trial on-ramp | none | 14-day trial auto-seeded at org creation |
+| Non-payer handling | none | soft block — read stays open, creation refused (DB trigger) |
+| Existing tenants/QA/demos | n/a | backfilled `active` — none soft-blocked |
+
+**Deliberately-manual (ADR-0034):** TC-BILL-004 (expired-trial *blocks* insert) — the anon-only E2E
+harness can't force an expired-trial state; covered by the `subscription_active` unit cases + a
+scripted/manual check.

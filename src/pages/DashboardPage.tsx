@@ -19,6 +19,7 @@ import OrgSettingsPage from '../components/OrgSettingsPage'
 import IntegrationsPage from '../components/IntegrationsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import OnboardingChecklist from '../components/OnboardingChecklist'
+import SubscriptionBanner from '../components/SubscriptionBanner'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
 import { T } from '../theme/tokens'
 
@@ -114,6 +115,7 @@ export default function DashboardPage() {
       />
 
       <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <SubscriptionBanner org={currentOrg} onGoToBilling={() => setNavPage('settings')} />
         <header
           style={{
             height: 64,

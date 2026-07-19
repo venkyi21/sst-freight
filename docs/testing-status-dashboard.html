@@ -239,10 +239,10 @@
     <h2 class="chapter-title">§02 — Application-wide rollup</h2>
     <div class="scorecard">
       <div class="cell"><div class="num ok">8 / 8</div><div class="lbl">Testing types with committed automated test code — Unit (CI-gated) plus Integration, System, Acceptance/E2E, Performance, Load, Stress and Security (committed, run on-demand, ADR-0032/0033). Stress closed by `npm run test:stress`</div></div>
-      <div class="cell"><div class="num ok">19 / 19</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 18 fully verified, 1 partial</div></div>
-      <div class="cell"><div class="num pending">12 / 19</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
-      <div class="cell"><div class="num info">18 / 19</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
-      <div class="cell"><div class="num info">8 / 19</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
+      <div class="cell"><div class="num ok">20 / 20</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 19 fully verified, 1 partial</div></div>
+      <div class="cell"><div class="num pending">12 / 20</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
+      <div class="cell"><div class="num info">19 / 20</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
+      <div class="cell"><div class="num info">8 / 20</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
       <div class="cell"><div class="num ok">250+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md — incl. Week 20–21's committed suite: 51 Playwright + golden path + smoke and 45 unit tests, Week 19's tier + theme passes)</div></div>
       <div class="cell"><div class="num ok">41 / 41</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4 + 3 + 2 + 1)</div></div>
       <div class="cell"><div class="num ok">0</div><div class="lbl">Race gap closed Week 19 (ADR-0030); testing-infra gaps closed Week 20 (ADR-0032). Week 21 (ADR-0033) completed all four quadrants: every catalog row automated except 3 labelled external-service rows; load+stress measured; exploratory tracked; catalog expressed Given/When/Then</div></div>
@@ -724,6 +724,29 @@
         </dl>
       </div>
 
+      <!-- FR-20 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-20</span><span class="fr-name">SaaS Subscription Billing</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Unit</dt><dd>Automated (ADR-0026 pattern) — <code>src/lib/subscription.test.ts</code>, 11 tests: the <code>subscription_active</code> predicate across every state (active, trialing-future, trialing-expired, past_due, cancelled, missing), trial-days-left rounding, status chip labels, and the Razorpay event→status mapping (mirrors the webhook function). Runs in CI.</dd>
+          <dt>Integration / System</dt><dd>Committed — <code>tests/e2e/functional/billing.api.spec.ts</code> (TC-BILL-001/002/003), verified against dev after deploy: a backfilled org is <code>active</code> and can create records (soft-block trigger allows); a newly created org auto-starts a 14-day trial; the razorpay-webhook rejects a forged <code>X-Razorpay-Signature</code> with 401. Full E2E suite (56) stays green — the trigger causes no regression.</dd>
+          <dt>Security</dt><dd>Webhook HMAC-SHA256 signature verified before any write (forged signature → 401, proven live); <code>subscriptions</code> has no client write grant (read-only RLS); <code>apply_razorpay_event</code> is anon-callable only after signature verification, idempotent, and matches only an existing razorpay id (can't touch a trial or grant access); billing RPCs are Owner/Admin-gated; existing tenants/QA/demos backfilled <code>active</code> so none are wrongly blocked.</dd>
+          <dt>Gaps</dt><dd>Acceptance is ◐: the real subscribe→pay→webhook→active flow is verified in Razorpay <em>test mode</em> manually, but there's no committed <em>browser</em> acceptance spec for the subscribe UI journey, and no formal UAT persona pass yet. TC-BILL-004 (expired-trial <em>blocks</em> insert) is <code>manual*</code> — the anon-only harness can't force an expired-trial state (ADR-0034). No perf/load/stress. Deferred (ADR-0034/tech-debt): per-seat auto-sync, multi-tier upgrade/downgrade, dunning, platform-side GST invoices, hard lockout.</dd>
+        </dl>
+      </div>
+
     </div>
 
     <div class="legend">
@@ -736,8 +759,8 @@
 
   <footer class="doc-footer">
     <div>SST Freight · Internal engineering doc · Not for distribution</div>
-    <div>19 modules · 8 testing types + QAT + UAT</div>
-    <div id="last-synced">Last synced · 18 Jul 2026</div>
+    <div>20 modules · 8 testing types + QAT + UAT</div>
+    <div id="last-synced">Last synced · 19 Jul 2026</div>
   </footer>
 
 </div>

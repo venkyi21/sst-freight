@@ -473,6 +473,29 @@ left open.
   stress profile — see the caveats in `docs/perf-baseline.md`. The srs §3 read-path target at ≤ 20
   concurrent is measured with wide margin.
 
+## SaaS subscription billing (Week 22, ADR-0034)
+
+Shipped as a deliberate MVP — enough to actually collect money self-serve — with these accepted,
+documented limitations:
+
+- **One plan only.** Starter (₹2,000/seat/month) is the sole Razorpay Plan wired in. Pro / Customs
+  tiers, and any upgrade/downgrade with proration, are deferred — a business choice to reach first
+  revenue fast, not a technical block.
+- **Seat quantity is set at subscribe time, not auto-synced.** Adding/removing members later does
+  not re-price the live Razorpay subscription; closing this means a seat-change → Razorpay
+  subscription-update call.
+- **Soft gating only, by decision.** Trial-end/payment-failure blocks *creating* records but never
+  hides data or locks login (ADR-0034). No hard lockout, no dunning/reminder emails, no grace-period
+  ladder — a churn/goodwill trade-off, revisit with real conversion data.
+- **Status has webhook latency.** Cancel/upgrade reflect on the next Razorpay webhook, not
+  instantly; the app trusts the webhook as the source of truth for status.
+- **No platform-side GST invoice for SST's own charges.** Razorpay handles the client's payment
+  receipt; SST issuing its *own* GST tax invoice to each subscriber (distinct from the org's freight
+  invoices to *their* clients) is not built — needed for live Indian compliance at scale.
+- **Expired-trial block isn't in the committed E2E suite.** The anon-only harness can't force an
+  expired-trial state (no service-role key); the predicate is unit-covered and the block is verified
+  manually/scripted (`manual*` TC-BILL-004) — same reasoning class as ADR-0033's external set.
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in

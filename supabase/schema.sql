@@ -948,6 +948,12 @@ begin
   insert into memberships (user_id, org_id, role)
   values (auth.uid(), v_org.id, 'owner');
 
+  -- Week 22 (ADR-0034): every new org starts a 14-day free trial. subscription_active() treats a
+  -- trialing org as active until trial_ends_at passes, so the soft-block trigger lets them work
+  -- immediately; after 14 days they must subscribe (billing-service) to keep creating records.
+  insert into subscriptions (org_id, status, trial_ends_at)
+  values (v_org.id, 'trialing', now() + interval '14 days');
+
   return v_org;
 end;
 $$;
@@ -2338,5 +2344,173 @@ begin
   return v_shipment;
 end;
 $$;
+
+-- ============================================================================================
+-- Week 22 (ADR-0034) — SaaS subscription billing (Razorpay). One subscription row per org: a
+-- 14-day free trial on creation, then a monthly per-seat subscription. subscription_active()
+-- drives a SOFT BLOCK — reads always stay open, but creating new records is refused once the
+-- trial lapses or a payment fails. Self-contained + re-runnable (table, helper, trigger, RPCs,
+-- backfill, grants) so this whole section can be applied as one snippet. Razorpay is called from
+-- the billing-service Edge Function; the razorpay-webhook function verifies the HMAC signature
+-- and then calls apply_razorpay_event(). Colocated grants at the end, same style as ADR-0029.
+-- ============================================================================================
+
+create table if not exists subscriptions (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null unique references organizations (id) on delete cascade,
+  status text not null default 'trialing' check (status in ('trialing', 'active', 'past_due', 'cancelled')),
+  plan_tier text not null default 'starter',
+  seats int not null default 1,
+  razorpay_customer_id text,
+  razorpay_subscription_id text,
+  trial_ends_at timestamptz,
+  current_period_end timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists subscriptions_org_id_idx on subscriptions (org_id);
+create index if not exists subscriptions_rzp_sub_idx on subscriptions (razorpay_subscription_id);
+alter table subscriptions enable row level security;
+
+-- Members may READ their org's subscription (billing screen + soft-block banner). No client write
+-- grant at all — only create_organization (definer), the billing-service definer RPCs, and
+-- apply_razorpay_event (definer, called by the signature-verified webhook) ever write it. Same
+-- shape as api_keys/audit_log.
+drop policy if exists "members can view their org subscription" on subscriptions;
+create policy "members can view their org subscription"
+  on subscriptions for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+-- subscription_active: the soft-block predicate. A trial counts as active until trial_ends_at
+-- passes; a live paid subscription counts as active; past_due/cancelled/absent do not. Computed on
+-- read, so an expired trial needs no cron to flip — it stops being active the instant now() passes
+-- trial_ends_at.
+create or replace function subscription_active(p_org_id uuid)
+returns boolean
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select exists (
+    select 1 from subscriptions s
+    where s.org_id = p_org_id
+      and (s.status = 'active' or (s.status = 'trialing' and now() < s.trial_ends_at))
+  );
+$$;
+
+-- org_seat_count: authoritative seat count for per-seat billing. Needed as a definer because the
+-- memberships RLS policy only lets a user see their OWN row (a JWT-scoped count would always return
+-- 1). billing-service reads this to set the Razorpay subscription quantity.
+create or replace function org_seat_count(p_org_id uuid)
+returns int
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select count(*)::int from memberships where org_id = p_org_id;
+$$;
+
+-- enforce_subscription_active: BEFORE INSERT backstop on the core client-write tables. The frontend
+-- also disables create buttons and shows a banner, but this makes the soft block real — a raw
+-- client .insert() is refused too. Reads are never gated (view your data anytime); only creation
+-- is blocked. A missing subscription row is treated as inactive (shouldn't happen —
+-- create_organization always seeds one and the backfill below covers pre-existing orgs).
+create or replace function enforce_subscription_active()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not subscription_active(new.org_id) then
+    raise exception 'Subscription inactive — please subscribe to continue' using errcode = 'P0001';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists shipments_require_subscription on shipments;
+create trigger shipments_require_subscription before insert on shipments for each row execute function enforce_subscription_active();
+drop trigger if exists quotes_require_subscription on quotes;
+create trigger quotes_require_subscription before insert on quotes for each row execute function enforce_subscription_active();
+drop trigger if exists invoices_require_subscription on invoices;
+create trigger invoices_require_subscription before insert on invoices for each row execute function enforce_subscription_active();
+drop trigger if exists contacts_require_subscription on contacts;
+create trigger contacts_require_subscription before insert on contacts for each row execute function enforce_subscription_active();
+drop trigger if exists customs_filings_require_subscription on customs_filings;
+create trigger customs_filings_require_subscription before insert on customs_filings for each row execute function enforce_subscription_active();
+drop trigger if exists tariffs_require_subscription on tariffs;
+create trigger tariffs_require_subscription before insert on tariffs for each row execute function enforce_subscription_active();
+
+-- apply_razorpay_event: the ONLY subscription-lifecycle write path from the webhook. Granted to
+-- anon because the razorpay-webhook Edge Function has already verified the HMAC signature before
+-- calling it (same trust model as ADR-0029's key-resolved-in-definer-RPC). Idempotent — re-applying
+-- the same status/period is a harmless no-op. Matches only an existing razorpay_subscription_id, so
+-- a stray anon call can at most move a real subscription between the known paid states; it can never
+-- create access or touch a trial (trials have no razorpay_subscription_id yet).
+create or replace function apply_razorpay_event(
+  p_razorpay_subscription_id text,
+  p_status text,
+  p_current_period_end timestamptz default null
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if p_status not in ('active', 'past_due', 'cancelled') then
+    raise exception 'Unknown subscription status %', p_status;
+  end if;
+  update subscriptions
+    set status = p_status,
+        current_period_end = coalesce(p_current_period_end, current_period_end),
+        updated_at = now()
+    where razorpay_subscription_id = p_razorpay_subscription_id;
+end;
+$$;
+
+-- set_subscription_razorpay_ids: billing-service (owner-checked) stores the Razorpay customer/
+-- subscription ids right after creating the subscription, so the webhook can match later events by
+-- razorpay_subscription_id. subscriptions has no client write grant, so this definer RPC is the
+-- only way the (JWT-scoped) Edge Function can persist them.
+create or replace function set_subscription_razorpay_ids(
+  p_org_id uuid,
+  p_customer_id text,
+  p_subscription_id text,
+  p_seats int
+)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_org_admin(p_org_id) then
+    raise exception 'Only an Owner or Admin can manage billing';
+  end if;
+  update subscriptions
+    set razorpay_customer_id = p_customer_id,
+        razorpay_subscription_id = p_subscription_id,
+        seats = greatest(p_seats, 1),
+        updated_at = now()
+    where org_id = p_org_id;
+end;
+$$;
+
+-- Backfill: every org that predates this table gets an ACTIVE subscription, so existing tenants, QA
+-- identities and demo orgs are never soft-blocked by the new trigger. Orgs created after this point
+-- start on a 14-day trial via create_organization(). Idempotent — only fills orgs with no row yet.
+insert into subscriptions (org_id, status, trial_ends_at)
+select o.id, 'active', null from organizations o
+where not exists (select 1 from subscriptions s where s.org_id = o.id);
+
+grant select on subscriptions to authenticated;
+grant execute on function subscription_active(uuid) to anon, authenticated;
+grant execute on function org_seat_count(uuid) to authenticated;
+grant execute on function apply_razorpay_event(text, text, timestamptz) to anon, authenticated;
+grant execute on function set_subscription_razorpay_ids(uuid, text, text, int) to authenticated;
 
 grant execute on function convert_quote_to_shipment(uuid) to authenticated;

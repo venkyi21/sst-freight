@@ -557,6 +557,33 @@ built.
     `#/integrations` navigation shows a clear not-authorized explanation with zero key/secret
     material in the DOM.
 
+### FR-20: SaaS Subscription Billing (Week 22, ADR-0034)
+
+- **US-20.1** — As a new organization, I get a **14-day free trial** the moment I'm created, so I
+  can use the whole product before paying.
+  - AC (verified 2026-07-18, `functional/billing.api.spec.ts` TC-BILL-002): a freshly created org
+    has a `trialing` subscription row with `trial_ends_at` ~14 days out; during the trial,
+    `subscription_active` is true and record creation is permitted (TC-BILL-001).
+- **US-20.2** — As an Owner/Admin, I can start a monthly subscription (Starter, ₹2,000/seat/month)
+  and pay via Razorpay (UPI AutoPay / card / netbanking), and cancel it.
+  - AC (verified in Razorpay **test mode**, dev): "Subscribe" creates a Razorpay subscription with
+    `quantity` = the org's seat count and redirects to Razorpay's hosted authorization page; on a
+    successful test payment the `subscription.charged` webhook flips status to `active`.
+  - AC: a plain Member cannot start or cancel billing — `billing-service` rejects non-owner/admin
+    callers server-side (not just a hidden button).
+- **US-20.3** — As any user, if my org's trial ends (or a payment fails) I can **still log in and
+  see all my data**, but I can't create new bookings/quotes/invoices until we subscribe — a banner
+  tells me why.
+  - AC (verified 2026-07-18): the soft block is a `BEFORE INSERT` trigger on the six core write
+    tables driven by `subscription_active()`; an inactive org's raw `.insert()` is refused with
+    `Subscription inactive — please subscribe to continue` (reads never gated). The predicate is
+    unit-covered for every state (`src/lib/subscription.test.ts`). The expired-trial *block* is
+    verified via those unit tests + a manual/scripted check, not the anon-only E2E harness
+    (ADR-0034 testing note).
+  - AC (verified 2026-07-18): the `razorpay-webhook` rejects a forged/absent `X-Razorpay-Signature`
+    with `401` before writing anything (TC-BILL-003); pre-existing tenants, QA identities and demo
+    orgs were **backfilled `active`** so none are soft-blocked.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

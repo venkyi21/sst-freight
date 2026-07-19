@@ -73,6 +73,15 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `list_webhook_deliveries(p_org_id uuid, p_endpoint_id uuid default null, p_limit int default 50)` | `table (id uuid, endpoint_id uuid, event_type text, status text, attempts int, last_status_code int, last_error text, next_attempt_at timestamptz, delivered_at timestamptz, created_at timestamptz)` | `authenticated` |
 | `send_test_webhook(p_endpoint_id uuid)` | `void` | `authenticated` |
 | `convert_quote_to_shipment(p_quote_id uuid)` | `shipments` | `authenticated` |
+| `subscription_active(p_org_id uuid)` | `boolean` | `anon`, `authenticated` |
+| `org_seat_count(p_org_id uuid)` | `int` | `authenticated` |
+| `apply_razorpay_event(p_razorpay_subscription_id text,
+  p_status text,
+  p_current_period_end timestamptz default null)` | `void` | `anon`, `authenticated` |
+| `set_subscription_razorpay_ids(p_org_id uuid,
+  p_customer_id text,
+  p_subscription_id text,
+  p_seats int)` | `void` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -418,3 +427,43 @@ dashboard logs — the module's server-side observability trail.
 
 Actions `send` / `status`; exists because RS256 signing has no path inside Postgres. See
 ADR-0020 — its auth model is the template `quotes-service` follows.
+
+### `billing-service` — SaaS subscription billing (Week 22, ADR-0034)
+
+| `action` | Body fields | Behavior |
+| --- | --- | --- |
+| `create_subscription` | `orgId` | Owner/Admin only. Reads the authoritative seat count via `org_seat_count`, creates a Razorpay subscription against `RAZORPAY_PLAN_ID` (`quantity = seats`), persists the Razorpay ids through `set_subscription_razorpay_ids`, and returns `{ shortUrl }` — the Razorpay hosted page where the owner approves the recurring mandate. |
+| `cancel_subscription` | `orgId` | Owner/Admin only. Cancels the Razorpay subscription; the status flip to `cancelled` arrives via the webhook. |
+
+### `razorpay-webhook` — subscription status source of truth (ADR-0034)
+
+**Not** invoked from the app — Razorpay calls it, so it is deployed with **Verify JWT OFF**. It
+verifies the `X-Razorpay-Signature` HMAC-SHA256 against `RAZORPAY_WEBHOOK_SECRET` and only then
+calls `apply_razorpay_event`. A forged/absent signature is rejected `401` before anything is
+written. Maps `subscription.activated`/`.charged`/`.resumed` → `active`, `.pending`/`.halted` →
+`past_due`, `.cancelled`/`.completed` → `cancelled`; other events are acknowledged `200` and
+ignored.
+
+## Subscription billing helpers (Week 22, ADR-0034)
+
+### `subscription_active(p_org_id uuid) → boolean`
+
+The soft-block predicate: `true` when the org's subscription is `active`, or `trialing` with
+`now() < trial_ends_at`. `SECURITY DEFINER`, granted to `anon`+`authenticated`. Enforced by the
+`enforce_subscription_active()` `BEFORE INSERT` trigger on `shipments` / `quotes` / `invoices` /
+`contacts` / `customs_filings` / `tariffs` — a raw `.insert()` from an inactive org is refused with
+`Subscription inactive — please subscribe to continue`. Reads are never gated.
+
+### `apply_razorpay_event(p_razorpay_subscription_id text, p_status text, p_current_period_end timestamptz default null)`
+
+The **only** subscription-lifecycle write path from the webhook. Granted to `anon` because the
+`razorpay-webhook` function has already verified the signature (ADR-0029 trust model). Idempotent,
+and matches only an existing `razorpay_subscription_id`, so a stray anon call can at most move a
+real paid subscription between the known states — never touch a trial or grant access.
+
+### `set_subscription_razorpay_ids(...)` / `org_seat_count(p_org_id uuid) → int`
+
+`set_subscription_razorpay_ids` (Owner/Admin-gated) lets `billing-service` persist the Razorpay
+customer/subscription ids (the `subscriptions` table has no client write grant). `org_seat_count`
+is a definer counter used for per-seat quantity — needed because the `memberships` RLS policy only
+lets a user see their own row, so a JWT-scoped count would always return 1.
