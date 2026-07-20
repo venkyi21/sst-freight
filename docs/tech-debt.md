@@ -496,6 +496,22 @@ documented limitations:
   expired-trial state (no service-role key); the predicate is unit-covered and the block is verified
   manually/scripted (`manual*` TC-BILL-004) — same reasoning class as ADR-0033's external set.
 
+## Trial-communication emails (Week 22b, ADR-0035)
+
+- **Email HTML lives as strings in a SQL function** (`send_due_trial_reminders`). Fine for three
+  short templates; if templating gets rich (branding, layout), move it to an Edge Function.
+- **Real client delivery needs a Resend-verified sending domain.** In dev, Resend only delivers to
+  the account owner's own address, so end-to-end testing emails yourself. The `v_from` address is
+  hard-coded to `onboarding@resend.dev` — update it to the verified domain once one exists (ties to
+  the GTM "get a domain" step).
+- **No unsubscribe link and no per-org template customization.** Acceptable for transactional trial
+  nudges to the owner (not marketing blasts), but revisit before any broader email use.
+- **Welcome is in-app only** (the `WelcomeNudge` card) — no welcome *email*. Could add one to
+  `send_due_trial_reminders` (a `welcome` milestone on first run) later.
+- **Milestone logic is SQL, not the unit-tested TS layer**, so it's verified by a scripted/manual
+  SQL-editor run (`select send_due_trial_reminders()` after setting a trial date) rather than a
+  committed unit test — same `manual*` reasoning as the external-service set (ADR-0033).
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in

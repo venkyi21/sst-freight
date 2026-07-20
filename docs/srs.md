@@ -593,6 +593,16 @@ built.
     page errors) and the show/hide predicate `shouldShowTrialBadge` is unit-covered for every state
     (`src/lib/subscription.test.ts`). A one-time, dismissible welcome card appears on the Dashboard
     for a freshly-created trialing org (dismissal persists per org in `localStorage`).
+- **US-20.5** — As a trialing owner, I receive **reminder emails** while my trial runs (day 7
+  "halfway", day 2 "ending soon", and "ended"), so I don't let it lapse by forgetting (Phase B of
+  ADR-0035's trial communication).
+  - AC: a daily `pg_cron` job (`send_due_trial_reminders`) emails the org owner once per milestone
+    via Resend, recorded in `subscriptions.reminders_sent` so none repeats; the schema applies as a
+    safe no-op until the `resend_api_key` Vault secret is configured.
+  - AC (**target, not yet measured** — depends on a Resend account + verified domain): with the key
+    set, a trialing sub whose `trial_ends_at` crosses a milestone gets exactly one email; re-running
+    the job sends nothing. Verified by a scripted SQL-editor run (`manual*`, ADR-0035) — real client
+    delivery needs a verified sending domain (dev delivers only to the account owner's address).
 
 ## 3. Non-Functional Requirements
 

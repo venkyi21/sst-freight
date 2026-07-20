@@ -52,5 +52,6 @@ re-litigate or quietly contradict a decision that was already made deliberately,
 | [0032](0032-committed-e2e-layer-and-test-catalog.md) | Committed on-demand Playwright E2E/functional layer; plain-English test catalog with stable IDs; recorded NFR baseline | Accepted |
 | [0033](0033-completing-the-agile-testing-quadrants.md) | Completing the Agile Testing quadrants: page-render smoke layer, Given/When/Then catalog, load/stress baseline, tracked exploratory sessions | Accepted |
 | [0034](0034-saas-subscription-billing-razorpay.md) | SaaS subscription billing via Razorpay: 14-day trial seeded at org creation, DB-enforced soft block (subscription_active trigger), billing-service + signature-verified razorpay-webhook | Accepted |
+| [0035](0035-trial-communication-emails.md) | Trial-communication emails (loud-trial Phase B): daily pg_cron job emails the owner at day7/day2/ended via Resend (http extension + one Vault secret), tracked in subscriptions.reminders_sent | Accepted |
 
 Use [0000-template.md](0000-template.md) as the starting point for a new ADR.

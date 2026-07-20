@@ -82,6 +82,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
   p_customer_id text,
   p_subscription_id text,
   p_seats int)` | `void` | `authenticated` |
+| `send_due_trial_reminders()` | `int` | _(no grant found)_ |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -467,3 +468,12 @@ real paid subscription between the known states — never touch a trial or grant
 customer/subscription ids (the `subscriptions` table has no client write grant). `org_seat_count`
 is a definer counter used for per-seat quantity — needed because the `memberships` RLS policy only
 lets a user see their own row, so a JWT-scoped count would always return 1.
+
+### `send_due_trial_reminders() → int` (cron-only, ADR-0035)
+
+**Not client-callable** (no grant) — run only by the daily `pg_cron` job
+`trial-reminders` (or a manual `select send_due_trial_reminders();` in the SQL editor for testing).
+Emails the org owner at trial milestones (day-7 / day-2 / ended) via the Resend API (`http`
+extension), recording each in `subscriptions.reminders_sent` so none repeats. Reads the Resend key
+from **Supabase Vault** (`resend_api_key`); until that secret exists it's a safe no-op returning 0.
+Returns the number of emails sent. See `docs/migration-runbook.md` for the one-time Vault setup.

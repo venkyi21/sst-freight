@@ -684,3 +684,18 @@ verified locally against dev source.
 **Deliberately-manual (ADR-0034):** TC-BILL-004 (expired-trial *blocks* insert) — the anon-only E2E
 harness can't force an expired-trial state; covered by the `subscription_active` unit cases + a
 scripted/manual check.
+
+## Week 22b — Loud trial: in-app visibility + reminder emails (ADR-0035), 2026-07-19
+
+**Phase A (in-app visibility)** — shipped and verified: `shouldShowTrialBadge` unit-covered for every
+state (13 subscription unit tests), the header badge hidden-path verified live (TC-BILL-005, active
+org shows no badge, zero page errors), build/lint/56→58 unit + docs green. Committed 614ffba.
+
+**Phase B (reminder emails)** — built and deployed to dev (schema `reminders_sent` + cron function
+`send_due_trial_reminders` + daily `pg_cron` job; Resend key stored in Vault). The end-to-end
+send is `manual*` (TC-BILL-006) — verified by a scripted SQL-editor run
+(`select send_due_trial_reminders()` after setting a trial milestone date). **Status: pipeline
+applied to dev; a real test email delivery is pending final confirmation** (dev-mode Resend delivers
+only to the account owner's own address; real client email needs a verified sending domain — a GTM
+step). Recorded honestly as *not yet delivery-confirmed*, per this project's "never aspirational"
+rule.

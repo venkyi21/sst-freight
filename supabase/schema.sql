@@ -2513,4 +2513,99 @@ grant execute on function org_seat_count(uuid) to authenticated;
 grant execute on function apply_razorpay_event(text, text, timestamptz) to anon, authenticated;
 grant execute on function set_subscription_razorpay_ids(uuid, text, text, int) to authenticated;
 
+-- ============================================================================================
+-- Week 22b (ADR-0035) — Trial-communication emails (Phase B of the "loud trial"). A daily pg_cron
+-- job emails the org owner at trial milestones (day7 / day2 / ended) via Resend, recorded in
+-- subscriptions.reminders_sent so none repeats. All-DB (http extension + Vault), the exact shape as
+-- the webhook delivery (deliver_pending_webhooks) — no Edge Function, and just ONE Vault secret to
+-- configure. Not client-callable (no grant) — only the pg_cron job (or a manual `select` in the SQL
+-- editor) runs it.
+--
+-- SETUP (one-time per project, NEVER committed — a secret): create a free Resend account, then in
+-- the SQL editor run:
+--   select vault.create_secret('<resend api key>', 'resend_api_key', 'Resend key for trial emails');
+-- Until that secret exists, send_due_trial_reminders() is a safe no-op, so this section applies fine
+-- before Resend is set up. Real client email also needs a Resend-verified sending DOMAIN (in dev,
+-- Resend only delivers to your own account address); once verified, change v_from to your domain.
+-- ============================================================================================
+
+alter table subscriptions add column if not exists reminders_sent text[] not null default '{}';
+
+create or replace function send_due_trial_reminders()
+returns int
+language plpgsql
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_key text;
+  v_from text := 'SST Freight <onboarding@resend.dev>';
+  v_row record;
+  v_days int;
+  v_milestone text;
+  v_email text;
+  v_subject text;
+  v_html text;
+  v_count int := 0;
+begin
+  select decrypted_secret into v_key from vault.decrypted_secrets where name = 'resend_api_key';
+  if v_key is null then
+    return 0;  -- email provider not configured yet — safe no-op
+  end if;
+
+  for v_row in
+    select s.id, s.org_id, s.trial_ends_at, s.reminders_sent, o.name as org_name
+    from subscriptions s join organizations o on o.id = s.org_id
+    where s.status = 'trialing' and s.trial_ends_at is not null
+  loop
+    v_days := ceil(extract(epoch from (v_row.trial_ends_at - now())) / 86400.0)::int;
+    v_milestone := null;
+    if now() >= v_row.trial_ends_at and not ('ended' = any(v_row.reminders_sent)) then
+      v_milestone := 'ended';
+    elsif now() < v_row.trial_ends_at and v_days <= 2 and not ('day2' = any(v_row.reminders_sent)) then
+      v_milestone := 'day2';
+    elsif now() < v_row.trial_ends_at and v_days <= 7 and not ('day7' = any(v_row.reminders_sent)) then
+      v_milestone := 'day7';
+    end if;
+    continue when v_milestone is null;
+
+    -- the org owner is the recipient (definer can read auth.users)
+    select u.email into v_email
+    from memberships m join auth.users u on u.id = m.user_id
+    where m.org_id = v_row.org_id and m.role = 'owner'
+    order by m.created_at asc limit 1;
+    continue when v_email is null;
+
+    if v_milestone = 'ended' then
+      v_subject := 'Your SST Freight trial has ended';
+      v_html := '<p>Hi,</p><p>Your 14-day free trial for <b>' || v_row.org_name || '</b> has ended. Your data is safe — subscribe to keep creating bookings, quotes and invoices from Settings &rarr; Billing.</p><p>— SST Freight</p>';
+    elsif v_milestone = 'day2' then
+      v_subject := 'Your SST Freight trial ends in 2 days';
+      v_html := '<p>Hi,</p><p>Just <b>2 days left</b> on your <b>' || v_row.org_name || '</b> trial. Subscribe now to avoid any interruption — Settings &rarr; Billing.</p><p>— SST Freight</p>';
+    else
+      v_subject := 'You''re halfway through your SST Freight trial';
+      v_html := '<p>Hi,</p><p>You''re about a week into your <b>' || v_row.org_name || '</b> free trial. Explore reporting, customs filings and multi-currency invoicing — subscribe anytime from Settings &rarr; Billing.</p><p>— SST Freight</p>';
+    end if;
+
+    perform http((
+      'POST',
+      'https://api.resend.com/emails',
+      ARRAY[http_header('Authorization', 'Bearer ' || v_key)],
+      'application/json',
+      jsonb_build_object('from', v_from, 'to', v_email, 'subject', v_subject, 'html', v_html)::text
+    )::http_request);
+
+    update subscriptions set reminders_sent = array_append(reminders_sent, v_milestone), updated_at = now()
+      where id = v_row.id;
+    v_count := v_count + 1;
+  end loop;
+
+  return v_count;
+end;
+$$;
+
+-- Daily at 09:00 UTC. cron.schedule upserts by job name (idempotent). Requires pg_cron (already
+-- enabled for the webhook poller).
+select cron.schedule('trial-reminders', '0 9 * * *', $$select send_due_trial_reminders()$$);
+
 grant execute on function convert_quote_to_shipment(uuid) to authenticated;

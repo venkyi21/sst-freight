@@ -168,6 +168,7 @@ pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelop
 | TC-BILL-003 | neg | a forged `X-Razorpay-Signature` | the razorpay-webhook is called | it is rejected `401` before any status write | ✅ `functional/billing.api.spec.ts` |
 | TC-BILL-004 | edge | an org whose trial has expired | a raw `.insert()` is attempted | it is blocked with `Subscription inactive…` | manual* — the anon-only E2E harness can't force an expired-trial state (no service role); covered by `src/lib/subscription.test.ts` unit cases + a scripted/manual check (ADR-0034) |
 | TC-BILL-005 | happy | an active org (backfilled) | the app loads | no `Trial · N days` badge or `Payment due` shows in the header and the dashboard renders with zero page errors (the trialing SHOW-path is unit-covered + manual) | ✅ `functional/billing.ui.spec.ts` |
+| TC-BILL-006 | obs | a trialing sub past a milestone (day7/day2/ended) with `resend_api_key` in Vault | `send_due_trial_reminders()` runs | exactly one Resend email to the owner, the milestone is appended to `reminders_sent`, and a re-run sends nothing | manual* — external service (Resend) + cron; verified by a scripted SQL-editor run (ADR-0035), dev delivers only to the account owner's address |
 
 ## SMOKE — Page-render layer (ADR-0033)
 
