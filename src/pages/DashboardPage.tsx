@@ -20,6 +20,8 @@ import IntegrationsPage from '../components/IntegrationsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import OnboardingChecklist from '../components/OnboardingChecklist'
 import SubscriptionBanner from '../components/SubscriptionBanner'
+import TrialBadge from '../components/TrialBadge'
+import WelcomeNudge from '../components/WelcomeNudge'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
 import { T } from '../theme/tokens'
 
@@ -147,6 +149,7 @@ export default function DashboardPage() {
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <TrialBadge orgId={currentOrg.id} onClick={() => setNavPage('settings')} />
             <span
               style={{
                 fontSize: 11,
@@ -181,6 +184,7 @@ export default function DashboardPage() {
 
         {navPage === 'dashboard' && (
           <div style={{ padding: '28px 32px', flex: 1 }}>
+            <WelcomeNudge orgId={currentOrg.id} onGoToBilling={() => setNavPage('settings')} />
             {user && <OnboardingChecklist orgId={currentOrg.id} userId={user.id} onNavigate={setNavPage} />}
             <div
               style={{

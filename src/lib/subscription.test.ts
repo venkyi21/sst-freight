@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { isSubscriptionActive, mapRazorpayEventToStatus, subscriptionChip, trialDaysLeft } from './subscription'
+import { isSubscriptionActive, mapRazorpayEventToStatus, shouldShowTrialBadge, subscriptionChip, trialDaysLeft } from './subscription'
 import type { Subscription } from '../types/billing'
 
 const NOW = new Date('2026-07-18T12:00:00Z')
@@ -67,6 +67,19 @@ describe('subscriptionChip', () => {
     })
     expect(subscriptionChip(sub({ status: 'past_due' }), NOW).label).toBe('Payment due')
     expect(subscriptionChip(null, NOW)).toEqual({ label: 'No subscription', tone: 'muted' })
+  })
+})
+
+describe('shouldShowTrialBadge (the header nag only appears when attention is needed)', () => {
+  it('shows for trialing and past_due', () => {
+    expect(shouldShowTrialBadge(sub({ status: 'trialing' }))).toBe(true)
+    expect(shouldShowTrialBadge(sub({ status: 'past_due' }))).toBe(true)
+  })
+  it('hides for active, cancelled, and missing', () => {
+    expect(shouldShowTrialBadge(sub({ status: 'active' }))).toBe(false)
+    expect(shouldShowTrialBadge(sub({ status: 'cancelled' }))).toBe(false)
+    expect(shouldShowTrialBadge(null)).toBe(false)
+    expect(shouldShowTrialBadge(undefined)).toBe(false)
   })
 })
 

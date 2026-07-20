@@ -583,6 +583,16 @@ built.
   - AC (verified 2026-07-18): the `razorpay-webhook` rejects a forged/absent `X-Razorpay-Signature`
     with `401` before writing anything (TC-BILL-003); pre-existing tenants, QA identities and demo
     orgs were **backfilled `active`** so none are soft-blocked.
+- **US-20.4** — As a trialing user, I always **see** that I'm on a trial (a header badge with the
+  day-count on every screen) and get a **welcome** when my org is created, so the trial is never a
+  silent surprise — the "loud & communicated" trial that drives conversion (Phase A of ADR-0034's
+  trial-communication work; reminder emails are Phase B, pending an email provider).
+  - AC (verified 2026-07-19): the header shows `Trial · N days left` (amber ≤3 days) on every
+    screen while `trialing`/`past_due`, and **nothing** for an `active` org — the hide-path is
+    verified live (`functional/billing.ui.spec.ts` TC-BILL-005, an active org shows no badge, zero
+    page errors) and the show/hide predicate `shouldShowTrialBadge` is unit-covered for every state
+    (`src/lib/subscription.test.ts`). A one-time, dismissible welcome card appears on the Dashboard
+    for a freshly-created trialing org (dismissal persists per org in `localStorage`).
 
 ## 3. Non-Functional Requirements
 

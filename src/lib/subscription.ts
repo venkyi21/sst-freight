@@ -39,6 +39,13 @@ export function subscriptionChip(sub: Subscription | null, now: Date = new Date(
   return { label: 'Cancelled', tone: 'warn' }
 }
 
+// Whether to show the always-visible trial/billing badge (ADR-0034 "loud trial"): only when the
+// subscription needs attention — trialing (show the countdown) or past_due (show "Payment due").
+// An active/paid org (or a cancelled one) gets no header nag.
+export function shouldShowTrialBadge(sub: Subscription | null | undefined): boolean {
+  return sub?.status === 'trialing' || sub?.status === 'past_due'
+}
+
 // Razorpay subscription event -> our status. Kept in sync with the razorpay-webhook Edge Function's
 // mapEventToStatus (they must agree). Unknown/untracked events map to null (ignored).
 export function mapRazorpayEventToStatus(event: string): SubscriptionStatus | null {
