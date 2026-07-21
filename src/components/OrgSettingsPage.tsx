@@ -1,6 +1,7 @@
 import { useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { updateOrgBranding, updateOrgGstSettings, uploadOrgLogo } from '../api/org'
+import BillingSection from './BillingSection'
 import { INDIAN_STATES, TENANT_COLORS, type OrganizationWithRole } from '../types'
 import { T } from '../theme/tokens'
 
@@ -300,6 +301,8 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           </button>
         )}
       </div>
+
+      <BillingSection org={org} canEdit={canEdit} />
     </div>
   )
 }

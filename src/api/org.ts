@@ -16,8 +16,14 @@ export async function checkIsPlatformAdmin(): Promise<boolean> {
   return Boolean(data)
 }
 
-export async function createOrganizationRpc(name: string, color: string): Promise<{ data: Organization | null; error: string | null }> {
-  const { data, error } = await supabase.rpc('create_organization', { p_name: name, p_color: color }).single()
+export async function createOrganizationRpc(
+  name: string,
+  color: string,
+  referralCode?: string | null,
+): Promise<{ data: Organization | null; error: string | null }> {
+  const args: Record<string, unknown> = { p_name: name, p_color: color }
+  if (referralCode) args.p_referral_code = referralCode // ADR-0036: link this new org to a referrer
+  const { data, error } = await supabase.rpc('create_organization', args).single()
   return { data: (data as Organization | null) ?? null, error: error?.message ?? null }
 }
 

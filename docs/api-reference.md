@@ -42,7 +42,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `is_org_admin(check_org_id uuid)` | `boolean` | `authenticated` |
 | `is_platform_admin()` | `boolean` | `authenticated` |
 | `is_module_enabled(p_org_id uuid, p_module text)` | `boolean` | _(no grant found)_ |
-| `create_organization(p_name text, p_color text default '#2563eb')` | `organizations` | `authenticated` |
+| `create_organization(p_name text, p_color text default '#2563eb', p_referral_code text default null)` | `organizations` | `authenticated` |
 | `update_org_branding(p_org_id uuid, p_color text, p_logo_url text default null)` | `organizations` | `authenticated` |
 | `update_org_gst_settings(p_org_id uuid, p_gst_state text)` | `organizations` | `authenticated` |
 | `join_organization(p_invite_code text)` | `organizations` | `authenticated` |
@@ -73,14 +73,32 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `list_webhook_deliveries(p_org_id uuid, p_endpoint_id uuid default null, p_limit int default 50)` | `table (id uuid, endpoint_id uuid, event_type text, status text, attempts int, last_status_code int, last_error text, next_attempt_at timestamptz, delivered_at timestamptz, created_at timestamptz)` | `authenticated` |
 | `send_test_webhook(p_endpoint_id uuid)` | `void` | `authenticated` |
 | `convert_quote_to_shipment(p_quote_id uuid)` | `shipments` | `authenticated` |
+| `subscription_active(p_org_id uuid)` | `boolean` | `anon`, `authenticated` |
+| `org_seat_count(p_org_id uuid)` | `int` | `authenticated` |
+| `apply_razorpay_event(p_razorpay_subscription_id text,
+  p_status text,
+  p_current_period_end timestamptz default null)` | `void` | `anon`, `authenticated` |
+| `set_subscription_razorpay_ids(p_org_id uuid,
+  p_customer_id text,
+  p_subscription_id text,
+  p_seats int)` | `void` | `authenticated` |
+| `send_due_trial_reminders()` | `int` | _(no grant found)_ |
+| `wallet_balance(p_org_id uuid)` | `numeric` | `authenticated` |
+| `referral_plan_value_inr(p_org_id uuid)` | `numeric` | `authenticated` |
+| `apply_referral(p_referee_org uuid, p_code text)` | `void` | _(no grant found)_ |
+| `record_referral_cycle(p_razorpay_subscription_id text)` | `void` | `anon`, `authenticated` |
+| `apply_wallet_credit(p_org_id uuid, p_amount numeric)` | `void` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
 ## Organizations & membership
 
-### `create_organization(p_name text, p_color text default '#2563eb') → organizations`
+### `create_organization(p_name text, p_color text default '#2563eb', p_referral_code text default null) → organizations`
 
-Creates a new organization and makes the caller its `owner` in one transaction. Requires an
+Also seeds a 14-day trial subscription (ADR-0034), generates the org's own `referral_code`, and — if
+`p_referral_code` is passed (the caller arrived via a `?ref=` link) — calls `apply_referral` to link
+this new org to the referrer and add the +30-day referee bonus (ADR-0036; silent no-op on a bad or
+self-referral code). Creates a new organization and makes the caller its `owner` in one transaction. Requires an
 authenticated session (`auth.uid()` not null). Rejects an empty/whitespace-only name. Generates a
 unique `slug` and `invite_code` internally — neither is caller-supplied.
 
@@ -418,3 +436,76 @@ dashboard logs — the module's server-side observability trail.
 
 Actions `send` / `status`; exists because RS256 signing has no path inside Postgres. See
 ADR-0020 — its auth model is the template `quotes-service` follows.
+
+### `billing-service` — SaaS subscription billing (Week 22, ADR-0034)
+
+| `action` | Body fields | Behavior |
+| --- | --- | --- |
+| `create_subscription` | `orgId` | Owner/Admin only. Reads the authoritative seat count via `org_seat_count`, creates a Razorpay subscription against `RAZORPAY_PLAN_ID` (`quantity = seats`), persists the Razorpay ids through `set_subscription_razorpay_ids`, and returns `{ shortUrl }` — the Razorpay hosted page where the owner approves the recurring mandate. |
+| `cancel_subscription` | `orgId` | Owner/Admin only. Cancels the Razorpay subscription; the status flip to `cancelled` arrives via the webhook. |
+
+### `razorpay-webhook` — subscription status source of truth (ADR-0034)
+
+**Not** invoked from the app — Razorpay calls it, so it is deployed with **Verify JWT OFF**. It
+verifies the `X-Razorpay-Signature` HMAC-SHA256 against `RAZORPAY_WEBHOOK_SECRET` and only then
+calls `apply_razorpay_event`. A forged/absent signature is rejected `401` before anything is
+written. Maps `subscription.activated`/`.charged`/`.resumed` → `active`, `.pending`/`.halted` →
+`past_due`, `.cancelled`/`.completed` → `cancelled`; other events are acknowledged `200` and
+ignored.
+
+## Subscription billing helpers (Week 22, ADR-0034)
+
+### `subscription_active(p_org_id uuid) → boolean`
+
+The soft-block predicate: `true` when the org's subscription is `active`, or `trialing` with
+`now() < trial_ends_at`. `SECURITY DEFINER`, granted to `anon`+`authenticated`. Enforced by the
+`enforce_subscription_active()` `BEFORE INSERT` trigger on `shipments` / `quotes` / `invoices` /
+`contacts` / `customs_filings` / `tariffs` — a raw `.insert()` from an inactive org is refused with
+`Subscription inactive — please subscribe to continue`. Reads are never gated.
+
+### `apply_razorpay_event(p_razorpay_subscription_id text, p_status text, p_current_period_end timestamptz default null)`
+
+The **only** subscription-lifecycle write path from the webhook. Granted to `anon` because the
+`razorpay-webhook` function has already verified the signature (ADR-0029 trust model). Idempotent,
+and matches only an existing `razorpay_subscription_id`, so a stray anon call can at most move a
+real paid subscription between the known states — never touch a trial or grant access.
+
+### `set_subscription_razorpay_ids(...)` / `org_seat_count(p_org_id uuid) → int`
+
+`set_subscription_razorpay_ids` (Owner/Admin-gated) lets `billing-service` persist the Razorpay
+customer/subscription ids (the `subscriptions` table has no client write grant). `org_seat_count`
+is a definer counter used for per-seat quantity — needed because the `memberships` RLS policy only
+lets a user see their own row, so a JWT-scoped count would always return 1.
+
+### `send_due_trial_reminders() → int` (cron-only, ADR-0035)
+
+**Not client-callable** (no grant) — run only by the daily `pg_cron` job
+`trial-reminders` (or a manual `select send_due_trial_reminders();` in the SQL editor for testing).
+Emails the org owner at trial milestones (day-7 / day-2 / ended) via the Resend API (`http`
+extension), recording each in `subscriptions.reminders_sent` so none repeats. Reads the Resend key
+from **Supabase Vault** (`resend_api_key`); until that secret exists it's a safe no-op returning 0.
+Returns the number of emails sent. See `docs/migration-runbook.md` for the one-time Vault setup.
+
+## Referral program & wallet (Week 23, ADR-0036)
+
+Each org has a `referral_code` (distinct from `invite_code`). A `?ref=<code>` signup links the new
+org (referee) to the referrer via `apply_referral` (internal, called by `create_organization`; not
+client-granted) — the referee gets +30 trial days and a `pending` referral row.
+
+### `wallet_balance(p_org_id uuid) → numeric`
+
+Credits − debits over `wallet_transactions`. The wallet is read-only to the client (RLS select);
+it's written only by definer RPCs.
+
+### `record_referral_cycle(p_razorpay_subscription_id text)` (webhook-only)
+
+Granted to `anon` because the signature-verified `razorpay-webhook` is the only caller — invoked
+**on `subscription.charged`**. Increments the referee's `paid_cycles`; at 2, credits the referrer's
+wallet with `least(referee_plan × 15%, referrer_plan)` and marks the referral `released`.
+
+### `apply_wallet_credit(p_org_id uuid, p_amount numeric)`
+
+Owner/Admin-only. Records a **debit** (`applied_to_invoice`) up to the current balance — the
+ledger's spend side. MVP: an in-app tracked offset; the real Razorpay bill reduction is deferred
+(`docs/tech-debt.md`). `referral_plan_value_inr` returns the Starter ₹2,000 constant used for the %
+math (one plan today).

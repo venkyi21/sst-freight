@@ -25,6 +25,7 @@ test.describe('REPORT — per-user dashboard state', () => {
     const own = await ownerA
       .from('dashboard_preferences')
       .select('visible')
+      .eq('org_id', orgA.id) // scope to THIS org — a re-seeded QA user can hold prefs across old org instances
       .eq('user_id', ownerUid)
       .eq('widget_key', 'revenue_trend')
       .single()

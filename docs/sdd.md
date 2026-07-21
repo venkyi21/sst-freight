@@ -286,7 +286,25 @@ atomic multi-step operations**, hoisted into small `SECURITY DEFINER` RPCs the t
 the canonical example: a `FOR UPDATE` row lock + shipment insert + quote flip in one transaction,
 which is what finally closed ADR-0006's double-submit conversion race. Quotes is the pilot;
 `docusign-envelope` (RS256 signing DocuSign integration, ADR-0020) established the auth model this
-pattern inherits.
+pattern inherits. **`billing-service`** (Week 22, ADR-0034) is a further instance: it orchestrates
+Razorpay subscription create/cancel under the caller's JWT and persists ids through an
+owner-gated definer RPC (`set_subscription_razorpay_ids`).
+
+**Pattern C-inbound — external webhook → verify → definer RPC** (`razorpay-webhook`, ADR-0034;
+same shape as ADR-0029's `deliver_pending_webhooks` in reverse): an external system (Razorpay)
+POSTs to an Edge Function that runs with **Verify-JWT OFF** because there is no Supabase session.
+Security is the payload HMAC signature — the function verifies `X-Razorpay-Signature` against a
+shared secret and only then calls a single narrow, idempotent `anon`-granted `SECURITY DEFINER`
+RPC (`apply_razorpay_event`) to update state. The subscription `status` lives here as its source of
+truth; the soft-block trigger (`enforce_subscription_active` on the six core write tables) reads
+only local state, so Razorpay's uptime never affects *using* the app, only *subscribing*.
+The **referral program** (ADR-0036) rides the same inbound path: when the webhook receives a
+`subscription.charged` for a referee, it also calls `record_referral_cycle`, which counts the paid
+cycles and — at 2 — credits the referrer's wallet ledger. Referral linkage happens the other
+direction: `create_organization` calls `apply_referral` (Pattern B, a definer helper) to tie a new
+org to its referrer and extend the referee's trial. The wallet is an append-only credit/debit
+ledger (`wallet_transactions`) with a computed balance — same read-only-to-client shape as the
+audit log.
 
 ```mermaid
 sequenceDiagram

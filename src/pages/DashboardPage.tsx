@@ -17,8 +17,12 @@ import CustomsFilingsPage from '../components/CustomsFilingsPage'
 import ReportingPage from '../components/ReportingPage'
 import OrgSettingsPage from '../components/OrgSettingsPage'
 import IntegrationsPage from '../components/IntegrationsPage'
+import ReferralsPage from '../components/ReferralsPage'
 import PlaceholderPage from '../components/PlaceholderPage'
 import OnboardingChecklist from '../components/OnboardingChecklist'
+import SubscriptionBanner from '../components/SubscriptionBanner'
+import TrialBadge from '../components/TrialBadge'
+import WelcomeNudge from '../components/WelcomeNudge'
 import type { NavPage, OrganizationWithRole, PlatformModule, Shipment, ShipmentMode } from '../types'
 import { T } from '../theme/tokens'
 
@@ -39,7 +43,7 @@ const filterButtonStyle = (active: boolean): CSSProperties => ({
   color: active ? T.ink : T.muted,
 })
 
-const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'integrations', 'settings', 'auditlog', 'platformadmin']
+const NAV_PAGES: NavPage[] = ['dashboard', 'directory', 'team', 'quotes', 'accounting', 'customs', 'reporting', 'integrations', 'referrals', 'settings', 'auditlog', 'platformadmin']
 
 function navPageFromPath(pathname: string): NavPage {
   const segment = pathname.split('/')[1]
@@ -114,6 +118,7 @@ export default function DashboardPage() {
       />
 
       <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        <SubscriptionBanner org={currentOrg} onGoToBilling={() => setNavPage('settings')} />
         <header
           style={{
             height: 64,
@@ -145,6 +150,7 @@ export default function DashboardPage() {
             />
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <TrialBadge orgId={currentOrg.id} onClick={() => setNavPage('settings')} />
             <span
               style={{
                 fontSize: 11,
@@ -179,6 +185,7 @@ export default function DashboardPage() {
 
         {navPage === 'dashboard' && (
           <div style={{ padding: '28px 32px', flex: 1 }}>
+            <WelcomeNudge orgId={currentOrg.id} onGoToBilling={() => setNavPage('settings')} />
             {user && <OnboardingChecklist orgId={currentOrg.id} userId={user.id} onNavigate={setNavPage} />}
             <div
               style={{
@@ -277,6 +284,8 @@ export default function DashboardPage() {
         {navPage === 'reporting' && <ReportingPage orgId={currentOrg.id} />}
 
         {navPage === 'integrations' && <IntegrationsPage org={currentOrg} />}
+
+        {navPage === 'referrals' && <ReferralsPage org={currentOrg} />}
 
         {navPage === 'settings' && <OrgSettingsPage org={currentOrg} />}
       </main>

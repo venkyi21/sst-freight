@@ -159,6 +159,26 @@ pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelop
 | TC-PUBLIC-002 | neg | a bad/tampered token | it is opened | nothing is shown, no data leak | ✅ `functional/public.ui.spec.ts` |
 | TC-PUBLIC-003 | happy | the `?tco` route | it is opened | the TCO calculator renders with no login (ADR-0023) | ✅ `functional/public.ui.spec.ts` |
 
+## BILL — SaaS subscription billing (ADR-0034)
+
+| ID | Cat | Given | When | Then | Automated |
+| --- | --- | --- | --- | --- | --- |
+| TC-BILL-001 | happy | a backfilled/active org | its subscription is read and a contact is inserted | the row is readable, `subscription_active` is true, and creation is permitted (soft-block trigger allows active orgs) | ✅ `functional/billing.api.spec.ts` |
+| TC-BILL-002 | happy | a newly created org | its subscription is read | it is `trialing` with `trial_ends_at` ~14 days out (trial seeded by `create_organization`) | ✅ `functional/billing.api.spec.ts` |
+| TC-BILL-003 | neg | a forged `X-Razorpay-Signature` | the razorpay-webhook is called | it is rejected `401` before any status write | ✅ `functional/billing.api.spec.ts` |
+| TC-BILL-004 | edge | an org whose trial has expired | a raw `.insert()` is attempted | it is blocked with `Subscription inactive…` | manual* — the anon-only E2E harness can't force an expired-trial state (no service role); covered by `src/lib/subscription.test.ts` unit cases + a scripted/manual check (ADR-0034) |
+| TC-BILL-005 | happy | an active org (backfilled) | the app loads | no `Trial · N days` badge or `Payment due` shows in the header and the dashboard renders with zero page errors (the trialing SHOW-path is unit-covered + manual) | ✅ `functional/billing.ui.spec.ts` |
+| TC-BILL-006 | obs | a trialing sub past a milestone (day7/day2/ended) with `resend_api_key` in Vault | `send_due_trial_reminders()` runs | exactly one Resend email to the owner, the milestone is appended to `reminders_sent`, and a re-run sends nothing | manual* — external service (Resend) + cron; verified by a scripted SQL-editor run (ADR-0035), dev delivers only to the account owner's address |
+
+## REF — Referral program & wallet (ADR-0036)
+
+| ID | Cat | Given | When | Then | Automated |
+| --- | --- | --- | --- | --- | --- |
+| TC-REF-001 | happy | a different owner and org A's referral_code | they sign up via `create_organization(p_referral_code)` | a `pending` referral is created (only the referrer can read it, RLS), and the referee's trial is extended ~+30 days | ✅ `functional/referrals.api.spec.ts` |
+| TC-REF-002 | neg | an owner using their **own** org's referral_code | they create a new org | no referral is created and no trial bonus is applied (self-referral blocked) | ✅ `functional/referrals.api.spec.ts` |
+| TC-REF-003 | happy | the 15%-capped reward rule | reward is computed for various plan pairs | full 15% below cap, capped at the referrer plan above it, and small for a big-referrer→small-referee (anti-cannibalization) | ✅ `src/lib/referral.test.ts` (unit) |
+| TC-REF-004 | obs | a referee that has paid 2 Razorpay cycles | `record_referral_cycle` fires on the 2nd `subscription.charged` | the referral flips `released` and a `least(15%×referee, referrer)` credit lands in the referrer's wallet | manual* — needs simulated Razorpay charges (anon harness can't drive billing); scripted run + unit-covered math (ADR-0036) |
+
 ## SMOKE — Page-render layer (ADR-0033)
 
 | ID | Cat | Given | When | Then | Automated |

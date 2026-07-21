@@ -162,8 +162,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function createOrganization(name: string, color: string): Promise<ActionResult> {
-    const { data, error } = await createOrganizationRpc(name, color)
+    // ADR-0036: if this user arrived via a referral link (?ref=...), App.tsx stashed the code — pass
+    // it so the new org is linked to the referrer, then clear it so it's used at most once.
+    let referralCode: string | null = null
+    try {
+      referralCode = localStorage.getItem('sst-referral-code')
+    } catch {
+      /* ignore — no referral */
+    }
+    const { data, error } = await createOrganizationRpc(name, color, referralCode)
     if (error || !data) return { error: error ?? 'Could not create organization' }
+    try {
+      localStorage.removeItem('sst-referral-code')
+    } catch {
+      /* non-fatal */
+    }
     await refreshOrganizations()
     selectOrganization(data.id)
     return { error: null }

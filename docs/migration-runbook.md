@@ -69,6 +69,14 @@ Supabase project (a fresh prod project, for instance) from scratch, **this step 
 separately** for every secret-dependent function, or that function will fail at runtime with
 "not configured in Vault" — a real, easy-to-forget step when standing up a new environment.
 
+**Secrets currently looked up from Vault by name:** `terminal49_api_key` (carrier tracking,
+declined — usually absent) and **`resend_api_key`** (trial-reminder emails, ADR-0035). To turn on
+trial emails on a project, create a Resend account, then once in that project's SQL editor:
+`select vault.create_secret('<resend api key>', 'resend_api_key', 'Resend key for trial emails');`
+Until it exists, `send_due_trial_reminders()` is a safe no-op (returns 0), so `schema.sql` applies
+fine before it's set. Real client delivery also needs a Resend-verified sending **domain** (dev
+delivers only to the account owner's own address).
+
 ### pg_cron extension (Week 18, ADR-0029)
 
 The webhook-delivery section of `schema.sql` (Week 18, Phase B) requires the **pg_cron**

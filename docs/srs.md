@@ -557,6 +557,76 @@ built.
     `#/integrations` navigation shows a clear not-authorized explanation with zero key/secret
     material in the DOM.
 
+### FR-20: SaaS Subscription Billing (Week 22, ADR-0034)
+
+- **US-20.1** — As a new organization, I get a **14-day free trial** the moment I'm created, so I
+  can use the whole product before paying.
+  - AC (verified 2026-07-18, `functional/billing.api.spec.ts` TC-BILL-002): a freshly created org
+    has a `trialing` subscription row with `trial_ends_at` ~14 days out; during the trial,
+    `subscription_active` is true and record creation is permitted (TC-BILL-001).
+- **US-20.2** — As an Owner/Admin, I can start a monthly subscription (Starter, ₹2,000/seat/month)
+  and pay via Razorpay (UPI AutoPay / card / netbanking), and cancel it.
+  - AC (verified in Razorpay **test mode**, dev): "Subscribe" creates a Razorpay subscription with
+    `quantity` = the org's seat count and redirects to Razorpay's hosted authorization page; on a
+    successful test payment the `subscription.charged` webhook flips status to `active`.
+  - AC: a plain Member cannot start or cancel billing — `billing-service` rejects non-owner/admin
+    callers server-side (not just a hidden button).
+- **US-20.3** — As any user, if my org's trial ends (or a payment fails) I can **still log in and
+  see all my data**, but I can't create new bookings/quotes/invoices until we subscribe — a banner
+  tells me why.
+  - AC (verified 2026-07-18): the soft block is a `BEFORE INSERT` trigger on the six core write
+    tables driven by `subscription_active()`; an inactive org's raw `.insert()` is refused with
+    `Subscription inactive — please subscribe to continue` (reads never gated). The predicate is
+    unit-covered for every state (`src/lib/subscription.test.ts`). The expired-trial *block* is
+    verified via those unit tests + a manual/scripted check, not the anon-only E2E harness
+    (ADR-0034 testing note).
+  - AC (verified 2026-07-18): the `razorpay-webhook` rejects a forged/absent `X-Razorpay-Signature`
+    with `401` before writing anything (TC-BILL-003); pre-existing tenants, QA identities and demo
+    orgs were **backfilled `active`** so none are soft-blocked.
+- **US-20.4** — As a trialing user, I always **see** that I'm on a trial (a header badge with the
+  day-count on every screen) and get a **welcome** when my org is created, so the trial is never a
+  silent surprise — the "loud & communicated" trial that drives conversion (Phase A of ADR-0034's
+  trial-communication work; reminder emails are Phase B, pending an email provider).
+  - AC (verified 2026-07-19): the header shows `Trial · N days left` (amber ≤3 days) on every
+    screen while `trialing`/`past_due`, and **nothing** for an `active` org — the hide-path is
+    verified live (`functional/billing.ui.spec.ts` TC-BILL-005, an active org shows no badge, zero
+    page errors) and the show/hide predicate `shouldShowTrialBadge` is unit-covered for every state
+    (`src/lib/subscription.test.ts`). A one-time, dismissible welcome card appears on the Dashboard
+    for a freshly-created trialing org (dismissal persists per org in `localStorage`).
+- **US-20.5** — As a trialing owner, I receive **reminder emails** while my trial runs (day 7
+  "halfway", day 2 "ending soon", and "ended"), so I don't let it lapse by forgetting (Phase B of
+  ADR-0035's trial communication).
+  - AC: a daily `pg_cron` job (`send_due_trial_reminders`) emails the org owner once per milestone
+    via Resend, recorded in `subscriptions.reminders_sent` so none repeats; the schema applies as a
+    safe no-op until the `resend_api_key` Vault secret is configured.
+  - AC (**target, not yet measured** — depends on a Resend account + verified domain): with the key
+    set, a trialing sub whose `trial_ends_at` crosses a milestone gets exactly one email; re-running
+    the job sends nothing. Verified by a scripted SQL-editor run (`manual*`, ADR-0035) — real client
+    delivery needs a verified sending domain (dev delivers only to the account owner's address).
+
+### FR-21: Referral Program & Wallet (Week 23, ADR-0036)
+
+- **US-21.1** — As an Owner/Admin, I have a **referral link** (`?ref=<my code>`); when a new agency
+  signs up through it, they become my referee — they get **+30 days** of trial and I earn **15% of
+  their plan, capped at my own monthly bill**, released to my **wallet** after they complete **2
+  paid months**.
+  - AC (verified 2026-07-21, `functional/referrals.api.spec.ts` TC-REF-001): a *different* owner
+    signing up via my `referral_code` creates a `pending` referral (which only I, the referrer, can
+    read — RLS) and extends the referee's trial to ~44 days (14 base + 30). The reward math (15%
+    capped) is unit-covered (`src/lib/referral.test.ts`), incl. the anti-cannibalization case (a big
+    referrer referring a small account earns 15% of the *small* plan).
+  - AC (verified 2026-07-21, TC-REF-002): **self-referral is blocked** — using my own code gives no
+    referral and no trial bonus (same owner both sides).
+  - AC (**scripted/manual**, TC-REF-004): the 2-cycle release — after the referee's 2nd Razorpay
+    `subscription.charged`, `record_referral_cycle` credits the referrer's wallet with `least(15% of
+    referee plan, referrer plan)` and marks the referral `released`; needs simulated charges (the
+    anon-only harness can't drive real Razorpay billing), same reasoning class as TC-BILL-004.
+- **US-21.2** — As an Owner/Admin, I see a **Referrals** page with my link, wallet **balance**, the
+  full **credit/debit ledger**, and my referrals' status; I can **apply** my balance (records a debit).
+  - AC: the wallet is read-only to the client (RLS); balance = credits − debits (`wallet_balance`);
+    `apply_wallet_credit` is Owner/Admin-gated and can't exceed the balance. MVP redemption is a
+    tracked in-app debit — real Razorpay bill-reduction / payout deferred (`docs/tech-debt.md`).
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

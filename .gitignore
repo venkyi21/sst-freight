@@ -16,6 +16,9 @@ dist-ssr
 playwright-report
 test-results
 .playwright
+
+# Generated demo videos (client-facing, not source)
+demo-videos
 .env
 .env.local
 .env.*.local
@@ -31,6 +34,7 @@ docs/ProjDoc_System.png
 docs/Dual-Engine Monetization Core v2.pdf
 docs/SST Freight — Roadmap & Gap Reference.pdf
 docs/SST Freight — User Guide.pdf
+docs/SSTFreight_OneTimeBuyoutSalesStratergy.pdf
 
 # Editor directories and files
 .vscode/*
