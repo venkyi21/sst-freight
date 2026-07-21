@@ -38,6 +38,11 @@ alter table organizations add column if not exists logo_url text;
 -- it in via update_org_gst_settings(); invoices default to inter-state/IGST until then.
 alter table organizations add column if not exists gst_state text;
 
+-- Week 23 (ADR-0036): referral program. referral_code is distinct from invite_code — invite_code
+-- adds staff to THIS org; referral_code links a *new* org (referee) back to this org (referrer).
+-- Generated in create_organization() and backfilled for existing orgs (see the ADR-0036 section).
+alter table organizations add column if not exists referral_code text unique;
+
 create table if not exists memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -920,7 +925,10 @@ create policy "members can update org esign requests"
 -- RPCs (SECURITY DEFINER — the only way to create an org or join one)
 -- ─────────────────────────────────────────────────────────────
 
-create or replace function create_organization(p_name text, p_color text default '#2563eb')
+-- ADR-0036 added the p_referral_code arg. Drop the old 2-arg overload so the 3-arg (with default)
+-- is the only create_organization — otherwise a 2-arg rpc() call is ambiguous / hits the old one.
+drop function if exists create_organization(text, text);
+create or replace function create_organization(p_name text, p_color text default '#2563eb', p_referral_code text default null)
 returns organizations
 language plpgsql
 security definer
@@ -930,6 +938,7 @@ declare
   v_org organizations;
   v_slug text;
   v_invite text;
+  v_referral text;
 begin
   if auth.uid() is null then
     raise exception 'Not authenticated';
@@ -940,9 +949,10 @@ begin
 
   v_slug := lower(regexp_replace(trim(p_name), '[^a-zA-Z0-9]+', '-', 'g')) || '-' || substr(md5(random()::text), 1, 5);
   v_invite := upper(substr(md5(random()::text || clock_timestamp()::text), 1, 8));
+  v_referral := 'SST' || upper(substr(md5(random()::text || clock_timestamp()::text), 1, 7));
 
-  insert into organizations (name, slug, color, invite_code)
-  values (trim(p_name), v_slug, p_color, v_invite)
+  insert into organizations (name, slug, color, invite_code, referral_code)
+  values (trim(p_name), v_slug, p_color, v_invite, v_referral)
   returning * into v_org;
 
   insert into memberships (user_id, org_id, role)
@@ -953,6 +963,12 @@ begin
   -- immediately; after 14 days they must subscribe (billing-service) to keep creating records.
   insert into subscriptions (org_id, status, trial_ends_at)
   values (v_org.id, 'trialing', now() + interval '14 days');
+
+  -- Week 23 (ADR-0036): if this org signed up through a referral link, link it back to the referrer
+  -- and extend this (referee's) trial by 30 days. apply_referral silently no-ops on a bad/self code.
+  if p_referral_code is not null and trim(p_referral_code) <> '' then
+    perform apply_referral(v_org.id, trim(p_referral_code));
+  end if;
 
   return v_org;
 end;
@@ -1624,7 +1640,7 @@ begin
 end;
 $$;
 
-grant execute on function create_organization(text, text) to authenticated;
+grant execute on function create_organization(text, text, text) to authenticated;
 grant execute on function update_org_branding(uuid, text, text) to authenticated;
 grant execute on function update_org_gst_settings(uuid, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
@@ -2609,3 +2625,178 @@ $$;
 select cron.schedule('trial-reminders', '0 9 * * *', $$select send_due_trial_reminders()$$);
 
 grant execute on function convert_quote_to_shipment(uuid) to authenticated;
+
+-- ============================================================================================
+-- Week 23 (ADR-0036) — Referral program + wallet. A referral_code links a NEW org (referee) back to
+-- a referrer: the referee gets +30 days of trial; the referrer earns 15% of the referee's plan
+-- (capped at the referrer's own monthly bill) into a wallet, released only after the referee pays 2
+-- full billing cycles (anti churn-and-burn). Full credit/debit ledger in wallet_transactions;
+-- balance is computed. In-app redemption only (a tracked debit) — real Razorpay bill-reduction /
+-- payout is deferred (docs/tech-debt.md). Self-contained + re-runnable.
+-- ============================================================================================
+
+create table if not exists referrals (
+  id uuid primary key default gen_random_uuid(),
+  referrer_org_id uuid not null references organizations (id) on delete cascade,
+  referee_org_id uuid not null unique references organizations (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'released', 'blocked')),
+  paid_cycles int not null default 0,
+  reward_amount_inr numeric,
+  created_at timestamptz not null default now(),
+  released_at timestamptz
+);
+create index if not exists referrals_referrer_idx on referrals (referrer_org_id);
+alter table referrals enable row level security;
+
+-- A referrer sees the referrals IT made (to track status/reward); the referee side is internal.
+drop policy if exists "org sees referrals it made" on referrals;
+create policy "org sees referrals it made" on referrals for select
+  using (is_org_member(referrer_org_id) or is_platform_admin());
+
+create table if not exists wallet_transactions (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  type text not null check (type in ('credit', 'debit')),
+  amount_inr numeric not null check (amount_inr > 0),
+  reason text not null check (reason in ('referral_reward', 'applied_to_invoice', 'adjustment')),
+  referral_id uuid references referrals (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists wallet_transactions_org_idx on wallet_transactions (org_id, created_at desc);
+alter table wallet_transactions enable row level security;
+
+drop policy if exists "members see their org wallet" on wallet_transactions;
+create policy "members see their org wallet" on wallet_transactions for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+-- wallet_balance: credits minus debits, one trusted computation.
+create or replace function wallet_balance(p_org_id uuid)
+returns numeric
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select coalesce(sum(case when type = 'credit' then amount_inr else -amount_inr end), 0)
+  from wallet_transactions where org_id = p_org_id;
+$$;
+
+-- referral_plan_value_inr: the monthly plan value used for the 15% reward math. One plan today
+-- (Starter Rs 2,000/seat/month, ADR-0034) — per-tier amounts are deferred (docs/tech-debt.md).
+create or replace function referral_plan_value_inr(p_org_id uuid)
+returns numeric
+language sql
+security definer
+stable
+set search_path = public
+as $$
+  select 2000::numeric;
+$$;
+
+-- apply_referral: called from create_organization when a new org signs up via a referral link.
+-- Internal only (no grant) — the definer create_organization calls it. Silent no-op on an unknown
+-- code or a self-referral, so signup never fails because of a referral.
+create or replace function apply_referral(p_referee_org uuid, p_code text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_referrer_org uuid;
+  v_referrer_owner uuid;
+begin
+  select id into v_referrer_org from organizations where referral_code = p_code;
+  if v_referrer_org is null then
+    return;  -- unknown referral code — ignore
+  end if;
+
+  -- self-referral guard: the same person can't be both referrer-owner and referee-owner
+  select user_id into v_referrer_owner from memberships
+    where org_id = v_referrer_org and role = 'owner' order by created_at asc limit 1;
+  if v_referrer_owner = auth.uid() then
+    return;  -- can't refer yourself
+  end if;
+
+  -- referee reward: +30 days trial (only while still trialing)
+  update subscriptions
+    set trial_ends_at = coalesce(trial_ends_at, now()) + interval '30 days', updated_at = now()
+    where org_id = p_referee_org and status = 'trialing';
+
+  -- pending referral (unique on referee_org_id — a repeat attempt no-ops)
+  insert into referrals (referrer_org_id, referee_org_id, status)
+  values (v_referrer_org, p_referee_org, 'pending')
+  on conflict (referee_org_id) do nothing;
+end;
+$$;
+
+-- record_referral_cycle: called by the razorpay-webhook ONLY on subscription.charged. Increments the
+-- referee's paid-cycle count on its pending referral; at 2 cycles, releases the referrer's reward
+-- (15% of the referee's plan, capped at the referrer's plan) as a wallet CREDIT. Granted to anon
+-- because the webhook (which has already verified the Razorpay signature) is the only caller.
+create or replace function record_referral_cycle(p_razorpay_subscription_id text)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid;
+  v_ref referrals;
+  v_reward numeric;
+begin
+  select org_id into v_org from subscriptions where razorpay_subscription_id = p_razorpay_subscription_id;
+  if v_org is null then return; end if;
+
+  select * into v_ref from referrals where referee_org_id = v_org and status = 'pending';
+  if v_ref.id is null then return; end if;
+
+  update referrals set paid_cycles = paid_cycles + 1 where id = v_ref.id returning * into v_ref;
+
+  if v_ref.paid_cycles >= 2 then
+    v_reward := least(
+      referral_plan_value_inr(v_ref.referee_org_id) * 0.15,
+      referral_plan_value_inr(v_ref.referrer_org_id)
+    );
+    insert into wallet_transactions (org_id, type, amount_inr, reason, referral_id)
+    values (v_ref.referrer_org_id, 'credit', round(v_reward, 2), 'referral_reward', v_ref.id);
+    update referrals set status = 'released', reward_amount_inr = round(v_reward, 2), released_at = now()
+      where id = v_ref.id;
+  end if;
+end;
+$$;
+
+-- apply_wallet_credit: the ledger's debit side. An Owner/Admin spends credit (records a debit) up to
+-- the current balance. MVP: this tracks the spend in-app; the real Razorpay bill reduction is
+-- deferred (docs/tech-debt.md).
+create or replace function apply_wallet_credit(p_org_id uuid, p_amount numeric)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_org_admin(p_org_id) then
+    raise exception 'Only an Owner or Admin can spend wallet credit';
+  end if;
+  if p_amount is null or p_amount <= 0 then
+    raise exception 'Amount must be positive';
+  end if;
+  if p_amount > wallet_balance(p_org_id) then
+    raise exception 'Amount exceeds the available wallet balance';
+  end if;
+  insert into wallet_transactions (org_id, type, amount_inr, reason)
+  values (p_org_id, 'debit', round(p_amount, 2), 'applied_to_invoice');
+end;
+$$;
+
+-- Backfill: existing orgs get a referral_code so they can refer too (idempotent — only fills nulls).
+update organizations set referral_code = 'SST' || upper(substr(md5(random()::text || id::text), 1, 7))
+  where referral_code is null;
+
+grant select on referrals to authenticated;
+grant select on wallet_transactions to authenticated;
+grant execute on function wallet_balance(uuid) to authenticated;
+grant execute on function referral_plan_value_inr(uuid) to authenticated;
+grant execute on function record_referral_cycle(text) to anon, authenticated;
+grant execute on function apply_wallet_credit(uuid, numeric) to authenticated;

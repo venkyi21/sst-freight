@@ -75,5 +75,12 @@ Deno.serve(async (req) => {
   })
   if (error) return new Response(JSON.stringify({ error: error.message }), { status: 500 })
 
+  // Referral cycle counting (ADR-0036): only a real charge counts toward the referee's 2 paid cycles
+  // that release the referrer's reward. subscription.activated (the initial authorization) does not.
+  if (event.event === 'subscription.charged') {
+    const { error: refErr } = await supabase.rpc('record_referral_cycle', { p_razorpay_subscription_id: entity.id })
+    if (refErr) return new Response(JSON.stringify({ error: refErr.message }), { status: 500 })
+  }
+
   return new Response(JSON.stringify({ ok: true }), { status: 200 })
 })

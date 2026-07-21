@@ -239,10 +239,10 @@
     <h2 class="chapter-title">§02 — Application-wide rollup</h2>
     <div class="scorecard">
       <div class="cell"><div class="num ok">8 / 8</div><div class="lbl">Testing types with committed automated test code — Unit (CI-gated) plus Integration, System, Acceptance/E2E, Performance, Load, Stress and Security (committed, run on-demand, ADR-0032/0033). Stress closed by `npm run test:stress`</div></div>
-      <div class="cell"><div class="num ok">20 / 20</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 19 fully verified, 1 partial</div></div>
-      <div class="cell"><div class="num pending">12 / 20</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
-      <div class="cell"><div class="num info">19 / 20</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
-      <div class="cell"><div class="num info">8 / 20</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
+      <div class="cell"><div class="num ok">21 / 21</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 20 fully verified, 1 partial</div></div>
+      <div class="cell"><div class="num pending">12 / 21</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
+      <div class="cell"><div class="num info">20 / 21</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
+      <div class="cell"><div class="num info">8 / 21</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
       <div class="cell"><div class="num ok">250+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md — incl. Week 20–21's committed suite: 51 Playwright + golden path + smoke and 45 unit tests, Week 19's tier + theme passes)</div></div>
       <div class="cell"><div class="num ok">41 / 41</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4 + 3 + 2 + 1)</div></div>
       <div class="cell"><div class="num ok">0</div><div class="lbl">Race gap closed Week 19 (ADR-0030); testing-infra gaps closed Week 20 (ADR-0032). Week 21 (ADR-0033) completed all four quadrants: every catalog row automated except 3 labelled external-service rows; load+stress measured; exploratory tracked; catalog expressed Given/When/Then</div></div>
@@ -747,6 +747,29 @@
         </dl>
       </div>
 
+      <!-- FR-21 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-21</span><span class="fr-name">Referral Program &amp; Wallet</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="partial">◐</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="verified">✓</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Unit</dt><dd>Automated (ADR-0026) — <code>src/lib/referral.test.ts</code>, 5 tests: the 15%-capped reward (full below cap, capped above, and the anti-cannibalization big-referrer→small-referee case) and wallet balance (credits − debits).</dd>
+          <dt>Integration</dt><dd>Committed — <code>tests/e2e/functional/referrals.api.spec.ts</code> (TC-REF-001/002): a different owner signing up via a <code>referral_code</code> creates a <code>pending</code> referral (referrer-only RLS) and extends the referee's trial ~+30d; self-referral is blocked (no referral, no bonus). Runs green after the ADR-0036 schema is applied to dev.</dd>
+          <dt>Security</dt><dd>Wallet + referrals are read-only to the client (RLS: a referrer reads only referrals it made; members read only their own wallet); no client write grant. <code>apply_referral</code> is internal (ungranted); <code>record_referral_cycle</code> is anon only because the signature-verified webhook is the sole caller; <code>apply_wallet_credit</code> is Owner/Admin-gated and can't exceed the balance. Self-referral guard (same owner) enforced server-side.</dd>
+          <dt>Gaps</dt><dd>System/Acceptance are ◐: the 2-cycle reward release (TC-REF-004) needs real Razorpay charges the anon harness can't drive — <code>manual*</code>, verified by a scripted <code>record_referral_cycle</code> run + unit-covered math; no browser acceptance spec or UAT persona yet. No perf/load/stress. Deferred (ADR-0036/tech-debt): auto-apply credit to the Razorpay bill, cash payout, deeper self-referral fingerprinting, per-tier plan amounts.</dd>
+        </dl>
+      </div>
+
     </div>
 
     <div class="legend">
@@ -759,8 +782,8 @@
 
   <footer class="doc-footer">
     <div>SST Freight · Internal engineering doc · Not for distribution</div>
-    <div>20 modules · 8 testing types + QAT + UAT</div>
-    <div id="last-synced">Last synced · 19 Jul 2026</div>
+    <div>21 modules · 8 testing types + QAT + UAT</div>
+    <div id="last-synced">Last synced · 21 Jul 2026</div>
   </footer>
 
 </div>

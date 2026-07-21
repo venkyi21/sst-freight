@@ -42,7 +42,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `is_org_admin(check_org_id uuid)` | `boolean` | `authenticated` |
 | `is_platform_admin()` | `boolean` | `authenticated` |
 | `is_module_enabled(p_org_id uuid, p_module text)` | `boolean` | _(no grant found)_ |
-| `create_organization(p_name text, p_color text default '#2563eb')` | `organizations` | `authenticated` |
+| `create_organization(p_name text, p_color text default '#2563eb', p_referral_code text default null)` | `organizations` | `authenticated` |
 | `update_org_branding(p_org_id uuid, p_color text, p_logo_url text default null)` | `organizations` | `authenticated` |
 | `update_org_gst_settings(p_org_id uuid, p_gst_state text)` | `organizations` | `authenticated` |
 | `join_organization(p_invite_code text)` | `organizations` | `authenticated` |
@@ -83,14 +83,22 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
   p_subscription_id text,
   p_seats int)` | `void` | `authenticated` |
 | `send_due_trial_reminders()` | `int` | _(no grant found)_ |
+| `wallet_balance(p_org_id uuid)` | `numeric` | `authenticated` |
+| `referral_plan_value_inr(p_org_id uuid)` | `numeric` | `authenticated` |
+| `apply_referral(p_referee_org uuid, p_code text)` | `void` | _(no grant found)_ |
+| `record_referral_cycle(p_razorpay_subscription_id text)` | `void` | `anon`, `authenticated` |
+| `apply_wallet_credit(p_org_id uuid, p_amount numeric)` | `void` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
 ## Organizations & membership
 
-### `create_organization(p_name text, p_color text default '#2563eb') → organizations`
+### `create_organization(p_name text, p_color text default '#2563eb', p_referral_code text default null) → organizations`
 
-Creates a new organization and makes the caller its `owner` in one transaction. Requires an
+Also seeds a 14-day trial subscription (ADR-0034), generates the org's own `referral_code`, and — if
+`p_referral_code` is passed (the caller arrived via a `?ref=` link) — calls `apply_referral` to link
+this new org to the referrer and add the +30-day referee bonus (ADR-0036; silent no-op on a bad or
+self-referral code). Creates a new organization and makes the caller its `owner` in one transaction. Requires an
 authenticated session (`auth.uid()` not null). Rejects an empty/whitespace-only name. Generates a
 unique `slug` and `invite_code` internally — neither is caller-supplied.
 
@@ -477,3 +485,27 @@ Emails the org owner at trial milestones (day-7 / day-2 / ended) via the Resend 
 extension), recording each in `subscriptions.reminders_sent` so none repeats. Reads the Resend key
 from **Supabase Vault** (`resend_api_key`); until that secret exists it's a safe no-op returning 0.
 Returns the number of emails sent. See `docs/migration-runbook.md` for the one-time Vault setup.
+
+## Referral program & wallet (Week 23, ADR-0036)
+
+Each org has a `referral_code` (distinct from `invite_code`). A `?ref=<code>` signup links the new
+org (referee) to the referrer via `apply_referral` (internal, called by `create_organization`; not
+client-granted) — the referee gets +30 trial days and a `pending` referral row.
+
+### `wallet_balance(p_org_id uuid) → numeric`
+
+Credits − debits over `wallet_transactions`. The wallet is read-only to the client (RLS select);
+it's written only by definer RPCs.
+
+### `record_referral_cycle(p_razorpay_subscription_id text)` (webhook-only)
+
+Granted to `anon` because the signature-verified `razorpay-webhook` is the only caller — invoked
+**on `subscription.charged`**. Increments the referee's `paid_cycles`; at 2, credits the referrer's
+wallet with `least(referee_plan × 15%, referrer_plan)` and marks the referral `released`.
+
+### `apply_wallet_credit(p_org_id uuid, p_amount numeric)`
+
+Owner/Admin-only. Records a **debit** (`applied_to_invoice`) up to the current balance — the
+ledger's spend side. MVP: an in-app tracked offset; the real Razorpay bill reduction is deferred
+(`docs/tech-debt.md`). `referral_plan_value_inr` returns the Starter ₹2,000 constant used for the %
+math (one plan today).

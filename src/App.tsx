@@ -76,6 +76,17 @@ export default function App() {
   if (trackingToken) return <PublicTrackingPage token={trackingToken} />
   if (params.has('tco')) return <PublicTCOCalculatorPage />
 
+  // ADR-0036: a referral link is `?ref=<code>`. Stash the code so it survives sign-up/login, then
+  // let the normal app render; createOrganization() reads and clears it when the new org is made.
+  const referralCode = params.get('ref')
+  if (referralCode) {
+    try {
+      localStorage.setItem('sst-referral-code', referralCode)
+    } catch {
+      /* private mode / storage disabled — referral just won't attach */
+    }
+  }
+
   return (
     <ErrorBoundary>
       <AuthProvider>

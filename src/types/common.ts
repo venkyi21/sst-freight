@@ -1,4 +1,4 @@
-export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'integrations' | 'settings' | 'auditlog' | 'platformadmin'
+export type NavPage = 'dashboard' | 'directory' | 'team' | 'quotes' | 'accounting' | 'customs' | 'reporting' | 'integrations' | 'referrals' | 'settings' | 'auditlog' | 'platformadmin'
 
 // Default org-avatar colors (white-label axis, ADR-0019) — real hex values, deliberately NOT
 // theme tokens: an org's color is its own brand data, stored in the DB, independent of the app

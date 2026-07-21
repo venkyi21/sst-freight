@@ -472,6 +472,37 @@ left open.
   run from one client location (RTT-inclusive), and still does not cover a long soak or a write-heavy
   stress profile — see the caveats in `docs/perf-baseline.md`. The srs §3 read-path target at ≤ 20
   concurrent is measured with wide margin.
+- **CLOSED (2026-07-21) — a moving-target intermittent failure traced to QA test-data drift, not a
+  product bug.** A full-suite run showed one flaky spec whose identity changed between runs
+  (`reporting.api` failed once, `quotes.ui` the next), always passing on isolated re-run. Root
+  cause: the mutable "Client A Logistics" QA tenant had accumulated **3 org instances** on dev from
+  repeated re-seeds, all owned by `ownerA`. `getOrg()` (`tests/e2e/fixtures/supabase.ts`) matched all
+  three by name prefix and returned `data[0]` with no `ORDER BY` — non-deterministic across calls —
+  so a spec's fixture and the app's own org-picker could resolve to *different* instances of "Client
+  A" in the same run, and a per-user read with no `org_id` filter (`dashboard_preferences`) could
+  return >1 row and break `.single()`. Fixed three ways: (1) deduped dev down to the single richest
+  instance (`10a90a14…`, kept; `ecba9cdc…` and `f0869cb3…` deleted — deletion required briefly
+  disabling the ADR-0010 audit triggers on the 8 audited child tables, see the new finding below);
+  (2) `getOrg()` now orders by `created_at` and **throws** if more than one org matches a prefix,
+  turning any future drift into an immediate, actionable error instead of a silent flake; (3)
+  `reporting.api.spec.ts`'s `TC-REPORT-004` read now scopes by `org_id` in addition to `user_id`.
+  Re-verified: 3 of 4 consecutive full-suite runs afterward passed clean (59/59); see the next
+  finding for the 4th.
+- **New (2026-07-21, unresolved) — a wider, transient failure signature under rapid repeated
+  full-suite runs, distinct from the tenant-drift bug above.** One of four consecutive full-suite
+  runs (executed back-to-back within ~5 minutes while verifying the fix above) failed 9 tests spread
+  across unrelated specs (AUTH, BILL, CUSTOMS, DIR, REPORT, SHIP) — a much wider blast radius than
+  the single-spec tenant-drift flake, and every one of the 9 passed cleanly on isolated re-run.
+  Nothing in the org data or fixture code changed between that run and the clean ones before/after
+  it. Leading hypothesis: each full run signs in dozens of times (`signInWithPassword` per test ×
+  ~40 tests), and three full runs in ~5 minutes is enough concentrated auth traffic to plausibly hit
+  a Supabase Auth (GoTrue) rate limit on the dev project — not yet confirmed against the Supabase
+  dashboard's auth logs/rate-limit settings. Not closed: needs either (a) confirming the rate-limit
+  hypothesis via the dev project's Auth logs, or (b) a fixture-level fix (a shared/cached sign-in
+  per QA identity per run instead of one `signInWithPassword` per test) if it recurs. Recorded here
+  rather than left silent because it could otherwise be mistaken for a recurrence of the tenant-drift
+  bug just fixed above — it is not: the failure shape (many unrelated specs at once) and trigger
+  (rapid repeated runs) are both different.
 
 ## SaaS subscription billing (Week 22, ADR-0034)
 
@@ -511,6 +542,22 @@ documented limitations:
 - **Milestone logic is SQL, not the unit-tested TS layer**, so it's verified by a scripted/manual
   SQL-editor run (`select send_due_trial_reminders()` after setting a trial date) rather than a
   committed unit test — same `manual*` reasoning as the external-service set (ADR-0033).
+
+## Referral program & wallet (Week 23, ADR-0036)
+
+- **Redemption is in-app only.** `apply_wallet_credit` records a debit and lowers the shown balance,
+  but does not actually reduce the referrer's Razorpay charge — that (offers/add-ons/adjustments) and
+  a **cash payout** (Razorpay Payouts, needs KYC) are deferred.
+- **Self-referral guard is owner-identity only.** Blocks the same `user_id` owning both orgs; deeper
+  fingerprinting (matching billing address, email domain, or card — as the design's Stripe/Chargebee
+  note describes) is not built (we don't hold that data).
+- **Single-plan reward math.** `referral_plan_value_inr` returns the Starter ₹2,000 constant; once
+  multiple tiers exist, swap it for each org's actual plan amount.
+- **A referrer can't see the referee's name.** RLS (they aren't a member of the referee's org); the
+  Referrals list shows date/status/reward, not identity. A denormalized referee-name snapshot could
+  be added later.
+- **The 2-cycle release isn't in the committed E2E suite** — it needs real Razorpay charges; covered
+  by the unit-tested reward math + a scripted `record_referral_cycle` run (`manual*` TC-REF-004).
 
 ## Dependencies
 

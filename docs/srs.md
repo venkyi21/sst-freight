@@ -604,6 +604,29 @@ built.
     the job sends nothing. Verified by a scripted SQL-editor run (`manual*`, ADR-0035) — real client
     delivery needs a verified sending domain (dev delivers only to the account owner's address).
 
+### FR-21: Referral Program & Wallet (Week 23, ADR-0036)
+
+- **US-21.1** — As an Owner/Admin, I have a **referral link** (`?ref=<my code>`); when a new agency
+  signs up through it, they become my referee — they get **+30 days** of trial and I earn **15% of
+  their plan, capped at my own monthly bill**, released to my **wallet** after they complete **2
+  paid months**.
+  - AC (verified 2026-07-21, `functional/referrals.api.spec.ts` TC-REF-001): a *different* owner
+    signing up via my `referral_code` creates a `pending` referral (which only I, the referrer, can
+    read — RLS) and extends the referee's trial to ~44 days (14 base + 30). The reward math (15%
+    capped) is unit-covered (`src/lib/referral.test.ts`), incl. the anti-cannibalization case (a big
+    referrer referring a small account earns 15% of the *small* plan).
+  - AC (verified 2026-07-21, TC-REF-002): **self-referral is blocked** — using my own code gives no
+    referral and no trial bonus (same owner both sides).
+  - AC (**scripted/manual**, TC-REF-004): the 2-cycle release — after the referee's 2nd Razorpay
+    `subscription.charged`, `record_referral_cycle` credits the referrer's wallet with `least(15% of
+    referee plan, referrer plan)` and marks the referral `released`; needs simulated charges (the
+    anon-only harness can't drive real Razorpay billing), same reasoning class as TC-BILL-004.
+- **US-21.2** — As an Owner/Admin, I see a **Referrals** page with my link, wallet **balance**, the
+  full **credit/debit ledger**, and my referrals' status; I can **apply** my balance (records a debit).
+  - AC: the wallet is read-only to the client (RLS); balance = credits − debits (`wallet_balance`);
+    `apply_wallet_credit` is Owner/Admin-gated and can't exceed the balance. MVP redemption is a
+    tracked in-app debit — real Razorpay bill-reduction / payout deferred (`docs/tech-debt.md`).
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted

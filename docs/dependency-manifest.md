@@ -42,6 +42,10 @@ bumps a version.
 cache/dedupe layer and hash-based client-side routing, both pinned to the exact versions
 `npm install` resolved at pin time, per the same convention as every other entry above.
 
+**No dependency added 2026-07-21 (ADR-0036, referral + wallet)**: the referral program and wallet
+ledger are pure Postgres (tables + `SECURITY DEFINER` RPCs) plus React UI — no new npm package. The
+2-cycle reward release reuses the existing `razorpay-webhook` `subscription.charged` path.
+
 **No dependency added 2026-07-19 (ADR-0035, trial emails)**: the reminder-email pipeline adds
 **no npm package** — `send_due_trial_reminders()` calls the Resend REST API from Postgres via the
 existing `http` extension (the same mechanism as the webhook poller), with the key from Supabase

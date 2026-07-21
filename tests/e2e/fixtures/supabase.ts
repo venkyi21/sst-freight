@@ -49,14 +49,31 @@ export async function signInAs(user: QaUser): Promise<SupabaseClient> {
   return client
 }
 
-/** Look up one of the QA tenants by its name prefix, from a client that can see it. */
+/**
+ * Look up one of the QA tenants by its name prefix, from a client that can see it.
+ *
+ * A prefix match against a mutable QA tenant is only safe when exactly one org matches it — if a
+ * re-seed ever leaves duplicates behind (a stale "Client A Logistics QA-*" instance from an
+ * earlier run), picking `data[0]` from an unordered result set is non-deterministic: it can differ
+ * between the fixture's own call and whatever the app's browser org-picker resolves to, so a spec
+ * writes to one instance and asserts against another. Failing loudly here trades a confusing,
+ * moving-target flake for an immediate "go dedupe the QA tenant" error.
+ */
 export async function getOrg(client: SupabaseClient, namePrefix: string) {
   const { data, error } = await client
     .from('organizations')
-    .select('id, name, billing_model, enabled_modules, monthly_fee_inr')
+    .select('id, name, billing_model, enabled_modules, monthly_fee_inr, created_at')
     .ilike('name', `${namePrefix}%`)
+    .order('created_at', { ascending: true })
   if (error) throw new Error(`org lookup "${namePrefix}": ${error.message}`)
   if (!data?.length) throw new Error(`org "${namePrefix}" not found for this identity`)
+  if (data.length > 1) {
+    const ids = data.map((o) => `${o.id} (${o.name})`).join(', ')
+    throw new Error(
+      `org "${namePrefix}" matched ${data.length} orgs, expected exactly 1 — dedupe the QA tenant ` +
+        `on dev before re-running (see docs/test-data-register.md): ${ids}`,
+    )
+  }
   return data[0]
 }
 

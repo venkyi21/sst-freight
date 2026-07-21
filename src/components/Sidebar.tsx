@@ -133,6 +133,12 @@ export default function Sidebar({ org, navPage, onNavigate, onSwitchOrg, isPlatf
               Integrations
             </button>
           )}
+          {(org.role === 'owner' || org.role === 'admin') && (
+            <button type="button" onClick={() => onNavigate('referrals')} style={navButtonStyle(navPage === 'referrals')}>
+              <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
+              Referrals
+            </button>
+          )}
           <button type="button" onClick={() => onNavigate('settings')} style={navButtonStyle(navPage === 'settings')}>
             <span style={{ width: 6, height: 6, borderRadius: 2, background: 'currentColor', opacity: 0.8 }} />
             Settings
