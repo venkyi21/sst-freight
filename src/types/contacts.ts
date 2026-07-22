@@ -12,6 +12,9 @@ export interface Contact {
   city: string | null
   country: string | null
   state: string | null
+  gstin: string | null
+  address_line1: string | null
+  pincode: string | null
   notes: string | null
   archived: boolean
   created_by: string | null

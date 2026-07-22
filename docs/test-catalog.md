@@ -13,23 +13,28 @@ category/screen/module-wise testing document the QA process runs from.
 ## How to read this
 
 - **ID** — `TC-<MODULE>-<NNN>`, stable forever. MODULE ∈ AUTH, DIR, QUOTE, SHIP, DOC, CUSTOMS,
-  ACCT, REPORT, INTEG, ADMIN, PUBLIC, SMOKE, E2E.
+  ACCT, REPORT, INTEG, ADMIN, PUBLIC, SMOKE, E2E, BILL, REF, GST, ZOHO.
 - **Cat** (exactly one): `happy` · `neg` (validation/negative) · `role` (RBAC) ·
   `xten` (cross-tenant/RLS) · `edge` (concurrency/boundary) · `obs` (audit/webhook/error).
 - **Given / When / Then** — precondition (incl. the acting role) / action / expected result. The
   `Then` is the acceptance criterion; `neg`/`role`/`xten` rows assert the **server** rejects, not
   merely that a control is hidden.
 - **Automated** — `✅ <spec>` (committed, re-runnable) · `unit:<spec>` (covered in the ADR-0026
-  unit layer) · `manual*` (external-service dependency — see note). As of 2026-07-18 every row is
-  automated except the four `manual*` external-service rows.
+  unit layer) · `manual*` (external-service dependency — see note). Every row is automated except
+  the `manual*` external-service rows, which have grown as more third-party integrations shipped
+  (Storage, DocuSign, live FX, Razorpay billing, referral cycle release, ClearTax, Zoho) — the exact
+  count below is illustrative, not a maintained tally; grep the table for `manual\*` for the current
+  full list.
 
 ### The `manual*` rows are decisions, not gaps (ADR-0033)
 
-Four scenarios depend on a third-party service; automating them in the committed suite would make
-it flaky and hostage to that service's uptime. For those modules we automate everything we
-*control* (RLS isolation, row shape, pure logic) and leave the external hop to a manual/recorded
-pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelope creation),
-**TC-ACCT-003** (the live FX *rate value*). Same reasoning class as ADR-0027's defensive-only stance.
+Scenarios that depend on a third-party service are deliberately not automated in the committed
+suite — doing so would make it flaky and hostage to that service's uptime. For those modules we
+automate everything we *control* (RLS isolation, row shape, pure logic) and leave the external hop
+to a manual/recorded pass: e.g. **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign
+envelope creation), **TC-ACCT-003** (the live FX *rate value*), **TC-BILL-004**/**TC-REF-004**
+(real Razorpay charges), **TC-GST-\*** (a real ClearTax account), **TC-ZOHO-\*** (a real Zoho Books
+account + OAuth flow). Same reasoning class as ADR-0027's defensive-only stance.
 
 ---
 
@@ -178,6 +183,12 @@ pass: **TC-DOC-002** (Supabase Storage upload), **TC-DOC-004** (DocuSign envelop
 | TC-REF-002 | neg | an owner using their **own** org's referral_code | they create a new org | no referral is created and no trial bonus is applied (self-referral blocked) | ✅ `functional/referrals.api.spec.ts` |
 | TC-REF-003 | happy | the 15%-capped reward rule | reward is computed for various plan pairs | full 15% below cap, capped at the referrer plan above it, and small for a big-referrer→small-referee (anti-cannibalization) | ✅ `src/lib/referral.test.ts` (unit) |
 | TC-REF-004 | obs | a referee that has paid 2 Razorpay cycles | `record_referral_cycle` fires on the 2nd `subscription.charged` | the referral flips `released` and a `least(15%×referee, referrer)` credit lands in the referrer's wallet | manual* — needs simulated Razorpay charges (anon harness can't drive billing); scripted run + unit-covered math (ADR-0036) |
+| TC-GST-001 | neg | an invoice whose org/contact has no GSTIN set | `gst-einvoice`'s `generate` action is called | a clear 400 naming the missing field, no call made to ClearTax | manual* — needs a real ClearTax API account to exercise the success path meaningfully (ADR-0037) |
+| TC-GST-002 | happy | a fully GST-configured org + contact + invoice | `generate` is called against a real ClearTax sandbox | `invoice_einvoices.status` becomes `generated` with a real `irn`/`qr_code` | manual* — needs a real ClearTax API account + real GSTIN (ADR-0037) |
+| TC-GST-003 | xten | an invoice belonging to org A | org B's member calls `generate` for it | RLS blocks the read before any ClearTax call is made | manual* — same account dependency as TC-GST-002, RLS half is the reused ADR-0002/0003 pattern |
+| TC-ZOHO-001 | neg | an org with no Zoho connection | `sync_invoice` is called | a clear "Zoho is not connected" error, no partial write | manual* — needs a real Zoho Books account (ADR-0037) |
+| TC-ZOHO-002 | happy | a connected org + a real invoice | `sync_invoice` is called | the matching Zoho customer is found-or-created and the invoice appears in the connected Zoho Books account; `invoice_zoho_syncs.status` becomes `synced` | manual* — needs a real Zoho Books account + completed OAuth connect (ADR-0037) |
+| TC-ZOHO-003 | obs | Zoho's own OAuth redirect (`?code=&state=`, no Supabase auth header) | `oauth_callback` runs with Verify-JWT OFF | tokens are written via service-role into `zoho_connections`, which no client read (not even Owner/Admin) can ever reach — no select policy exists at all | manual* — needs a real Zoho OAuth consent flow (ADR-0037) |
 
 ## SMOKE — Page-render layer (ADR-0033)
 

@@ -43,6 +43,12 @@ alter table organizations add column if not exists gst_state text;
 -- Generated in create_organization() and backfilled for existing orgs (see the ADR-0036 section).
 alter table organizations add column if not exists referral_code text unique;
 
+-- Week 24 (ADR-0037): GST e-invoicing needs the org's own GSTIN + legal name (ClearTax's IRN
+-- payload requires the seller's real GSTIN). Nullable — unset until an Owner/Admin fills it in;
+-- generate_e_invoice() checks for presence and returns a clear error rather than failing at ClearTax.
+alter table organizations add column if not exists gstin text;
+alter table organizations add column if not exists legal_name text;
+
 create table if not exists memberships (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -105,6 +111,14 @@ alter table contacts add column if not exists state text;
 -- this), just hidden from default lists/autocomplete. Plain client-updatable, same shape as
 -- invoices.status ("mark paid/unpaid" is already a plain update) — no RPC needed.
 alter table contacts add column if not exists archived boolean not null default false;
+
+-- Week 24 (ADR-0037): GST e-invoicing needs the billed contact's own GSTIN + full address (PIN
+-- code) — ClearTax's schema requires the recipient's GSTIN and complete address, `state` alone
+-- (ADR-0021) isn't enough. All nullable — generate_e_invoice() checks and returns a clear error
+-- rather than silently omitting required fields from the ClearTax payload.
+alter table contacts add column if not exists gstin text;
+alter table contacts add column if not exists address_line1 text;
+alter table contacts add column if not exists pincode text;
 
 create index if not exists contacts_org_id_idx on contacts (org_id);
 
@@ -338,6 +352,62 @@ create table if not exists invoice_line_items (
 create index if not exists invoice_line_items_org_id_idx on invoice_line_items (org_id);
 create index if not exists invoice_line_items_invoice_id_idx on invoice_line_items (invoice_id);
 alter table invoice_line_items enable row level security;
+
+-- invoice_einvoices (Week 24, ADR-0037): one e-invoice/IRN attempt per invoice, mirroring how
+-- esign_requests sits beside shipment_documents rather than extending invoices.status (which is a
+-- strict 'unpaid'/'paid' check constraint pattern-matched elsewhere — never extend it). Written by
+-- the gst-einvoice Edge Function via the caller's own RLS-scoped client, same as docusign-envelope.
+create table if not exists invoice_einvoices (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  invoice_id uuid not null references invoices (id) on delete cascade unique,
+  irn text,
+  ack_no text,
+  ack_date timestamptz,
+  qr_code text,
+  status text not null default 'pending' check (status in ('pending', 'generated', 'failed', 'cancelled')),
+  gsp_response jsonb,
+  error_message text,
+  created_by uuid references auth.users (id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists invoice_einvoices_org_id_idx on invoice_einvoices (org_id);
+alter table invoice_einvoices enable row level security;
+
+-- zoho_connections (Week 24, ADR-0037): per-org Zoho Books OAuth tokens. Unlike every other
+-- integration in this app (Razorpay/DocuSign/ClearTax all use ONE vendor-wide credential set),
+-- Zoho requires each org to connect its OWN Zoho Books account — these are real, reusable OAuth
+-- refresh tokens, not a one-time-reveal secret like api_keys. RLS is enabled with NO client-facing
+-- policy at all (same "zero-client-reachable" shape as api_keys/platform_admins below) — only the
+-- zoho-sync Edge Function's service-role client and the is_zoho_connected() RPC ever touch this
+-- table; a plain org member (even Owner/Admin) can never select their own org's tokens directly.
+create table if not exists zoho_connections (
+  org_id uuid primary key references organizations (id) on delete cascade,
+  access_token text not null,
+  refresh_token text not null,
+  token_expires_at timestamptz not null,
+  zoho_org_id text not null,
+  connected_by uuid references auth.users (id),
+  connected_at timestamptz not null default now()
+);
+alter table zoho_connections enable row level security;
+
+-- invoice_zoho_syncs (Week 24, ADR-0037): one sync attempt per invoice, same additive shape as
+-- invoice_einvoices. The zoho-sync Edge Function's sync_invoice action writes this via the
+-- caller's own RLS-scoped client (only the token read in zoho_connections needs service-role).
+create table if not exists invoice_zoho_syncs (
+  id uuid primary key default gen_random_uuid(),
+  org_id uuid not null references organizations (id) on delete cascade,
+  invoice_id uuid not null references invoices (id) on delete cascade unique,
+  zoho_invoice_id text,
+  status text not null default 'pending' check (status in ('pending', 'synced', 'failed')),
+  error_message text,
+  synced_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create index if not exists invoice_zoho_syncs_org_id_idx on invoice_zoho_syncs (org_id);
+alter table invoice_zoho_syncs enable row level security;
 
 -- shipment_costs: the P&L cost side, reusing vendor contacts from Week 2.
 create table if not exists shipment_costs (
@@ -921,6 +991,44 @@ create policy "members can update org esign requests"
   on esign_requests for update
   using (is_org_member(org_id));
 
+-- invoice_einvoices / invoice_zoho_syncs: same scoped-to-org-membership shape as esign_requests.
+-- Written by their respective Edge Functions through the caller's own RLS-scoped client, so these
+-- policies are what actually let those writes through (not a service-role bypass).
+drop policy if exists "members can view org e-invoices" on invoice_einvoices;
+create policy "members can view org e-invoices"
+  on invoice_einvoices for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org e-invoices" on invoice_einvoices;
+create policy "members can insert org e-invoices"
+  on invoice_einvoices for insert
+  with check (is_org_member(org_id));
+
+drop policy if exists "members can update org e-invoices" on invoice_einvoices;
+create policy "members can update org e-invoices"
+  on invoice_einvoices for update
+  using (is_org_member(org_id));
+
+drop policy if exists "members can view org zoho syncs" on invoice_zoho_syncs;
+create policy "members can view org zoho syncs"
+  on invoice_zoho_syncs for select
+  using (is_org_member(org_id) or is_platform_admin());
+
+drop policy if exists "members can insert org zoho syncs" on invoice_zoho_syncs;
+create policy "members can insert org zoho syncs"
+  on invoice_zoho_syncs for insert
+  with check (is_org_member(org_id));
+
+drop policy if exists "members can update org zoho syncs" on invoice_zoho_syncs;
+create policy "members can update org zoho syncs"
+  on invoice_zoho_syncs for update
+  using (is_org_member(org_id));
+
+-- zoho_connections: deliberately NO policy of any kind — same "zero-client-reachable" shape as
+-- api_keys/platform_admins. RLS is enabled with nothing granted, so even org Owners can never
+-- select/insert/update this table via the normal client; only a service-role client (inside the
+-- zoho-sync Edge Function) or the is_zoho_connected() SECURITY DEFINER RPC below can touch it.
+
 -- ─────────────────────────────────────────────────────────────
 -- RPCs (SECURITY DEFINER — the only way to create an org or join one)
 -- ─────────────────────────────────────────────────────────────
@@ -1003,12 +1111,14 @@ begin
 end;
 $$;
 
--- update_org_gst_settings (Week 14, ADR-0021): the org's home state, for GST place-of-supply
--- comparison on invoices. Same shape as update_org_branding above — organizations has no plain
--- grant at all, so even this single-column, non-privileged-in-spirit update needs its own
--- is_org_admin()-gated RPC, kept separate from update_org_branding since tax config and branding
--- are unrelated concerns that happen to both live on organizations.
-create or replace function update_org_gst_settings(p_org_id uuid, p_gst_state text)
+-- update_org_gst_settings (Week 14, ADR-0021; extended Week 24, ADR-0037 with gstin/legal_name for
+-- e-invoicing). Same shape as update_org_branding above — organizations has no plain grant at all,
+-- so even this single-column, non-privileged-in-spirit update needs its own is_org_admin()-gated
+-- RPC, kept separate from update_org_branding since tax config and branding are unrelated concerns
+-- that happen to both live on organizations. Dropped and recreated with 2 new params — same
+-- ambiguous-overload reasoning as create_organization's ADR-0036 change.
+drop function if exists update_org_gst_settings(uuid, text);
+create or replace function update_org_gst_settings(p_org_id uuid, p_gst_state text, p_gstin text default null, p_legal_name text default null)
 returns organizations
 language plpgsql
 security definer
@@ -1021,7 +1131,7 @@ begin
     raise exception 'Not authorized to update this organization''s GST settings';
   end if;
 
-  update organizations set gst_state = p_gst_state where id = p_org_id returning * into v_org;
+  update organizations set gst_state = p_gst_state, gstin = p_gstin, legal_name = p_legal_name where id = p_org_id returning * into v_org;
   if v_org.id is null then
     raise exception 'Organization not found';
   end if;
@@ -1642,7 +1752,7 @@ $$;
 
 grant execute on function create_organization(text, text, text) to authenticated;
 grant execute on function update_org_branding(uuid, text, text) to authenticated;
-grant execute on function update_org_gst_settings(uuid, text) to authenticated;
+grant execute on function update_org_gst_settings(uuid, text, text, text) to authenticated;
 grant execute on function join_organization(text) to authenticated;
 grant execute on function is_org_member(uuid) to authenticated;
 grant execute on function is_org_admin(uuid) to authenticated;
@@ -1683,6 +1793,11 @@ grant select, insert on shipment_documents to authenticated;
 grant select, insert, update on dashboard_preferences to authenticated;
 grant select, insert, update on user_onboarding_state to authenticated;
 grant select, insert, update on esign_requests to authenticated;
+
+-- Week 24 (ADR-0037): GST e-invoicing / Zoho sync side tables. No grant on zoho_connections — see
+-- its own comment above; it is reachable only via service-role or is_zoho_connected() below.
+grant select, insert, update on invoice_einvoices to authenticated;
+grant select, insert, update on invoice_zoho_syncs to authenticated;
 
 -- ============================================================================================
 -- Week 18 (ADR-0029), Phase A — Public API keys: org-scoped bearer keys resolved inside
@@ -2800,3 +2915,40 @@ grant execute on function wallet_balance(uuid) to authenticated;
 grant execute on function referral_plan_value_inr(uuid) to authenticated;
 grant execute on function record_referral_cycle(text) to anon, authenticated;
 grant execute on function apply_wallet_credit(uuid, numeric) to authenticated;
+
+-- is_zoho_connected: the ONLY way the client ever learns anything about zoho_connections — a
+-- plain boolean, never the tokens themselves. The UI's "Connected"/"Not connected" status calls
+-- this rather than selecting the table directly (which no policy permits anyway).
+create or replace function is_zoho_connected(p_org_id uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_org_member(p_org_id) then
+    raise exception 'Not a member of this organization';
+  end if;
+  return exists (select 1 from zoho_connections where org_id = p_org_id);
+end;
+$$;
+
+-- disconnect_zoho: Owner/Admin only (same is_org_admin gate as create_api_key — this touches a
+-- live third-party credential, not a Member-level action). Deletes the stored tokens; a future
+-- "Connect Zoho" click re-runs the OAuth flow and re-inserts a fresh row.
+create or replace function disconnect_zoho(p_org_id uuid)
+returns void
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if not is_org_admin(p_org_id) then
+    raise exception 'Only an Owner or Admin can disconnect Zoho';
+  end if;
+  delete from zoho_connections where org_id = p_org_id;
+end;
+$$;
+
+grant execute on function is_zoho_connected(uuid) to authenticated;
+grant execute on function disconnect_zoho(uuid) to authenticated;

@@ -559,6 +559,37 @@ documented limitations:
 - **The 2-cycle release isn't in the committed E2E suite** — it needs real Razorpay charges; covered
   by the unit-tested reward math + a scripted `record_referral_cycle` run (`manual*` TC-REF-004).
 
+## GST e-invoicing & Zoho sync (Week 24, ADR-0037)
+
+- **GSTR-1/3B periodic return filing is explicitly out of scope, deferred.** This ADR covers
+  per-invoice e-invoice/IRN generation only — aggregating a period's invoices into an actual
+  government return (with reconciliation, amendments) is a materially bigger, separate feature.
+  Revisit as its own scoped effort if a client genuinely needs it, not folded into e-invoicing.
+- **ICEGATE/e-Sanchit remain out of reach, not deferred** — confirmed real regulatory blockers (no
+  Trading Partner registration/CHA license/DSC), unchanged from ADR-0016. Listed here only to keep
+  the "what's GST-related and still missing" picture in one place next to what this ADR *did* close.
+- **One GSTIN per org, one Zoho organization per connection.** Both real MVP simplifications — a
+  multi-GSTIN or multi-Zoho-org client isn't supported today; revisit if that's a real client need.
+- **ClearTax's stated IP-whitelist limit (max 4, India-registered) is an unverified risk** for
+  Supabase Edge Functions, which run on Deno Deploy's distributed edge network, not a fixed
+  India-based IP. Not yet confirmed to actually block calls in practice — if it does, the fix is a
+  small always-on proxy with a static IP, a real infra addition, not a code change alone.
+- **Zoho's OAuth `state` parameter is unsigned** — it carries the connecting org's id in plaintext,
+  a real (if narrow) CSRF surface. A signed/HMAC'd state, verified in `oauth_callback` before
+  trusting it, would close this; not built yet.
+- **Zoho token refresh has no retry/backoff.** A transient failure on Zoho's refresh endpoint just
+  fails that sync attempt outright. Revisit only if this becomes a real reliability problem —
+  `deliver_pending_webhooks`'s retry/backoff pattern is the template if so.
+- **No unit tests for either integration's internal logic** (ClearTax payload shaping/state-code
+  lookup, Zoho OAuth token handling) — both live entirely inside their Edge Functions, verified
+  manually/end-to-end against the real third party, same convention as every prior Edge-Function
+  integration (`docusign-envelope`, `billing-service`) in this codebase. `src/lib/gst.ts`'s existing
+  CGST/SGST/IGST math tests are unaffected.
+- **State-code lookup is a hand-maintained map**, kept in 1:1 correspondence with
+  `src/types/common.ts`'s `INDIAN_STATES` by convention, not by a shared import (Edge Functions in
+  this project are self-contained single files, no cross-import from `src/` — same as every prior
+  function). If `INDIAN_STATES` ever changes, this map needs a matching manual update.
+
 ## Dependencies
 
 Full version/license/vulnerability detail lives in

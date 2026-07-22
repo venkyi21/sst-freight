@@ -306,6 +306,24 @@ org to its referrer and extend the referee's trial. The wallet is an append-only
 ledger (`wallet_transactions`) with a computed balance — same read-only-to-client shape as the
 audit log.
 
+**`gst-einvoice`** (Week 24, ADR-0037) is a further Pattern C instance — same shape as
+`billing-service`, orchestrating one external call (ClearTax's Generate IRN endpoint) under the
+caller's own JWT, writing the result (`invoice_einvoices`) through that same RLS-scoped client.
+
+**Pattern D — per-org OAuth connect** (`zoho-sync`, ADR-0037): the one integration in this app where
+a shared, vendor-wide credential doesn't fit — each org connects its *own* third-party account, so
+the function's three actions span three different auth shapes in one file. `get_connect_url` is
+ordinary Pattern C (RLS-scoped, builds the OAuth URL server-side only because the client secret
+can't ship to the browser). `oauth_callback` is neither B nor C: the third party's own OAuth server
+redirects the **user's browser** here directly — a plain GET, no Supabase session at all — so this
+function runs with **Verify-JWT OFF** (same reason as Pattern C-inbound) and writes the resulting
+tokens through a **service-role** client into a table (`zoho_connections`) that carries **no
+client-facing RLS policy of any kind**, not even Owner/Admin select — the only legitimate reads are
+this function's own service-role client and a narrow `is_zoho_connected()` boolean-only RPC.
+`sync_invoice` then reverts to Pattern C for the actual invoice push: service-role only for the
+*token read*, the ordinary RLS-scoped client for the *write* (`invoice_zoho_syncs`), since that
+write is a normal org-scoped action, not a secret.
+
 ```mermaid
 sequenceDiagram
   participant U as Browser

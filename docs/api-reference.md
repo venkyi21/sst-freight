@@ -44,7 +44,7 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `is_module_enabled(p_org_id uuid, p_module text)` | `boolean` | _(no grant found)_ |
 | `create_organization(p_name text, p_color text default '#2563eb', p_referral_code text default null)` | `organizations` | `authenticated` |
 | `update_org_branding(p_org_id uuid, p_color text, p_logo_url text default null)` | `organizations` | `authenticated` |
-| `update_org_gst_settings(p_org_id uuid, p_gst_state text)` | `organizations` | `authenticated` |
+| `update_org_gst_settings(p_org_id uuid, p_gst_state text, p_gstin text default null, p_legal_name text default null)` | `organizations` | `authenticated` |
 | `join_organization(p_invite_code text)` | `organizations` | `authenticated` |
 | `list_org_members(p_org_id uuid)` | `table (membership_id uuid, user_id uuid, email text, role text, created_at timestamptz)` | `authenticated` |
 | `update_member_role(p_membership_id uuid, p_new_role text)` | `void` | `authenticated` |
@@ -88,6 +88,8 @@ _Generated from `supabase/schema.sql` — do not hand-edit this table, run the s
 | `apply_referral(p_referee_org uuid, p_code text)` | `void` | _(no grant found)_ |
 | `record_referral_cycle(p_razorpay_subscription_id text)` | `void` | `anon`, `authenticated` |
 | `apply_wallet_credit(p_org_id uuid, p_amount numeric)` | `void` | `authenticated` |
+| `is_zoho_connected(p_org_id uuid)` | `boolean` | `authenticated` |
+| `disconnect_zoho(p_org_id uuid)` | `void` | `authenticated` |
 
 <!-- AUTO-GENERATED:END -->
 
@@ -509,3 +511,42 @@ Owner/Admin-only. Records a **debit** (`applied_to_invoice`) up to the current b
 ledger's spend side. MVP: an in-app tracked offset; the real Razorpay bill reduction is deferred
 (`docs/tech-debt.md`). `referral_plan_value_inr` returns the Starter ₹2,000 constant used for the %
 math (one plan today).
+
+### `gst-einvoice` — GST e-invoice/IRN generation via ClearTax (Week 24, ADR-0037)
+
+One action (`generate`). Follows the `docusign-envelope` auth template — invoked via
+`supabase.functions.invoke`, scoped to the caller's own JWT (never service-role). Reads the invoice,
+its line items, the billed contact, and the org's own GST details; resolves each `state` to a
+2-digit GST state code; calls ClearTax's Generate IRN endpoint; upserts the result (`irn`/`ack_no`/
+`qr_code`/status) into `invoice_einvoices`. Returns a clear 400 if the org's GSTIN/legal name or the
+contact's GSTIN/address/PIN aren't filled in yet, rather than sending an incomplete payload to
+ClearTax. Scope is e-invoicing only — not periodic GSTR-1/3B return filing (`docs/tech-debt.md`).
+
+### `zoho-sync` — Zoho Books OAuth connect + invoice sync (Week 24, ADR-0037)
+
+Three actions, two different auth models:
+
+| `action` | Invoked by | Behavior |
+| --- | --- | --- |
+| `get_connect_url` | `invoke()`, RLS-scoped | Builds and returns Zoho's OAuth authorize URL — has to happen server-side since `ZOHO_CLIENT_ID` is a secret. |
+| `oauth_callback` | **Zoho's own browser redirect** — a plain GET with `?code=&state=`, no Supabase auth header at all (this function is deployed with **Verify JWT OFF**, same reason as `razorpay-webhook`) | Exchanges the code for tokens via the **service-role** client, fetches the account's Zoho org list, writes `zoho_connections`, 302-redirects back into the app. |
+| `sync_invoice` | `invoke()`, RLS-scoped for the write | Reads the org's stored token via service-role (refreshing if expired — `zoho_connections` has no client-facing RLS policy at all, by design), finds-or-creates the matching Zoho customer, POSTs the invoice, writes `invoice_zoho_syncs`. |
+
+### `is_zoho_connected(p_org_id uuid) → boolean`
+
+The **only** way the client ever learns anything about `zoho_connections` — never the tokens
+themselves, which have no select policy at all. Backs the Settings page's "Connected"/"Not
+connected" status.
+
+### `disconnect_zoho(p_org_id uuid)`
+
+Owner/Admin-only (same `is_org_admin` gate as `create_api_key` — a live third-party credential, not
+a Member-level action). Deletes the stored tokens; a future "Connect Zoho" click re-runs the OAuth
+flow.
+
+### `update_org_gst_settings(...)` — extended (Week 24, ADR-0037)
+
+Unchanged Week 14 behavior (home `gst_state`), plus two new optional params, `p_gstin`/
+`p_legal_name` — the org's own GST details `gst-einvoice` needs. Same `is_org_admin` gate as before;
+dropped and recreated with the new params (ambiguous-overload reasoning, same as
+`create_organization`'s ADR-0036 change).

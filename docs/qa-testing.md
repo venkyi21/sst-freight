@@ -742,3 +742,26 @@ a product, billing, or referral defect, and is now fixed at the fixture level so
 fails loudly instead of flaking silently. A second, distinct transient-failure pattern surfaced only
 under back-to-back reruns during verification and is tracked open in `tech-debt.md` pending
 confirmation against Supabase's Auth rate-limit logs.
+
+## Week 24 — GST e-invoicing (ClearTax) + Zoho Books sync (ADR-0037), 2026-07-21
+
+Built both integrations. Verified locally: build/lint/typecheck green; **63 unit tests** unchanged
+(no new pure `src/lib` function was introduced — both integrations' logic lives entirely inside
+their Edge Functions, the same convention as `docusign-envelope`/`billing-service` before them, so
+there was nothing new to unit-test; see ADR-0037's Consequences and `tech-debt.md`).
+
+| Concern | Coverage |
+|---|---|
+| Missing GSTIN/address returns a clear 400, not a bad ClearTax payload | ⏳ `manual*` TC-GST-001 — needs a real ClearTax API account to exercise meaningfully |
+| Real IRN/QR generation against ClearTax | ⏳ `manual*` TC-GST-002 — needs a real ClearTax account + real GSTIN |
+| Cross-tenant invoice access blocked before any ClearTax call | ⏳ `manual*` TC-GST-003 — RLS half reuses the existing ADR-0002/0003 pattern, external-account dependency is what makes it manual |
+| Zoho sync with no connection returns a clear error | ⏳ `manual*` TC-ZOHO-001 — needs a real Zoho Books account |
+| Real invoice sync (find-or-create customer + create invoice) against Zoho | ⏳ `manual*` TC-ZOHO-002 — needs a real Zoho Books account |
+| OAuth callback (Verify-JWT OFF) writes tokens via service-role into a table with no client select policy | ⏳ `manual*` TC-ZOHO-003 — needs a real Zoho OAuth consent flow |
+
+**Status: built, not yet end-to-end verified.** Neither integration has been exercised against a
+real ClearTax account/GSTIN or a real Zoho Books account yet — both need the user to set those up
+first (per ADR-0037's "what the user needs to set up" section) before any of the six `manual*` rows
+above can move from ⏳ to ✅. Recorded honestly as *not yet verified*, not aspirational, per this
+project's standing rule. The ClearTax IP-whitelist risk noted in `tech-debt.md` is also unconfirmed
+either way until a real call is attempted.

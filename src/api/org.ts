@@ -45,7 +45,17 @@ export async function updateOrgBranding(orgId: string, color: string, logoUrl: s
   return { error: error?.message ?? null }
 }
 
-export async function updateOrgGstSettings(orgId: string, gstState: string | null): Promise<{ error: string | null }> {
-  const { error } = await supabase.rpc('update_org_gst_settings', { p_org_id: orgId, p_gst_state: gstState })
+export async function updateOrgGstSettings(
+  orgId: string,
+  gstState: string | null,
+  gstin: string | null,
+  legalName: string | null,
+): Promise<{ error: string | null }> {
+  const { error } = await supabase.rpc('update_org_gst_settings', {
+    p_org_id: orgId,
+    p_gst_state: gstState,
+    p_gstin: gstin,
+    p_legal_name: legalName,
+  })
   return { error: error?.message ?? null }
 }

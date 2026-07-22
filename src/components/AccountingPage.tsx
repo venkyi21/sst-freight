@@ -6,6 +6,8 @@ import { costsQueryKey, invoicesQueryKey, useArchiveInvoice, useCosts, useInvoic
 import InvoiceModal from './InvoiceModal'
 import CostModal from './CostModal'
 import InfoTooltip from './InfoTooltip'
+import { useEInvoice, useGenerateEInvoice } from '../hooks/useGst'
+import { useSyncInvoiceToZoho, useZohoConnected, useZohoSync } from '../hooks/useZoho'
 import { computeInvoiceAging, daysOverdue } from '../lib/invoiceAging'
 import {
   PLATFORM_RAKE_META,
@@ -258,6 +260,8 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                     <th style={headStyle}>Amount (INR)</th>
                     <th style={headStyle}>Due</th>
                     <th style={headStyle}>Status</th>
+                    <th style={headStyle}>E-Invoice</th>
+                    <th style={headStyle}>Zoho</th>
                     <th style={headStyle}>Revenue DNA</th>
                     <th style={headStyle}>Archive</th>
                   </tr>
@@ -309,6 +313,12 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                           )}
                         </td>
                         <td style={cellStyle}>
+                          <EInvoiceCell invoiceId={inv.id} />
+                        </td>
+                        <td style={cellStyle}>
+                          <ZohoSyncCell orgId={orgId} invoiceId={inv.id} />
+                        </td>
+                        <td style={cellStyle}>
                           <button type="button" onClick={() => void toggleRevenueDna(inv)} style={dnaButtonStyle}>
                             {dnaOpen ? 'Hide' : 'Trace'}
                           </button>
@@ -326,7 +336,7 @@ export default function AccountingPage({ orgId, currentRole, billingModel }: Acc
                       </tr>
                       {dnaOpen && (
                         <tr style={{ borderBottom: `1px solid ${T.surfaceRaised}`, background: T.rowStripe }}>
-                          <td colSpan={8} style={{ padding: '10px 20px 16px' }}>
+                          <td colSpan={10} style={{ padding: '10px 20px 16px' }}>
                             {dnaLoading ? (
                               <div style={{ fontSize: 12, color: T.faint }}>Loading trace…</div>
                             ) : (
@@ -540,4 +550,61 @@ function ErrorBox({ message }: { message: string }) {
 
 function EmptyState({ label }: { label: string }) {
   return <div style={{ padding: 40, textAlign: 'center', color: T.placeholder, fontSize: 13 }}>{label}</div>
+}
+
+// One e-invoice attempt per invoice (ADR-0037) — a small per-row component so each invoice gets
+// its own query/mutation instance, the same reason IntegrationsPage.tsx's EndpointCard is split out.
+function EInvoiceCell({ invoiceId }: { invoiceId: string }) {
+  const { data: eInvoice } = useEInvoice(invoiceId)
+  const generateMutation = useGenerateEInvoice(invoiceId)
+
+  if (eInvoice?.status === 'generated') {
+    return (
+      <span style={{ fontSize: 11, color: T.success, fontWeight: 600 }} title={`IRN ${eInvoice.irn}`}>
+        ● IRN generated
+      </span>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <button type="button" disabled={generateMutation.isPending} onClick={() => generateMutation.mutate()} style={dnaButtonStyle}>
+        {generateMutation.isPending ? 'Generating…' : 'Generate e-invoice'}
+      </button>
+      {generateMutation.data?.error && (
+        <span style={{ fontSize: 10.5, color: T.danger, maxWidth: 180 }}>{generateMutation.data.error}</span>
+      )}
+    </div>
+  )
+}
+
+// Sync-to-Zoho per-row action (ADR-0037) — disabled with a tooltip until the org has connected
+// its own Zoho Books account (a real per-org OAuth connection, not a shared credential).
+function ZohoSyncCell({ orgId, invoiceId }: { orgId: string; invoiceId: string }) {
+  const { data: connected } = useZohoConnected(orgId)
+  const { data: zohoSync } = useZohoSync(invoiceId)
+  const syncMutation = useSyncInvoiceToZoho(invoiceId)
+
+  if (zohoSync?.status === 'synced') {
+    return (
+      <span style={{ fontSize: 11, color: T.success, fontWeight: 600 }} title={`Zoho invoice ${zohoSync.zoho_invoice_id}`}>
+        ● Synced
+      </span>
+    )
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <button
+        type="button"
+        disabled={!connected || syncMutation.isPending}
+        title={connected ? undefined : 'Connect Zoho in Settings first'}
+        onClick={() => syncMutation.mutate()}
+        style={{ ...dnaButtonStyle, opacity: connected ? 1 : 0.5, cursor: connected ? 'pointer' : 'not-allowed' }}
+      >
+        {syncMutation.isPending ? 'Syncing…' : 'Sync to Zoho'}
+      </button>
+      {syncMutation.data?.error && <span style={{ fontSize: 10.5, color: T.danger, maxWidth: 180 }}>{syncMutation.data.error}</span>}
+    </div>
+  )
 }

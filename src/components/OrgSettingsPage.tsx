@@ -2,6 +2,7 @@ import { useRef, useState, type CSSProperties } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { updateOrgBranding, updateOrgGstSettings, uploadOrgLogo } from '../api/org'
 import BillingSection from './BillingSection'
+import { useDisconnectZoho, useZohoConnectUrl, useZohoConnected } from '../hooks/useZoho'
 import { INDIAN_STATES, TENANT_COLORS, type OrganizationWithRole } from '../types'
 import { T } from '../theme/tokens'
 
@@ -33,6 +34,21 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
   const canEdit = org.role === 'owner' || org.role === 'admin'
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  const { data: zohoConnected } = useZohoConnected(org.id)
+  const zohoConnectUrlMutation = useZohoConnectUrl()
+  const disconnectZohoMutation = useDisconnectZoho(org.id)
+  const [zohoError, setZohoError] = useState<string | null>(null)
+
+  async function handleConnectZoho() {
+    setZohoError(null)
+    const { url, error } = await zohoConnectUrlMutation.mutateAsync(org.id)
+    if (error || !url) {
+      setZohoError(error ?? 'Could not start the Zoho connection')
+      return
+    }
+    window.location.href = url
+  }
+
   const [color, setColor] = useState(org.color)
   const [pendingLogoFile, setPendingLogoFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
@@ -41,6 +57,8 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
   const [success, setSuccess] = useState(false)
 
   const [gstState, setGstState] = useState(org.gst_state ?? '')
+  const [gstin, setGstin] = useState(org.gstin ?? '')
+  const [legalName, setLegalName] = useState(org.legal_name ?? '')
   const [gstBusy, setGstBusy] = useState(false)
   const [gstError, setGstError] = useState<string | null>(null)
   const [gstSuccess, setGstSuccess] = useState(false)
@@ -92,7 +110,7 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
     setGstError(null)
     setGstSuccess(false)
     setGstBusy(true)
-    const { error: rpcError } = await updateOrgGstSettings(org.id, gstState || null)
+    const { error: rpcError } = await updateOrgGstSettings(org.id, gstState || null, gstin || null, legalName || null)
     if (rpcError) {
       setGstError(rpcError)
       setGstBusy(false)
@@ -262,6 +280,33 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           </select>
         </div>
 
+        <div style={{ marginBottom: 18 }}>
+          <label style={labelStyle}>GSTIN</label>
+          <div style={{ fontSize: 11, color: T.faint, marginBottom: 6 }}>
+            Required to generate GST e-invoices (ADR-0037) — Settings has no separate GST-invoicing tab, this is it.
+          </div>
+          <input
+            type="text"
+            value={gstin}
+            disabled={!canEdit || gstBusy}
+            onChange={(e) => setGstin(e.target.value)}
+            placeholder="27AAAAA0000A1Z5"
+            style={{ ...inputStyle, width: 260, opacity: canEdit ? 1 : 0.6, fontFamily: "'IBM Plex Mono', monospace" }}
+          />
+        </div>
+
+        <div style={{ marginBottom: 18 }}>
+          <label style={labelStyle}>Legal Name</label>
+          <input
+            type="text"
+            value={legalName}
+            disabled={!canEdit || gstBusy}
+            onChange={(e) => setLegalName(e.target.value)}
+            placeholder="Registered business name, as on your GST certificate"
+            style={{ ...inputStyle, width: 320, opacity: canEdit ? 1 : 0.6 }}
+          />
+        </div>
+
         {gstError && (
           <div
             style={{
@@ -299,6 +344,74 @@ export default function OrgSettingsPage({ org }: OrgSettingsPageProps) {
           >
             {gstBusy ? 'Saving…' : 'Save GST Settings'}
           </button>
+        )}
+      </div>
+
+      <div style={{ marginTop: 36, paddingTop: 24, borderTop: `1px solid ${T.border}` }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 6px', color: T.ink }}>Zoho Books</h2>
+        <div style={{ fontSize: 12, color: T.faint, marginBottom: 18 }}>
+          Connect your own Zoho Books account to push invoices there directly from the Accounting page.
+        </div>
+
+        {zohoError && (
+          <div
+            style={{
+              marginBottom: 16,
+              background: T.dangerWash,
+              border: `1px solid ${T.dangerBorder}`,
+              color: T.danger,
+              fontSize: 12.5,
+              borderRadius: 8,
+              padding: '9px 12px',
+            }}
+          >
+            {zohoError}
+          </div>
+        )}
+
+        {zohoConnected ? (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{ fontSize: 12.5, color: T.success, fontWeight: 600 }}>● Connected</span>
+            {canEdit && (
+              <button
+                type="button"
+                disabled={disconnectZohoMutation.isPending}
+                onClick={() => disconnectZohoMutation.mutate()}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: 7,
+                  border: `1px solid ${T.border}`,
+                  background: 'transparent',
+                  color: T.muted,
+                  fontSize: 11.5,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Disconnect
+              </button>
+            )}
+          </div>
+        ) : (
+          canEdit && (
+            <button
+              type="button"
+              disabled={zohoConnectUrlMutation.isPending}
+              onClick={() => void handleConnectZoho()}
+              style={{
+                padding: '10px 18px',
+                borderRadius: 8,
+                border: 'none',
+                background: zohoConnectUrlMutation.isPending ? T.surfaceInset : T.accent,
+                color: T.onAccent,
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: zohoConnectUrlMutation.isPending ? 'not-allowed' : 'pointer',
+              }}
+            >
+              {zohoConnectUrlMutation.isPending ? 'Redirecting…' : 'Connect Zoho'}
+            </button>
+          )
         )}
       </div>
 

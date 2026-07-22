@@ -627,6 +627,39 @@ built.
     `apply_wallet_credit` is Owner/Admin-gated and can't exceed the balance. MVP redemption is a
     tracked in-app debit — real Razorpay bill-reduction / payout deferred (`docs/tech-debt.md`).
 
+### FR-22: GST E-Invoicing via ClearTax (Week 24, ADR-0037)
+
+- **US-22.1** — As an Owner/Admin, I set my organization's **GSTIN** and **legal name** once
+  (Settings → GST) and my contacts' **GSTIN/address/PIN code** (Directory), so invoices to them can
+  be e-invoiced.
+  - AC (**target, not yet measured**): both save via `update_org_gst_settings`/`updateContact`,
+    same shape as the existing `gst_state` field they sit beside — no new verification needed beyond
+    the existing plain-update pattern.
+- **US-22.2** — As a user viewing an invoice on the Accounting page, I can **generate a real
+  e-invoice (IRN + QR code)** for it via ClearTax with one click, and see whether it succeeded.
+  - AC (**target, not yet measured — needs a real ClearTax API account + a real GSTIN to verify
+    end-to-end**): `gst-einvoice`'s `generate` action returns a clear 400 (not a ClearTax error) if
+    the org's or contact's GST fields aren't filled in; on success, `invoice_einvoices.status`
+    becomes `generated` with a real `irn`/`qr_code`; on ClearTax rejection, `status` becomes `failed`
+    with the raw response kept for support (`gsp_response`). Scope is e-invoicing only — periodic
+    GSTR-1/3B return filing is explicitly out of scope (`docs/tech-debt.md`).
+
+### FR-23: Zoho Books Sync (Week 24, ADR-0037)
+
+- **US-23.1** — As an Owner/Admin, I **connect my own Zoho Books account** from Settings via a real
+  OAuth consent flow, and can see whether it's connected or disconnect it.
+  - AC (**target, not yet measured — needs a real Zoho Books account to verify end-to-end**):
+    "Connect Zoho" redirects to Zoho's own consent screen; `is_zoho_connected` reflects true only
+    after a successful token exchange; `disconnect_zoho` is Owner/Admin-gated and clears the stored
+    tokens, which no client (not even that Owner) can ever read directly — `zoho_connections` has no
+    select policy of any kind.
+- **US-23.2** — As a user, I can **sync an invoice to the connected Zoho Books account** with one
+  click, and see whether it succeeded.
+  - AC (**target, not yet measured**): disabled with a tooltip until Zoho is connected;
+    `sync_invoice` finds-or-creates the matching Zoho customer by name, creates the invoice in Zoho,
+    and records `invoice_zoho_syncs.status`/`zoho_invoice_id` on success or a real error message on
+    failure.
+
 ## 3. Non-Functional Requirements
 
 The **Target** column states a goal to design and code toward, not a measured or contracted
@@ -647,10 +680,11 @@ number to compare against it; until then, treat it as directional.
 
 ## 4. Explicitly out of scope (this SRS's boundary)
 
-GST/tax handling, itemized multi-line quotes, per-shipment P&L, a "leave organization" self-
-service flow, and ownership transfer are all deliberately not requirements today — see
-`docs/tech-debt.md` for what's a shipped shortcut vs. `docs/roadmap.html` §3 for what's a
-not-yet-built competitive gap.
+GST **return filing** (GSTR-1/3B, periodic and aggregated — distinct from the e-invoicing FR-22
+now covers), a "leave organization" self-service flow, and ownership transfer are all deliberately
+not requirements today — see `docs/tech-debt.md` for what's a shipped shortcut vs.
+`docs/roadmap.html` §3 for what's a not-yet-built competitive gap. (Itemized multi-line quotes and
+per-shipment P&L, also once listed here, have since shipped — see FR entries above.)
 
 ## 5. 24-month horizon
 

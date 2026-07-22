@@ -43,6 +43,9 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
   const [city, setCity] = useState(contact?.city ?? '')
   const [country, setCountry] = useState(contact?.country ?? '')
   const [state, setState] = useState(contact?.state ?? '')
+  const [gstin, setGstin] = useState(contact?.gstin ?? '')
+  const [addressLine1, setAddressLine1] = useState(contact?.address_line1 ?? '')
+  const [pincode, setPincode] = useState(contact?.pincode ?? '')
   const [notes, setNotes] = useState(contact?.notes ?? '')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -71,6 +74,9 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
       city: city.trim() || null,
       country: country.trim() || null,
       state: state || null,
+      gstin: gstin.trim() || null,
+      address_line1: addressLine1.trim() || null,
+      pincode: pincode.trim() || null,
       notes: notes.trim() || null,
     }
 
@@ -227,6 +233,24 @@ export default function ContactModal({ orgId, contact, onClose, onSaved }: Conta
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label style={labelStyle}>GSTIN</label>
+              <input
+                type="text"
+                value={gstin}
+                onChange={(e) => setGstin(e.target.value)}
+                placeholder="For GST e-invoicing"
+                style={{ ...inputStyle, fontFamily: "'IBM Plex Mono', monospace" }}
+              />
+            </div>
+            <div>
+              <label style={labelStyle}>PIN Code</label>
+              <input type="text" value={pincode} onChange={(e) => setPincode(e.target.value)} style={inputStyle} />
+            </div>
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label style={labelStyle}>Address</label>
+              <input type="text" value={addressLine1} onChange={(e) => setAddressLine1(e.target.value)} style={inputStyle} />
             </div>
             <div style={{ gridColumn: '1 / -1' }}>
               <label style={labelStyle}>Notes</label>

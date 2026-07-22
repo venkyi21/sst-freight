@@ -239,10 +239,10 @@
     <h2 class="chapter-title">§02 — Application-wide rollup</h2>
     <div class="scorecard">
       <div class="cell"><div class="num ok">8 / 8</div><div class="lbl">Testing types with committed automated test code — Unit (CI-gated) plus Integration, System, Acceptance/E2E, Performance, Load, Stress and Security (committed, run on-demand, ADR-0032/0033). Stress closed by `npm run test:stress`</div></div>
-      <div class="cell"><div class="num ok">21 / 21</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 20 fully verified, 1 partial</div></div>
-      <div class="cell"><div class="num pending">12 / 21</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
-      <div class="cell"><div class="num info">20 / 21</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data)</div></div>
-      <div class="cell"><div class="num info">8 / 21</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
+      <div class="cell"><div class="num pending">21 / 23</div><div class="lbl">Modules with at least some real QAT (direct-API and/or Playwright) coverage — 20 fully verified, 1 partial; FR-22/FR-23 (GST e-invoicing, Zoho sync) are built but not yet deployed/exercised at all — no account/GSTIN set up yet</div></div>
+      <div class="cell"><div class="num pending">12 / 23</div><div class="lbl">Modules with a real, dedicated UAT persona journey</div></div>
+      <div class="cell"><div class="num pending">20 / 23</div><div class="lbl">Modules with a real cross-tenant/RLS security check verified (1 is N/A by design — the public TCO Calculator has no tenant data; FR-22/FR-23's RLS design mirrors already-proven patterns but hasn't itself been run yet)</div></div>
+      <div class="cell"><div class="num info">8 / 23</div><div class="lbl">Modules with Performance/Load/Stress evidence — read-path p95 measured for the core modules, plus a sustained 20-user load AND a stress ramp to 100 concurrent / 0% errors (perf-baseline.md, ADR-0032/0033). Point-in-time, single-region — not per-module deep profiling</div></div>
       <div class="cell"><div class="num ok">250+</div><div class="lbl">Individual QAT scenarios verified across all passes (qa-testing.md — incl. Week 20–21's committed suite: 51 Playwright + golden path + smoke and 45 unit tests, Week 19's tier + theme passes)</div></div>
       <div class="cell"><div class="num ok">41 / 41</div><div class="lbl">UAT scenarios accepted, of those actually run (uat.md — 20 + 7 + 4 + 4 + 3 + 2 + 1)</div></div>
       <div class="cell"><div class="num ok">0</div><div class="lbl">Race gap closed Week 19 (ADR-0030); testing-infra gaps closed Week 20 (ADR-0032). Week 21 (ADR-0033) completed all four quadrants: every catalog row automated except 3 labelled external-service rows; load+stress measured; exploratory tracked; catalog expressed Given/When/Then</div></div>
@@ -770,6 +770,51 @@
         </dl>
       </div>
 
+      <!-- FR-22 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-22</span><span class="fr-name">GST E-Invoicing (ClearTax)</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Status</dt><dd>Built (ADR-0037: schema, <code>gst-einvoice</code> Edge Function, UI), not yet deployed or exercised at all — schema hasn't been applied to dev, no ClearTax API account or real GSTIN exists yet to test against. Every row here is honestly ✕, not a placeholder oversight.</dd>
+          <dt>Unit</dt><dd>None — the payload-shaping/state-code logic lives entirely inside the Edge Function, same no-unit-test convention as <code>docusign-envelope</code>/<code>billing-service</code> (see ADR-0037's Consequences). <code>src/lib/gst.ts</code>'s existing CGST/SGST/IGST math tests are unaffected.</dd>
+          <dt>Gaps</dt><dd>Everything — needs schema applied to dev, secrets set, function deployed, then a real ClearTax account + real GSTIN before TC-GST-001/002/003 (<code>docs/test-catalog.md</code>, all <code>manual*</code>) can be run even once. GSTR-1/3B periodic return filing is explicitly out of scope (ADR-0037), not a gap in this feature.</dd>
+        </dl>
+      </div>
+
+      <!-- FR-23 -->
+      <div class="matrix-row" data-row>
+        <div class="module-cell"><span class="fr-num">FR-23</span><span class="fr-name">Zoho Books Sync</span><span class="caret">▶</span></div>
+        <div class="chip-cell" data-col="unit"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="integration"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="system"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="acceptance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="performance"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="load"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="stress"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="security"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="qat"><div class="chip" data-level="none">✕</div></div>
+        <div class="chip-cell" data-col="uat"><div class="chip" data-level="none">✕</div></div>
+      </div>
+      <div class="detail-row">
+        <dl>
+          <dt>Status</dt><dd>Built (ADR-0037: schema, <code>zoho-sync</code> Edge Function's 3 actions, UI), not yet deployed or exercised — same as FR-22, plus this is the one integration in the app using per-org OAuth2 rather than a shared credential (Pattern D, <code>docs/sdd.md</code>), so it also needs a real Zoho Books account + registered API client + the OAuth redirect URI configured before the connect flow can even be attempted once.</dd>
+          <dt>Unit</dt><dd>None — same reasoning as FR-22, all logic (OAuth token handling, customer find-or-create, invoice payload) lives inside the Edge Function.</dd>
+          <dt>Security (design, not yet run)</dt><dd><code>zoho_connections</code> is created with RLS enabled and deliberately <strong>no policy of any kind</strong> — not even Owner/Admin select — mirroring the already-proven <code>api_keys</code> zero-client-reachable shape; unverified against a live deployment yet, hence ✕ not ✓.</dd>
+          <dt>Gaps</dt><dd>Everything, same as FR-22 — plus a known, accepted MVP gap: the OAuth <code>state</code> param is unsigned (ADR-0037/tech-debt.md), a real (narrow) CSRF surface to close before this is load-bearing for a paying client.</dd>
+        </dl>
+      </div>
+
     </div>
 
     <div class="legend">
@@ -782,7 +827,7 @@
 
   <footer class="doc-footer">
     <div>SST Freight · Internal engineering doc · Not for distribution</div>
-    <div>21 modules · 8 testing types + QAT + UAT</div>
+    <div>23 modules · 8 testing types + QAT + UAT</div>
     <div id="last-synced">Last synced · 21 Jul 2026</div>
   </footer>
 

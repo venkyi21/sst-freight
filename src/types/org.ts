@@ -15,6 +15,8 @@ export interface Organization {
   monthly_fee_inr: number
   enabled_modules: PlatformModule[]
   gst_state: string | null
+  gstin: string | null
+  legal_name: string | null
   referral_code: string | null
   created_at: string
 }

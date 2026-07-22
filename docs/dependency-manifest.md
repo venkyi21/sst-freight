@@ -42,6 +42,12 @@ bumps a version.
 cache/dedupe layer and hash-based client-side routing, both pinned to the exact versions
 `npm install` resolved at pin time, per the same convention as every other entry above.
 
+**No dependency added 2026-07-21 (ADR-0037, GST e-invoicing + Zoho sync)**: both the `gst-einvoice`
+and `zoho-sync` Edge Functions call their respective third-party REST APIs via `fetch` — no
+ClearTax SDK, no Zoho SDK, exactly the same no-SDK convention as every prior external integration in
+this project. Zoho's OAuth2 token exchange is a plain `fetch` to its `/oauth/v2/token` endpoint, no
+OAuth client library.
+
 **No dependency added 2026-07-21 (ADR-0036, referral + wallet)**: the referral program and wallet
 ledger are pure Postgres (tables + `SECURITY DEFINER` RPCs) plus React UI — no new npm package. The
 2-cycle reward release reuses the existing `razorpay-webhook` `subscription.charged` path.
